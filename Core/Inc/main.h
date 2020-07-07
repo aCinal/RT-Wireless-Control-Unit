@@ -48,6 +48,21 @@ extern "C" {
 /* Exported macro ------------------------------------------------------------*/
 /* USER CODE BEGIN EM */
 
+/**
+ * @brief This macro returns the address at which the payload of an R3TP version 1 frame begins in reference to the buffer
+ */
+#define R3TP_VER1_PAYLOAD_BEGIN(buff) (uint8_t*)(buff + 8)
+
+/**
+ * @brief This macro returns the address at which the epilogue (frame align and END SEQ) of an R3TP version 1 frame begins
+ */
+#define R3TP_VER1_EPILOGUE_BEGIN(buff, frameNum) (uint8_t*)(buff + 8 + frameNum * 4)
+
+/**
+ * @brief This macro calculates the total length of an R3TP version 1 frame based on the number of subscription frames
+ */
+#define R3TP_VER1_MESSAGE_LENGTH(frameNum) (uint32_t)(frameNum * 4 + 12)
+
 /* USER CODE END EM */
 
 /* Exported functions prototypes ---------------------------------------------*/
@@ -107,40 +122,39 @@ void Error_Handler(void);
 /**
  * @brief Generic defines
  */
-#define _WCU_DEFAULT_TASK_DELAY							1U							/* Default task delay */
-#define _WCU_DEFAULT_TIMEOUT							portMAX_DELAY				/* Default timeout */
-#define _WCU_CRC_MUTEX_TIMEOUT							_WCU_DEFAULT_TIMEOUT		/* crcMutex acquire timeout */
-#define _WCU_REPORTTOWATCHDOG_QUEUE_SEND_TIMEOUT		_WCU_DEFAULT_TIMEOUT		/* reportToWatchdog queue send timeout */
-#define _WCU_REPORTTOWATCHDOG_QUEUE_RECEIVE_TIMEOUT		0U							/* reportToWatchdog queue receive timeout */
-#define _WCU_CANTRANSMIT_QUEUE_SEND_TIMEOUT				_WCU_DEFAULT_TIMEOUT		/* canTransmit queue send timeout */
-#define _WCU_CANTRANSMIT_QUEUE_RECEIVE_TIMEOUT			0U							/* canTransmit queue receive timeout */
-#define _WCU_CANSUBBEDFRAMES_QUEUE_SEND_TIMEOUT			_WCU_DEFAULT_TIMEOUT		/* canTlmtryFrames queue send timeout */
-#define _WCU_CANSUBBEDFRAMES_QUEUE_RECEIVE_TIMEOUT		0U							/* canTlmtryFrames queue receive timeout */
-#define _WCU_NUMBER_OF_WATCHED_THREADS					(uint8_t)5U					/* Number of threads watched by the IWDG */
-#define _WCU_CAN_TX_BUFF_SIZE							8U							/* CAN Tx buffer size in bytes */
-#define _WCU_CAN_RX_BUFF_SIZE							8U							/* CAN Rx buffer size in bytes */
+#define WCU_DEFAULT_TASK_DELAY							1U							/* Default task delay */
+#define WCU_DEFAULT_TIMEOUT								portMAX_DELAY				/* Default timeout */
+#define WCU_CRC_MUTEX_TIMEOUT							WCU_DEFAULT_TIMEOUT			/* crcMutex acquire timeout */
+#define WCU_REPORTTOWATCHDOG_QUEUE_SEND_TIMEOUT			WCU_DEFAULT_TIMEOUT			/* reportToWatchdog queue send timeout */
+#define WCU_REPORTTOWATCHDOG_QUEUE_RECEIVE_TIMEOUT		0U							/* reportToWatchdog queue receive timeout */
+#define WCU_CANTRANSMIT_QUEUE_SEND_TIMEOUT				WCU_DEFAULT_TIMEOUT			/* canTransmit queue send timeout */
+#define WCU_CANTRANSMIT_QUEUE_RECEIVE_TIMEOUT			0U							/* canTransmit queue receive timeout */
+#define WCU_CANSUBBEDFRAMES_QUEUE_SEND_TIMEOUT			WCU_DEFAULT_TIMEOUT			/* canTlmtryFrames queue send timeout */
+#define WCU_CANSUBBEDFRAMES_QUEUE_RECEIVE_TIMEOUT		0U							/* canTlmtryFrames queue receive timeout */
+#define WCU_NUMBER_OF_WATCHED_THREADS					(uint8_t)5U					/* Number of threads watched by the IWDG */
+#define WCU_CAN_PAYLOAD_SIZE							8U							/* CAN payload size in bytes */
 
 /**
  * @brief R3TP defines
  */
-#define _R3TP_VER0_FRAME_SIZE				20U											/* R3TP version 0 frame size in bytes */
-#define _R3TP_TLMTRY_SUBSCR_MAX_FRAME_NUM	28U											/* Maximum number of frames in a subscription */
-#define _R3TP_VER1_MAX_FRAME_SIZE			10 + 4 * _R3TP_TLMTRY_SUBSCR_MAX_FRAME_NUM	/* R3TP version 1 max frame size in bytes */
-#define _R3TP_VER0_VER_RES_SEQ_BYTE			0x00										/* VER 0 protocol version byte */
-#define _R3TP_VER1_VER_RES_SEQ_BYTE			0x20										/* VER 1 protocol version byte */
-#define _R3TP_END_SEQ_LOW_BYTE				0xDE										/* R3TP end sequence low byte */
-#define _R3TP_END_SEQ_HIGH_BYTE				0xED										/* R3TP end sequence high byte */
+#define R3TP_VER0_FRAME_SIZE				20U											/* R3TP version 0 frame size in bytes */
+#define R3TP_VER1_MAX_FRAME_NUM				28U											/* Maximum number of frames in a subscription */
+#define R3TP_VER1_MAX_FRAME_SIZE			12 + 4 * R3TP_VER1_MAX_FRAME_NUM			/* R3TP version 1 max frame size in bytes */
+#define R3TP_VER0_VER_RES_SEQ_BYTE			0x00										/* VER 0 protocol version byte */
+#define R3TP_VER1_VER_RES_SEQ_BYTE			0x20										/* VER 1 protocol version byte */
+#define R3TP_END_SEQ_LOW_BYTE				0xDE										/* R3TP end sequence low byte */
+#define R3TP_END_SEQ_HIGH_BYTE				0xED										/* R3TP end sequence high byte */
 
 /**
  * @brief BT (WDTS) defines
  */
-#define _WCU_BT_UART_RX_BUFF_SIZE				_R3TP_VER0_FRAME_SIZE	/* UART Rx buffer size in bytes */
-#define _WCU_BT_UART_RX_NOTIFY_TAKE_TIMEOUT		_WCU_DEFAULT_TIMEOUT	/* UART Rx wait for notification timeout */
+#define WCU_BT_UART_RX_BUFF_SIZE				R3TP_VER0_FRAME_SIZE	/* UART Rx buffer size in bytes */
+#define WCU_BT_UART_RX_NOTIFY_TAKE_TIMEOUT		WCU_DEFAULT_TIMEOUT	/* UART Rx wait for notification timeout */
 
 /**
  * @brief Xbee (telemetry) defines
  */
-#define _WCU_XBEE_UART_RX_NOTIFY_TAKE_TIMEOUT	_WCU_DEFAULT_TIMEOUT	/* UART Rx wait for notification timeout */
+#define WCU_XBEE_UART_RX_TIMEOUT				WCU_DEFAULT_TIMEOUT	/* UART Rx wait for notification timeout */
 
 /* USER CODE END Private defines */
 
