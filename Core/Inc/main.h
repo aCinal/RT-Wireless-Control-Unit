@@ -33,6 +33,8 @@ extern "C" {
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
+#include "rte12_libs_r3tp.h"
+
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
@@ -47,21 +49,6 @@ extern "C" {
 
 /* Exported macro ------------------------------------------------------------*/
 /* USER CODE BEGIN EM */
-
-/**
- * @brief This macro returns the address at which the payload of an R3TP version 1 frame begins in reference to the buffer
- */
-#define R3TP_VER1_PAYLOAD_BEGIN(buff) (uint8_t*)(buff + 8)
-
-/**
- * @brief This macro returns the address at which the epilogue (frame align and END SEQ) of an R3TP version 1 frame begins
- */
-#define R3TP_VER1_EPILOGUE_BEGIN(buff, frameNum) (uint8_t*)(buff + 8 + frameNum * 4)
-
-/**
- * @brief This macro calculates the total length of an R3TP version 1 frame based on the number of subscription frames
- */
-#define R3TP_VER1_MESSAGE_LENGTH(frameNum) (uint32_t)(frameNum * 4 + 12)
 
 /* USER CODE END EM */
 
@@ -135,17 +122,6 @@ void Error_Handler(void);
 #define WCU_CAN_PAYLOAD_SIZE							8U							/* CAN payload size in bytes */
 
 /**
- * @brief R3TP defines
- */
-#define R3TP_VER0_FRAME_SIZE				20U											/* R3TP version 0 frame size in bytes */
-#define R3TP_VER1_MAX_FRAME_NUM				28U											/* Maximum number of frames in a subscription */
-#define R3TP_VER1_MAX_FRAME_SIZE			12 + 4 * R3TP_VER1_MAX_FRAME_NUM			/* R3TP version 1 max frame size in bytes */
-#define R3TP_VER0_VER_RES_SEQ_BYTE			0x00										/* VER 0 protocol version byte */
-#define R3TP_VER1_VER_RES_SEQ_BYTE			0x20										/* VER 1 protocol version byte */
-#define R3TP_END_SEQ_LOW_BYTE				0xDE										/* R3TP end sequence low byte */
-#define R3TP_END_SEQ_HIGH_BYTE				0xED										/* R3TP end sequence high byte */
-
-/**
  * @brief BT (WDTS) defines
  */
 #define WCU_BT_UART_RX_BUFF_SIZE				R3TP_VER0_FRAME_SIZE	/* UART Rx buffer size in bytes */
@@ -154,7 +130,8 @@ void Error_Handler(void);
 /**
  * @brief Xbee (telemetry) defines
  */
-#define WCU_XBEE_UART_RX_TIMEOUT				WCU_DEFAULT_TIMEOUT	/* UART Rx wait for notification timeout */
+#define WCU_XBEE_UART_TX_TIMEOUT				WCU_DEFAULT_TIMEOUT /* UART Tx timeout */
+#define WCU_XBEE_UART_RX_TIMEOUT				WCU_DEFAULT_TIMEOUT	/* UART Rx timeout */
 
 /* USER CODE END Private defines */
 

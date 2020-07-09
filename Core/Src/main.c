@@ -26,6 +26,8 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
+#include "rte12_libs_generic.h"
+#include "rte12_libs_can.h"
 #include <stdbool.h>
 #include <string.h>
 
@@ -34,77 +36,25 @@
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
 
-/**
- * @brief Structure facilitating communication with the CAN peripheral gatekeeper
- */
-typedef struct {
-	/**
-	 * @brief Member specifying the data direction and, by extension, type of the Header member
-	 */
-	enum {
-		TX, RX
-	} DataDirection;
-
-	/*
-	 * @brief CAN header
-	 */
-	union {
-		CAN_TxHeaderTypeDef Tx;
-		CAN_RxHeaderTypeDef Rx;
-	} Header;
-
-	/**
-	 * @brief CAN frame data
-	 */
-	uint8_t Payload[WCU_CAN_PAYLOAD_SIZE];
-} CanFrameTypedef;
-
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 
 /* Intuitive names for UART instances */
-#define WCU_BT_UART USART1
-#define WCU_GNSS_UART USART3
-#define WCU_XBEE_UART UART4
+#define BT_UART_INSTANCE	USART1
+#define GNSS_UART_INSTANCE	USART3
+#define XBEE_UART_INSTANCE	UART4
 
-#define CAN_FILTERBANKS_COUNT 28U /* Number of CAN filter banks */
+/* Intuitive names for UART handles */
+#define BT_UART_HANDLE		huart1
+#define GNSS_UART_HANDLE	huart3
+#define XBEE_UART_HANDLE	huart4
 
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-
-/**
- * @brief This macro converts two separate 8-bit values to a single 16-bit value
- */
-#define READAS16BIT(highbyte, lowbyte) (uint16_t)(((uint8_t)highbyte << 8) | (uint8_t)lowbyte)
-
-/**
- * @brief This macro converts four separate 8-bit values to a single 32-bit value
- */
-#define READAS32BIT(highbyte, midhighbyte, midlowbyte, lowbyte) (uint32_t)(((uint8_t)highbyte << 24) | ((uint8_t)midhighbyte << 16) | ((uint8_t)midlowbyte << 8) | (uint8_t)lowbyte)
-
-/**
- * @brief Retrieves two least significant bytes of a value as uint16_t
- */
-#define GET16LEASTSIGNIFACTBITS(value) (uint16_t)(value & 0xFFFF)
-
-/**
- * @brief Retrieves the least significant byte of a 16-bit value
- */
-#define GETLSBOF16(value) (uint8_t)((uint16_t)value & 0xFF)
-
-/**
- * @brief Retrieves the most significant byte of a 16-bit value
- */
-#define GETMSBOF16(value) (uint8_t)(((uint16_t)value >> 8) & 0xFF)
-
-/**
- * @brief Shifts the bits of an 11-bit CAN standard ID to align with the filter bank register field mapping
- */
-#define ALIGN_CAN_ID_WITH_FILTER_FIELD_MAPPING(id) (uint32_t)(id << 5)
 
 /* USER CODE END PM */
 
@@ -135,7 +85,7 @@ osThreadId canGatekeeperHandle;
 osThreadId sdGatekeeperHandle;
 osMessageQId reportToWatchdogQueueHandle;
 osMessageQId canTransmitQueueHandle;
-osMessageQId canSubbedFramesQueueHandle;
+osMessageQId canReceiveQueueHandle;
 osMutexId crcMutexHandle;
 /* USER CODE BEGIN PV */
 
@@ -170,7 +120,8 @@ void StartSdGatekeeperTask(void const *argument);
 
 /* USER CODE BEGIN PFP */
 
-void setCanSubscriptionFilter(CAN_HandleTypeDef *hcan, uint32_t* ids, uint32_t count);
+void setCanSubscriptionFilter(CAN_HandleTypeDef *hcan, uint32_t *ids,
+		uint32_t count);
 
 /* USER CODE END PFP */
 
@@ -247,12 +198,11 @@ int main(void) {
 	/* definition and creation of canTransmitQueue */
 	osMessageQDef(canTransmitQueue, 16, CanFrameTypedef);
 	canTransmitQueueHandle = osMessageCreate(osMessageQ(canTransmitQueue),
-	NULL);
+			NULL);
 
-	/* definition and creation of canSubbedFramesQueue */
-	osMessageQDef(canSubbedFramesQueue, 16, CanFrameTypedef);
-	canSubbedFramesQueueHandle = osMessageCreate(
-			osMessageQ(canSubbedFramesQueue), NULL);
+	/* definition and creation of canReceiveQueue */
+	osMessageQDef(canReceiveQueue, 16, CanFrameTypedef);
+	canReceiveQueueHandle = osMessageCreate(osMessageQ(canReceiveQueue), NULL);
 
 	/* USER CODE BEGIN RTOS_QUEUES */
 	/* add queues, ... */
@@ -711,83 +661,14 @@ static void MX_GPIO_Init(void) {
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 	static BaseType_t dummy; /* Buffer for pxHigherPriorityTaskWoken flag */
 	switch ((uint32_t) huart->Instance) {
-	case (uint32_t) WCU_BT_UART:
+	case (uint32_t) BT_UART_INSTANCE:
 		/* Notify btReceive task */
 		vTaskNotifyGiveFromISR((TaskHandle_t) btReceiveHandle, &dummy);
 		break;
-	case (uint32_t) WCU_GNSS_UART:
+	case (uint32_t) GNSS_UART_INSTANCE:
 		/* Notify gnssReceive task */
 		vTaskNotifyGiveFromISR((TaskHandle_t) gnssReceiveHandle, &dummy);
 		break;
-	}
-}
-
-/**
- * @brief Configures the CAN filter according the the telemetry subscription
- * @param hcan pointer to a CAN_HandleTypeDef structure that contains
- *         the configuration information for the specified CAN.
- * @param ids Pointer to an array of 32-bit CAN ids to filter for
- * @param count Length of the ids array
- */
-void setCanSubscriptionFilter(CAN_HandleTypeDef *hcan, uint32_t* ids, uint32_t count) {
-	if(count > CAN_FILTERBANKS_COUNT * 4) {
-		/*
-		 * TODO:
-		 * Log invalid frame count
-		 */
-		return;
-	}
-
-	/* Prepare the filter configuration structure */
-	CAN_FilterTypeDef filterConfig;
-	/* Select the CAN FIFO to filter */
-	filterConfig.FilterFIFOAssignment = CAN_FILTER_FIFO0;
-	/* Select the filter mode as IDLIST - CAN IDs will be stored in the filter bank registers */
-	filterConfig.FilterMode = CAN_FILTERMODE_IDLIST;
-	/* Set the filter scale as 16 bit, since only the standard 11-bit CAN IDs are used - this allows four IDs per bank */
-	filterConfig.FilterScale = CAN_FILTERSCALE_16BIT;
-
-	/* Clear the previous filter config */
-	filterConfig.FilterIdHigh = 0x00000000U;
-	filterConfig.FilterIdLow = 0x00000000U;
-	filterConfig.FilterMaskIdHigh = 0x00000000U;
-	filterConfig.FilterMaskIdLow = 0x00000000U;
-	filterConfig.FilterActivation = DISABLE;
-	for(uint32_t i = 0; i < CAN_FILTERBANKS_COUNT; i += 1) {
-		filterConfig.FilterBank = i;
-		HAL_CAN_ConfigFilter(hcan, &filterConfig);
-	}
-
-	/* Set the new filter */
-	filterConfig.FilterActivation = ENABLE;
-	for(uint32_t i = 0; i < count; i += 1) {
-		switch(i % 4) {
-		case 0:
-			filterConfig.FilterIdHigh = ALIGN_CAN_ID_WITH_FILTER_FIELD_MAPPING(ids[i]);
-			break;
-		case 1:
-			filterConfig.FilterIdLow = ALIGN_CAN_ID_WITH_FILTER_FIELD_MAPPING(ids[i]);
-			break;
-		case 2:
-			filterConfig.FilterMaskIdHigh = ALIGN_CAN_ID_WITH_FILTER_FIELD_MAPPING(ids[i]);
-			break;
-		case 3:
-			filterConfig.FilterMaskIdLow = ALIGN_CAN_ID_WITH_FILTER_FIELD_MAPPING(ids[i]);
-			break;
-		}
-
-		/* If the filter bank is fully configured or there are no more IDs, call HAL_CAN_ConfigFilter */
-		if((i % 4 == 3) || (i + 1 == count)) {
-			/* Configure the filter */
-			HAL_CAN_ConfigFilter(hcan, &filterConfig);
-			/* On fully configured filter bank, proceed to the next one */
-			filterConfig.FilterBank += 1;
-			/* Clear the config structure ID members */
-			filterConfig.FilterIdHigh = 0x00000000U;
-			filterConfig.FilterIdLow = 0x00000000U;
-			filterConfig.FilterMaskIdHigh = 0x00000000U;
-			filterConfig.FilterMaskIdLow = 0x00000000U;
-		}
 	}
 }
 
@@ -815,10 +696,8 @@ void StartWatchdogTask(void const *argument) {
 			rfReceiveHandle, .Reported = false }, { .Id = canGatekeeperHandle,
 			.Reported = false } };
 
-	/* Buffer for reading thread IDs from the queue */
-	osThreadId buff;
-	/* Flag raised when all watched threads have reported to the watchdog */
-	bool allReported;
+	osThreadId buff; /* Buffer for reading thread IDs from the queue */
+	bool allReported; /* Flag raised when all watched threads have reported to the watchdog */
 
 	/* Infinite loop */
 	for (;;) {
@@ -871,39 +750,29 @@ void StartWatchdogTask(void const *argument) {
 /* USER CODE END Header_StartBtReceiveTask */
 void StartBtReceiveTask(void const *argument) {
 	/* USER CODE BEGIN StartBtReceiveTask */
-	static osThreadId localId = NULL; /* Local copy of the thread's ID */
-	do {
-		localId = osThreadGetId();
-		/* Assert localId is valid */
-	} while (localId == NULL);
-
 	static CanFrameTypedef canFrame = { .DataDirection = TX }; /* CAN frame structure */
 	static uint8_t btUartRxBuff[WCU_BT_UART_RX_BUFF_SIZE]; /* UART Rx buffer */
 	static uint16_t readCrc; /* Buffer for the transmitted CRC */
 	static uint16_t calculatedCrc; /* Buffer for the calculated CRC */
 
-	HAL_UART_Receive_DMA(phuart_bt, btUartRxBuff,
-	WCU_BT_UART_RX_BUFF_SIZE);
-
 	/* Infinite loop */
 	for (;;) {
-		/* Wait for message received callback */
-		if (ulTaskNotifyTake(pdTRUE, WCU_BT_UART_RX_NOTIFY_TAKE_TIMEOUT)
-				>= 1UL) {
+		HAL_UART_Receive_DMA(&BT_UART_HANDLE, btUartRxBuff,
+		WCU_BT_UART_RX_BUFF_SIZE);
 
-			/* Validate the VER and RES/SEQ octet of the R3TP frame */
+		/* Wait for notify from ISR/message received callback */
+		if (ulTaskNotifyTake(pdTRUE, WCU_BT_UART_RX_NOTIFY_TAKE_TIMEOUT)
+				> 0UL) {
+			/* Validate the VER and RES/SEQ field */
 			if (btUartRxBuff[0] != R3TP_VER0_VER_RES_SEQ_BYTE) {
 				/*
 				 * TODO:
 				 * Log invalid VER/RES/SEQ octet
 				 */
-				/* Listen for for the next message */
-				HAL_UART_Receive_DMA(phuart_bt, btUartRxBuff,
-				WCU_BT_UART_RX_BUFF_SIZE);
 				continue;
 			}
 
-			/* Validate the END SEQ octets of the R3TP frame */
+			/* Validate the END SEQ field */
 			if (btUartRxBuff[R3TP_VER0_FRAME_SIZE - 2U] != R3TP_END_SEQ_LOW_BYTE
 					|| btUartRxBuff[R3TP_VER0_FRAME_SIZE - 1U]
 							!= R3TP_END_SEQ_HIGH_BYTE) {
@@ -911,57 +780,49 @@ void StartBtReceiveTask(void const *argument) {
 				 * TODO:
 				 * Log invalid END SEQ octet
 				 */
-				/* Listen for for the next message */
-				HAL_UART_Receive_DMA(phuart_bt, btUartRxBuff,
-				WCU_BT_UART_RX_BUFF_SIZE);
 				continue;
 			}
 
 			/* Read CRC - note that the CRC is transmitted as little endian */
-			readCrc = READAS16BIT(btUartRxBuff[2], btUartRxBuff[1]);
+			readCrc = READAS16BIT(btUartRxBuff[3], btUartRxBuff[2]);
 
 			/* Clear the CHECKSUM field */
-			memset(btUartRxBuff + 1U, 0x00, 2U);
+			memset(btUartRxBuff + 2U, 0x00, 2U);
 
+			/* Calculate the CRC */
 			if (osMutexWait(crcMutexHandle, WCU_CRC_MUTEX_TIMEOUT) == osOK) {
-				/* Calculate the CRC */
 				calculatedCrc =
-						GET16LEASTSIGNIFACTBITS(
-								HAL_CRC_Calculate(&hcrc, (uint32_t*)btUartRxBuff, WCU_BT_UART_RX_BUFF_SIZE / 4));
+						GET16LSBITS(
+								HAL_CRC_Calculate(&hcrc, (uint32_t*)btUartRxBuff, WCU_BT_UART_RX_BUFF_SIZE / 4U));
 				osMutexRelease(crcMutexHandle);
 			} else {
 				/*
 				 * TODO:
 				 * Log CRC mutex timeout
 				 */
-				/* Listen for for the next message */
-				HAL_UART_Receive_DMA(phuart_bt, btUartRxBuff,
-				WCU_BT_UART_RX_BUFF_SIZE);
 				continue;
 			}
 
+			/* Validate the CRC */
 			if (readCrc != calculatedCrc) {
 				/*
 				 * TODO:
 				 * Log invalid CRC
 				 */
-				/* Listen for for the next message */
-				HAL_UART_Receive_DMA(phuart_bt, btUartRxBuff,
-				WCU_BT_UART_RX_BUFF_SIZE);
 				continue;
 			}
 
 			/* Read the CAN ID - note that the CAN ID is transmitted as little endian */
-			canFrame.Header.Tx.StdId = READAS32BIT(btUartRxBuff[6],
-					btUartRxBuff[5], btUartRxBuff[4], btUartRxBuff[3]);
-			/* Read the Data length code */
+			canFrame.Header.Tx.StdId = READAS32BIT(btUartRxBuff[7],
+					btUartRxBuff[6], btUartRxBuff[5], btUartRxBuff[4]);
+			/* Read the Data Length Code */
 			canFrame.Header.Tx.DLC = (uint32_t) (
-					btUartRxBuff[7] < WCU_CAN_PAYLOAD_SIZE ?
-							btUartRxBuff[7] : WCU_CAN_PAYLOAD_SIZE);
+					btUartRxBuff[8] < WCU_CAN_PAYLOAD_SIZE ?
+							btUartRxBuff[8] : WCU_CAN_PAYLOAD_SIZE);
 
 			/* Read the payload */
 			for (uint8_t i = 0; i < canFrame.Header.Tx.DLC; i += 1) {
-				canFrame.Payload[i] = btUartRxBuff[8 + i];
+				canFrame.Payload[i] = btUartRxBuff[9 + i];
 			}
 
 			/* Push CAN frame to queue */
@@ -972,22 +833,16 @@ void StartBtReceiveTask(void const *argument) {
 				 * Log failed to push to queue
 				 */
 			}
-
-			/* Listen for for the next message */
-			HAL_UART_Receive_DMA(phuart_bt, btUartRxBuff,
-			WCU_BT_UART_RX_BUFF_SIZE);
-
 		}
 
 		/* Report to watchdog */
-		if (xQueueSend(reportToWatchdogQueueHandle, &localId,
+		if (xQueueSend(reportToWatchdogQueueHandle, &btReceiveHandle,
 				WCU_REPORTTOWATCHDOG_QUEUE_SEND_TIMEOUT) != pdTRUE) {
 			/*
 			 * TODO:
 			 * Log failed to push to queue
 			 */
 		}
-
 		osDelay(WCU_DEFAULT_TASK_DELAY);
 	}
 	/* USER CODE END StartBtReceiveTask */
@@ -1002,12 +857,6 @@ void StartBtReceiveTask(void const *argument) {
 /* USER CODE END Header_StartXbeeSendTask */
 void StartXbeeSendTask(void const *argument) {
 	/* USER CODE BEGIN StartXbeeSendTask */
-	static osThreadId localId = NULL; /* Local copy of the thread's ID */
-	do {
-		localId = osThreadGetId();
-		/* Assert localId is valid */
-	} while (localId == NULL);
-
 	static CanFrameTypedef frameBuff; /* CAN frame buffer */
 	static uint8_t xbeeUartTxBuff[R3TP_VER0_FRAME_SIZE]; /* UART Tx buffer */
 	static uint16_t calculatedCrc; /* Buffer for the calculated CRC */
@@ -1018,7 +867,7 @@ void StartXbeeSendTask(void const *argument) {
 
 	/* Infinite loop */
 	for (;;) {
-		if (xQueueReceive(canSubbedFramesQueueHandle, xbeeUartTxBuff,
+		if (xQueueReceive(canReceiveQueueHandle, xbeeUartTxBuff,
 		WCU_CANSUBBEDFRAMES_QUEUE_RECEIVE_TIMEOUT) == pdTRUE) {
 			if (frameBuff.DataDirection == RX) {
 				/* Clear the buffer */
@@ -1050,11 +899,11 @@ void StartXbeeSendTask(void const *argument) {
 					xbeeUartTxBuff[9 + i] = frameBuff.Payload[i];
 				}
 
+				/* Calculate the CRC */
 				if (osMutexWait(crcMutexHandle, WCU_CRC_MUTEX_TIMEOUT)
 						== osOK) {
-					/* Calculate the CRC */
 					calculatedCrc =
-							GET16LEASTSIGNIFACTBITS(
+							GET16LSBITS(
 									HAL_CRC_Calculate(&hcrc, (uint32_t*)xbeeUartTxBuff, R3TP_VER0_FRAME_SIZE / 4));
 					osMutexRelease(crcMutexHandle);
 
@@ -1070,8 +919,8 @@ void StartXbeeSendTask(void const *argument) {
 				}
 
 				/* Transmit frame */
-				HAL_UART_Transmit_DMA(phuart_xbee, xbeeUartTxBuff,
-				R3TP_VER0_FRAME_SIZE);
+				HAL_UART_Transmit(&XBEE_UART_HANDLE, xbeeUartTxBuff,
+				R3TP_VER0_FRAME_SIZE, WCU_XBEE_UART_TX_TIMEOUT);
 
 			} else {
 				/*
@@ -1082,7 +931,7 @@ void StartXbeeSendTask(void const *argument) {
 		}
 
 		/* Report to watchdog */
-		if (xQueueSend(reportToWatchdogQueueHandle, &localId,
+		if (xQueueSend(reportToWatchdogQueueHandle, &xbeeSendHandle,
 				WCU_REPORTTOWATCHDOG_QUEUE_SEND_TIMEOUT) != pdTRUE) {
 			/*
 			 * TODO:
@@ -1104,34 +953,24 @@ void StartXbeeSendTask(void const *argument) {
 /* USER CODE END Header_StartXbeeReceiveTask */
 void StartXbeeReceiveTask(void const *argument) {
 	/* USER CODE BEGIN StartXbeeReceiveTask */
-	static CAN_FilterTypeDef canFilter = { .FilterBank = 0U,
-			.FilterFIFOAssignment = CAN_FILTER_FIFO0, .FilterMode =
-			CAN_FILTERMODE_IDLIST, .FilterScale =
-			CAN_FILTERSCALE_16BIT, };
-
 	static uint8_t xbeeUartRxBuff[R3TP_VER1_MAX_FRAME_SIZE]; /* UART Rx buffer */
-	static uint32_t frameNum; /* Number of frames in a subscription */
 	static uint16_t readCrc; /* Buffer for the transmitted CRC */
 	static uint16_t calculatedCrc; /* Buffer for the calculated CRC */
-	static uint32_t subscription[R3TP_VER1_MAX_FRAME_NUM];
+	static uint32_t frameNum; /* Number of frames in a subscription */
+	static uint32_t subscription[R3TP_VER1_MAX_FRAME_NUM]; /* Buffer for telemetry subscription CAN IDs */
 
 	/* Infinite loop */
 	for (;;) {
 		/* Listen for the subscription (VER1) frame */
-		HAL_UART_Receive(phuart_xbee, xbeeUartRxBuff, 1,
+		HAL_UART_Receive(&XBEE_UART_HANDLE, xbeeUartRxBuff, 1,
 		WCU_XBEE_UART_RX_TIMEOUT);
+		/* Validate the VER and RES/SEQ field */
 		if (xbeeUartRxBuff[0] == R3TP_VER1_VER_RES_SEQ_BYTE) {
 			/* On valid version byte, receive SEQ NUM, CHECKSUM and FRAME NUM */
-			HAL_UART_Receive(phuart_xbee, xbeeUartRxBuff + 1, 7,
+			HAL_UART_Receive(&XBEE_UART_HANDLE, xbeeUartRxBuff + 1, 7,
 			WCU_XBEE_UART_RX_TIMEOUT);
 
-			/* Read the CHECKSUM */
-			readCrc = READAS16BIT(xbeeUartRxBuff[3], xbeeUartRxBuff[2]);
-
-			/* Clear the CHECKSUM field */
-			memset(xbeeUartRxBuff + 2U, 0x00, 2U);
-
-			/* Read the FRAME NUM */
+			/* Read the FRAME NUM field */
 			frameNum = READAS32BIT(xbeeUartRxBuff[7], xbeeUartRxBuff[6],
 					xbeeUartRxBuff[5], xbeeUartRxBuff[4]);
 
@@ -1145,16 +984,16 @@ void StartXbeeReceiveTask(void const *argument) {
 			}
 
 			/* Receive the payload */
-			HAL_UART_Receive(phuart_xbee,
+			HAL_UART_Receive(&XBEE_UART_HANDLE,
 					R3TP_VER1_PAYLOAD_BEGIN(xbeeUartRxBuff), frameNum * 4,
 					WCU_XBEE_UART_RX_TIMEOUT);
 
 			/* Receive the frame align bytes (two) and END SEQ (also two bytes) */
-			HAL_UART_Receive(phuart_xbee,
+			HAL_UART_Receive(&XBEE_UART_HANDLE,
 					R3TP_VER1_EPILOGUE_BEGIN(xbeeUartRxBuff, frameNum), 4,
 					WCU_XBEE_UART_RX_TIMEOUT);
 
-			/* Validate the END SEQ */
+			/* Validate the END SEQ field */
 			if (xbeeUartRxBuff[R3TP_VER1_MESSAGE_LENGTH(frameNum) - 2U]
 					!= R3TP_END_SEQ_LOW_BYTE
 					|| xbeeUartRxBuff[R3TP_VER1_MESSAGE_LENGTH(frameNum) - 1U]
@@ -1166,12 +1005,17 @@ void StartXbeeReceiveTask(void const *argument) {
 				continue;
 			}
 
+			/* Read the CHECKSUM */
+			readCrc = READAS16BIT(xbeeUartRxBuff[3], xbeeUartRxBuff[2]);
+
+			/* Clear the CHECKSUM field */
+			memset(xbeeUartRxBuff + 2U, 0x00, 2U);
+
 			if (osMutexWait(crcMutexHandle, WCU_CRC_MUTEX_TIMEOUT) == osOK) {
 				/* Calculate the CRC */
 				calculatedCrc =
-						GET16LEASTSIGNIFACTBITS(
-								HAL_CRC_Calculate(&hcrc, (uint32_t* )xbeeUartRxBuff,
-										R3TP_VER1_MESSAGE_LENGTH(frameNum)/4));
+						GET16LSBITS(
+								HAL_CRC_Calculate(&hcrc, (uint32_t* )xbeeUartRxBuff, R3TP_VER1_MESSAGE_LENGTH(frameNum)/4));
 				osMutexRelease(crcMutexHandle);
 			} else {
 				/*
@@ -1192,11 +1036,12 @@ void StartXbeeReceiveTask(void const *argument) {
 
 			/* Read the payload */
 			for (uint32_t i = 0; i < frameNum; i += 1) {
-				subscription[i] = READAS32BIT(
-						*(R3TP_VER1_PAYLOAD_BEGIN(xbeeUartRxBuff) + 3 + 4*i),
-						*(R3TP_VER1_PAYLOAD_BEGIN(xbeeUartRxBuff) + 2 + 4*i),
-						*(R3TP_VER1_PAYLOAD_BEGIN(xbeeUartRxBuff) + 1 + 4*i),
-						*(R3TP_VER1_PAYLOAD_BEGIN(xbeeUartRxBuff) + 4 * i));
+				subscription[i] =
+						READAS32BIT(
+								*(R3TP_VER1_PAYLOAD_BEGIN_OFFSET(xbeeUartRxBuff, 3 + 4*i)),
+								*(R3TP_VER1_PAYLOAD_BEGIN_OFFSET(xbeeUartRxBuff, 2 + 4*i)),
+								*(R3TP_VER1_PAYLOAD_BEGIN_OFFSET(xbeeUartRxBuff, 1 + 4*i)),
+								*(R3TP_VER1_PAYLOAD_BEGIN_OFFSET(xbeeUartRxBuff, 4 * i)));
 			}
 
 			/*
@@ -1204,7 +1049,8 @@ void StartXbeeReceiveTask(void const *argument) {
 			 * Write subscription to SD
 			 */
 
-			setCanSubscriptionFilter(&hcan1, subscription, frameNum);
+			/* Set the CAN filters */
+			setCanFilterList(&hcan1, subscription, frameNum);
 		} else {
 			/**
 			 * TODO:
@@ -1225,24 +1071,17 @@ void StartXbeeReceiveTask(void const *argument) {
 /* USER CODE END Header_StartGnssReceiveTask */
 void StartGnssReceiveTask(void const *argument) {
 	/* USER CODE BEGIN StartGnssReceiveTask */
-	static osThreadId localId = NULL; /* Local copy of the thread's ID */
-	do {
-		localId = osThreadGetId();
-		/* Assert localId is valid */
-	} while (localId == NULL);
-
 	/* Infinite loop */
 	for (;;) {
 
 		/* Report to watchdog */
-		if (xQueueSend(reportToWatchdogQueueHandle, &localId,
+		if (xQueueSend(reportToWatchdogQueueHandle, &gnssReceiveHandle,
 				WCU_REPORTTOWATCHDOG_QUEUE_SEND_TIMEOUT) != pdTRUE) {
 			/*
 			 * TODO:
 			 * Log failed to push to queue
 			 */
 		}
-
 		osDelay(WCU_DEFAULT_TASK_DELAY);
 	}
 	/* USER CODE END StartGnssReceiveTask */
@@ -1257,24 +1096,17 @@ void StartGnssReceiveTask(void const *argument) {
 /* USER CODE END Header_StartRfReceiveTask */
 void StartRfReceiveTask(void const *argument) {
 	/* USER CODE BEGIN StartRfReceiveTask */
-	static osThreadId localId = NULL; /* Local copy of the thread's ID */
-	do {
-		localId = osThreadGetId();
-		/* Assert localId is valid */
-	} while (localId == NULL);
-
 	/* Infinite loop */
 	for (;;) {
 
 		/* Report to watchdog */
-		if (xQueueSend(reportToWatchdogQueueHandle, &localId,
+		if (xQueueSend(reportToWatchdogQueueHandle, &rfReceiveHandle,
 				WCU_REPORTTOWATCHDOG_QUEUE_SEND_TIMEOUT) != pdTRUE) {
 			/*
 			 * TODO:
 			 * Log failed to push to queue
 			 */
 		}
-
 		osDelay(WCU_DEFAULT_TASK_DELAY);
 	}
 	/* USER CODE END StartRfReceiveTask */
@@ -1296,7 +1128,9 @@ void StartCanGatekeeperTask(void const *argument) {
 		/* Check for outgoing messages */
 		if (xQueueReceive(canTransmitQueueHandle, &frameBuff,
 		WCU_CANTRANSMIT_QUEUE_RECEIVE_TIMEOUT) == pdTRUE) {
+			/* Validate the DataDirection member */
 			if (frameBuff.DataDirection == TX) {
+				/* Send the message */
 				HAL_CAN_AddTxMessage(&hcan1, &frameBuff.Header.Tx,
 						frameBuff.Payload, &dummy);
 			} else {
@@ -1308,11 +1142,14 @@ void StartCanGatekeeperTask(void const *argument) {
 		}
 
 		/* Check for incoming messages */
-		if (HAL_CAN_GetRxFifoFillLevel(&hcan1, CAN_RX_FIFO0) != 0U) {
+		if (HAL_CAN_GetRxFifoFillLevel(&hcan1, CAN_RX_FIFO0) > 0U) {
+			/* Receive the message */
 			HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &frameBuff.Header.Rx,
 					frameBuff.Payload);
+			/* Set the DataDirection member in the CAN frame struct */
 			frameBuff.DataDirection = RX;
-			if (xQueueSend(canSubbedFramesQueueHandle, &frameBuff,
+			/* Send the frame to the telemetry queue */
+			if (xQueueSend(canReceiveQueueHandle, &frameBuff,
 					WCU_CANSUBBEDFRAMES_QUEUE_SEND_TIMEOUT) != pdTRUE) {
 				/*
 				 * TODO:
@@ -1321,6 +1158,14 @@ void StartCanGatekeeperTask(void const *argument) {
 			}
 		}
 
+		/* Report to watchdog */
+		if (xQueueSend(reportToWatchdogQueueHandle, &canGatekeeperHandle,
+				WCU_REPORTTOWATCHDOG_QUEUE_SEND_TIMEOUT) != pdTRUE) {
+			/*
+			 * TODO:
+			 * Log failed to push to queue
+			 */
+		}
 		osDelay(WCU_DEFAULT_TASK_DELAY);
 	}
 	/* USER CODE END StartCanGatekeeperTask */
