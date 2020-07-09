@@ -86,6 +86,7 @@ osThreadId sdGatekeeperHandle;
 osMessageQId reportToWatchdogQueueHandle;
 osMessageQId canTransmitQueueHandle;
 osMessageQId canReceiveQueueHandle;
+osMessageQId sdSubscriptionQueueHandle;
 osMutexId crcMutexHandle;
 /* USER CODE BEGIN PV */
 
@@ -109,14 +110,14 @@ static void MX_UART4_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_USART3_UART_Init(void);
-void StartWatchdogTask(void const *argument);
-void StartBtReceiveTask(void const *argument);
-void StartXbeeSendTask(void const *argument);
-void StartXbeeReceiveTask(void const *argument);
-void StartGnssReceiveTask(void const *argument);
-void StartRfReceiveTask(void const *argument);
-void StartCanGatekeeperTask(void const *argument);
-void StartSdGatekeeperTask(void const *argument);
+void StartWatchdogTask(void const * argument);
+void StartBtReceiveTask(void const * argument);
+void StartXbeeSendTask(void const * argument);
+void StartXbeeReceiveTask(void const * argument);
+void StartGnssReceiveTask(void const * argument);
+void StartRfReceiveTask(void const * argument);
+void StartCanGatekeeperTask(void const * argument);
+void StartSdGatekeeperTask(void const * argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -131,522 +132,545 @@ void setCanSubscriptionFilter(CAN_HandleTypeDef *hcan, uint32_t *ids,
 /* USER CODE END 0 */
 
 /**
- * @brief  The application entry point.
- * @retval int
- */
-int main(void) {
-	/* USER CODE BEGIN 1 */
+  * @brief  The application entry point.
+  * @retval int
+  */
+int main(void)
+{
+  /* USER CODE BEGIN 1 */
 
-	/* USER CODE END 1 */
+  /* USER CODE END 1 */
 
-	/* MCU Configuration--------------------------------------------------------*/
+  /* MCU Configuration--------------------------------------------------------*/
 
-	/* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-	HAL_Init();
+  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+  HAL_Init();
 
-	/* USER CODE BEGIN Init */
+  /* USER CODE BEGIN Init */
 
-	/* USER CODE END Init */
+  /* USER CODE END Init */
 
-	/* Configure the system clock */
-	SystemClock_Config();
+  /* Configure the system clock */
+  SystemClock_Config();
 
-	/* USER CODE BEGIN SysInit */
+  /* USER CODE BEGIN SysInit */
 
-	/* USER CODE END SysInit */
+  /* USER CODE END SysInit */
 
-	/* Initialize all configured peripherals */
-	MX_GPIO_Init();
-	MX_DMA_Init();
-	MX_CAN1_Init();
-	MX_CRC_Init();
-	MX_IWDG_Init();
-	MX_SDIO_SD_Init();
-	MX_SPI1_Init();
-	MX_UART4_Init();
-	MX_USART1_UART_Init();
-	MX_USART2_UART_Init();
-	MX_USART3_UART_Init();
-	MX_FATFS_Init();
-	/* USER CODE BEGIN 2 */
+  /* Initialize all configured peripherals */
+  MX_GPIO_Init();
+  MX_DMA_Init();
+  MX_CAN1_Init();
+  MX_CRC_Init();
+  MX_IWDG_Init();
+  MX_SDIO_SD_Init();
+  MX_SPI1_Init();
+  MX_UART4_Init();
+  MX_USART1_UART_Init();
+  MX_USART2_UART_Init();
+  MX_USART3_UART_Init();
+  MX_FATFS_Init();
+  /* USER CODE BEGIN 2 */
 
-	/* USER CODE END 2 */
+  /* USER CODE END 2 */
 
-	/* Create the mutex(es) */
-	/* definition and creation of crcMutex */
-	osMutexDef(crcMutex);
-	crcMutexHandle = osMutexCreate(osMutex(crcMutex));
+  /* Create the mutex(es) */
+  /* definition and creation of crcMutex */
+  osMutexDef(crcMutex);
+  crcMutexHandle = osMutexCreate(osMutex(crcMutex));
 
-	/* USER CODE BEGIN RTOS_MUTEX */
+  /* USER CODE BEGIN RTOS_MUTEX */
 	/* add mutexes, ... */
-	/* USER CODE END RTOS_MUTEX */
+  /* USER CODE END RTOS_MUTEX */
 
-	/* USER CODE BEGIN RTOS_SEMAPHORES */
+  /* USER CODE BEGIN RTOS_SEMAPHORES */
 	/* add semaphores, ... */
-	/* USER CODE END RTOS_SEMAPHORES */
+  /* USER CODE END RTOS_SEMAPHORES */
 
-	/* USER CODE BEGIN RTOS_TIMERS */
+  /* USER CODE BEGIN RTOS_TIMERS */
 	/* start timers, add new ones, ... */
-	/* USER CODE END RTOS_TIMERS */
+  /* USER CODE END RTOS_TIMERS */
 
-	/* Create the queue(s) */
-	/* definition and creation of reportToWatchdogQueue */
-	osMessageQDef(reportToWatchdogQueue, 16, osThreadId);
-	reportToWatchdogQueueHandle = osMessageCreate(
-			osMessageQ(reportToWatchdogQueue), NULL);
+  /* Create the queue(s) */
+  /* definition and creation of reportToWatchdogQueue */
+  osMessageQDef(reportToWatchdogQueue, 16, osThreadId);
+  reportToWatchdogQueueHandle = osMessageCreate(osMessageQ(reportToWatchdogQueue), NULL);
 
-	/* definition and creation of canTransmitQueue */
-	osMessageQDef(canTransmitQueue, 16, CanFrameTypedef);
-	canTransmitQueueHandle = osMessageCreate(osMessageQ(canTransmitQueue),
-			NULL);
+  /* definition and creation of canTransmitQueue */
+  osMessageQDef(canTransmitQueue, 16, CanFrameTypedef);
+  canTransmitQueueHandle = osMessageCreate(osMessageQ(canTransmitQueue), NULL);
 
-	/* definition and creation of canReceiveQueue */
-	osMessageQDef(canReceiveQueue, 16, CanFrameTypedef);
-	canReceiveQueueHandle = osMessageCreate(osMessageQ(canReceiveQueue), NULL);
+  /* definition and creation of canReceiveQueue */
+  osMessageQDef(canReceiveQueue, 16, CanFrameTypedef);
+  canReceiveQueueHandle = osMessageCreate(osMessageQ(canReceiveQueue), NULL);
 
-	/* USER CODE BEGIN RTOS_QUEUES */
+  /* definition and creation of sdSubscriptionQueue */
+  osMessageQDef(sdSubscriptionQueue, 32, uint32_t);
+  sdSubscriptionQueueHandle = osMessageCreate(osMessageQ(sdSubscriptionQueue), NULL);
+
+  /* USER CODE BEGIN RTOS_QUEUES */
 	/* add queues, ... */
-	/* USER CODE END RTOS_QUEUES */
+  /* USER CODE END RTOS_QUEUES */
 
-	/* Create the thread(s) */
-	/* definition and creation of watchdog */
-	osThreadDef(watchdog, StartWatchdogTask, osPriorityNormal, 0, 128);
-	watchdogHandle = osThreadCreate(osThread(watchdog), NULL);
+  /* Create the thread(s) */
+  /* definition and creation of watchdog */
+  osThreadDef(watchdog, StartWatchdogTask, osPriorityNormal, 0, 256);
+  watchdogHandle = osThreadCreate(osThread(watchdog), NULL);
 
-	/* definition and creation of btReceive */
-	osThreadDef(btReceive, StartBtReceiveTask, osPriorityLow, 0, 128);
-	btReceiveHandle = osThreadCreate(osThread(btReceive), NULL);
+  /* definition and creation of btReceive */
+  osThreadDef(btReceive, StartBtReceiveTask, osPriorityLow, 0, 256);
+  btReceiveHandle = osThreadCreate(osThread(btReceive), NULL);
 
-	/* definition and creation of xbeeSend */
-	osThreadDef(xbeeSend, StartXbeeSendTask, osPriorityIdle, 0, 128);
-	xbeeSendHandle = osThreadCreate(osThread(xbeeSend), NULL);
+  /* definition and creation of xbeeSend */
+  osThreadDef(xbeeSend, StartXbeeSendTask, osPriorityIdle, 0, 256);
+  xbeeSendHandle = osThreadCreate(osThread(xbeeSend), NULL);
 
-	/* definition and creation of xbeeReceive */
-	osThreadDef(xbeeReceive, StartXbeeReceiveTask, osPriorityIdle, 0, 128);
-	xbeeReceiveHandle = osThreadCreate(osThread(xbeeReceive), NULL);
+  /* definition and creation of xbeeReceive */
+  osThreadDef(xbeeReceive, StartXbeeReceiveTask, osPriorityIdle, 0, 256);
+  xbeeReceiveHandle = osThreadCreate(osThread(xbeeReceive), NULL);
 
-	/* definition and creation of gnssReceive */
-	osThreadDef(gnssReceive, StartGnssReceiveTask, osPriorityIdle, 0, 128);
-	gnssReceiveHandle = osThreadCreate(osThread(gnssReceive), NULL);
+  /* definition and creation of gnssReceive */
+  osThreadDef(gnssReceive, StartGnssReceiveTask, osPriorityIdle, 0, 256);
+  gnssReceiveHandle = osThreadCreate(osThread(gnssReceive), NULL);
 
-	/* definition and creation of rfReceive */
-	osThreadDef(rfReceive, StartRfReceiveTask, osPriorityIdle, 0, 128);
-	rfReceiveHandle = osThreadCreate(osThread(rfReceive), NULL);
+  /* definition and creation of rfReceive */
+  osThreadDef(rfReceive, StartRfReceiveTask, osPriorityIdle, 0, 256);
+  rfReceiveHandle = osThreadCreate(osThread(rfReceive), NULL);
 
-	/* definition and creation of canGatekeeper */
-	osThreadDef(canGatekeeper, StartCanGatekeeperTask, osPriorityIdle, 0, 128);
-	canGatekeeperHandle = osThreadCreate(osThread(canGatekeeper), NULL);
+  /* definition and creation of canGatekeeper */
+  osThreadDef(canGatekeeper, StartCanGatekeeperTask, osPriorityIdle, 0, 256);
+  canGatekeeperHandle = osThreadCreate(osThread(canGatekeeper), NULL);
 
-	/* definition and creation of sdGatekeeper */
-	osThreadDef(sdGatekeeper, StartSdGatekeeperTask, osPriorityIdle, 0, 128);
-	sdGatekeeperHandle = osThreadCreate(osThread(sdGatekeeper), NULL);
+  /* definition and creation of sdGatekeeper */
+  osThreadDef(sdGatekeeper, StartSdGatekeeperTask, osPriorityIdle, 0, 256);
+  sdGatekeeperHandle = osThreadCreate(osThread(sdGatekeeper), NULL);
 
-	/* USER CODE BEGIN RTOS_THREADS */
+  /* USER CODE BEGIN RTOS_THREADS */
 	/* add threads, ... */
-	/* USER CODE END RTOS_THREADS */
+  /* USER CODE END RTOS_THREADS */
 
-	/* Start scheduler */
-	osKernelStart();
-
-	/* We should never get here as control is now taken by the scheduler */
-	/* Infinite loop */
-	/* USER CODE BEGIN WHILE */
+  /* Start scheduler */
+  osKernelStart();
+ 
+  /* We should never get here as control is now taken by the scheduler */
+  /* Infinite loop */
+  /* USER CODE BEGIN WHILE */
 	while (1) {
-		/* USER CODE END WHILE */
+    /* USER CODE END WHILE */
 
-		/* USER CODE BEGIN 3 */
+    /* USER CODE BEGIN 3 */
 	}
-	/* USER CODE END 3 */
+  /* USER CODE END 3 */
 }
 
 /**
- * @brief System Clock Configuration
- * @retval None
- */
-void SystemClock_Config(void) {
-	RCC_OscInitTypeDef RCC_OscInitStruct = { 0 };
-	RCC_ClkInitTypeDef RCC_ClkInitStruct = { 0 };
+  * @brief System Clock Configuration
+  * @retval None
+  */
+void SystemClock_Config(void)
+{
+  RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+  RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
 
-	/** Configure the main internal regulator output voltage
-	 */
-	__HAL_RCC_PWR_CLK_ENABLE();
-	__HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
-	/** Initializes the CPU, AHB and APB busses clocks
-	 */
-	RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI
-			| RCC_OSCILLATORTYPE_LSI;
-	RCC_OscInitStruct.HSIState = RCC_HSI_ON;
-	RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
-	RCC_OscInitStruct.LSIState = RCC_LSI_ON;
-	RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-	RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
-	RCC_OscInitStruct.PLL.PLLM = 16;
-	RCC_OscInitStruct.PLL.PLLN = 192;
-	RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
-	RCC_OscInitStruct.PLL.PLLQ = 4;
-	if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK) {
-		Error_Handler();
-	}
-	/** Initializes the CPU, AHB and APB busses clocks
-	 */
-	RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK
-			| RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
-	RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_HSI;
-	RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-	RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
-	RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
+  /** Configure the main internal regulator output voltage 
+  */
+  __HAL_RCC_PWR_CLK_ENABLE();
+  __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
+  /** Initializes the CPU, AHB and APB busses clocks 
+  */
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI|RCC_OSCILLATORTYPE_LSI;
+  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
+  RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
+  RCC_OscInitStruct.LSIState = RCC_LSI_ON;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
+  RCC_OscInitStruct.PLL.PLLM = 16;
+  RCC_OscInitStruct.PLL.PLLN = 192;
+  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
+  RCC_OscInitStruct.PLL.PLLQ = 4;
+  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /** Initializes the CPU, AHB and APB busses clocks 
+  */
+  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
+                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_HSI;
+  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
-	if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK) {
-		Error_Handler();
-	}
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
+  {
+    Error_Handler();
+  }
 }
 
 /**
- * @brief CAN1 Initialization Function
- * @param None
- * @retval None
- */
-static void MX_CAN1_Init(void) {
+  * @brief CAN1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_CAN1_Init(void)
+{
 
-	/* USER CODE BEGIN CAN1_Init 0 */
+  /* USER CODE BEGIN CAN1_Init 0 */
 
-	/* USER CODE END CAN1_Init 0 */
+  /* USER CODE END CAN1_Init 0 */
 
-	/* USER CODE BEGIN CAN1_Init 1 */
+  /* USER CODE BEGIN CAN1_Init 1 */
 
-	/* USER CODE END CAN1_Init 1 */
-	hcan1.Instance = CAN1;
-	hcan1.Init.Prescaler = 2;
-	hcan1.Init.Mode = CAN_MODE_NORMAL;
-	hcan1.Init.SyncJumpWidth = CAN_SJW_1TQ;
-	hcan1.Init.TimeSeg1 = CAN_BS1_6TQ;
-	hcan1.Init.TimeSeg2 = CAN_BS2_1TQ;
-	hcan1.Init.TimeTriggeredMode = DISABLE;
-	hcan1.Init.AutoBusOff = DISABLE;
-	hcan1.Init.AutoWakeUp = DISABLE;
-	hcan1.Init.AutoRetransmission = DISABLE;
-	hcan1.Init.ReceiveFifoLocked = DISABLE;
-	hcan1.Init.TransmitFifoPriority = DISABLE;
-	if (HAL_CAN_Init(&hcan1) != HAL_OK) {
-		Error_Handler();
-	}
-	/* USER CODE BEGIN CAN1_Init 2 */
+  /* USER CODE END CAN1_Init 1 */
+  hcan1.Instance = CAN1;
+  hcan1.Init.Prescaler = 2;
+  hcan1.Init.Mode = CAN_MODE_NORMAL;
+  hcan1.Init.SyncJumpWidth = CAN_SJW_1TQ;
+  hcan1.Init.TimeSeg1 = CAN_BS1_6TQ;
+  hcan1.Init.TimeSeg2 = CAN_BS2_1TQ;
+  hcan1.Init.TimeTriggeredMode = DISABLE;
+  hcan1.Init.AutoBusOff = DISABLE;
+  hcan1.Init.AutoWakeUp = DISABLE;
+  hcan1.Init.AutoRetransmission = DISABLE;
+  hcan1.Init.ReceiveFifoLocked = DISABLE;
+  hcan1.Init.TransmitFifoPriority = DISABLE;
+  if (HAL_CAN_Init(&hcan1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN CAN1_Init 2 */
 
-	/* USER CODE END CAN1_Init 2 */
-
-}
-
-/**
- * @brief CRC Initialization Function
- * @param None
- * @retval None
- */
-static void MX_CRC_Init(void) {
-
-	/* USER CODE BEGIN CRC_Init 0 */
-
-	/* USER CODE END CRC_Init 0 */
-
-	/* USER CODE BEGIN CRC_Init 1 */
-
-	/* USER CODE END CRC_Init 1 */
-	hcrc.Instance = CRC;
-	if (HAL_CRC_Init(&hcrc) != HAL_OK) {
-		Error_Handler();
-	}
-	/* USER CODE BEGIN CRC_Init 2 */
-
-	/* USER CODE END CRC_Init 2 */
+  /* USER CODE END CAN1_Init 2 */
 
 }
 
 /**
- * @brief IWDG Initialization Function
- * @param None
- * @retval None
- */
-static void MX_IWDG_Init(void) {
+  * @brief CRC Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_CRC_Init(void)
+{
 
-	/* USER CODE BEGIN IWDG_Init 0 */
+  /* USER CODE BEGIN CRC_Init 0 */
 
-	/* USER CODE END IWDG_Init 0 */
+  /* USER CODE END CRC_Init 0 */
 
-	/* USER CODE BEGIN IWDG_Init 1 */
+  /* USER CODE BEGIN CRC_Init 1 */
 
-	/* USER CODE END IWDG_Init 1 */
-	hiwdg.Instance = IWDG;
-	hiwdg.Init.Prescaler = IWDG_PRESCALER_4;
-	hiwdg.Init.Reload = 4095;
-	if (HAL_IWDG_Init(&hiwdg) != HAL_OK) {
-		Error_Handler();
-	}
-	/* USER CODE BEGIN IWDG_Init 2 */
+  /* USER CODE END CRC_Init 1 */
+  hcrc.Instance = CRC;
+  if (HAL_CRC_Init(&hcrc) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN CRC_Init 2 */
 
-	/* USER CODE END IWDG_Init 2 */
-
-}
-
-/**
- * @brief SDIO Initialization Function
- * @param None
- * @retval None
- */
-static void MX_SDIO_SD_Init(void) {
-
-	/* USER CODE BEGIN SDIO_Init 0 */
-
-	/* USER CODE END SDIO_Init 0 */
-
-	/* USER CODE BEGIN SDIO_Init 1 */
-
-	/* USER CODE END SDIO_Init 1 */
-	hsd.Instance = SDIO;
-	hsd.Init.ClockEdge = SDIO_CLOCK_EDGE_RISING;
-	hsd.Init.ClockBypass = SDIO_CLOCK_BYPASS_DISABLE;
-	hsd.Init.ClockPowerSave = SDIO_CLOCK_POWER_SAVE_DISABLE;
-	hsd.Init.BusWide = SDIO_BUS_WIDE_1B;
-	hsd.Init.HardwareFlowControl = SDIO_HARDWARE_FLOW_CONTROL_DISABLE;
-	hsd.Init.ClockDiv = 0;
-	/* USER CODE BEGIN SDIO_Init 2 */
-
-	/* USER CODE END SDIO_Init 2 */
+  /* USER CODE END CRC_Init 2 */
 
 }
 
 /**
- * @brief SPI1 Initialization Function
- * @param None
- * @retval None
- */
-static void MX_SPI1_Init(void) {
+  * @brief IWDG Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_IWDG_Init(void)
+{
 
-	/* USER CODE BEGIN SPI1_Init 0 */
+  /* USER CODE BEGIN IWDG_Init 0 */
 
-	/* USER CODE END SPI1_Init 0 */
+  /* USER CODE END IWDG_Init 0 */
 
-	/* USER CODE BEGIN SPI1_Init 1 */
+  /* USER CODE BEGIN IWDG_Init 1 */
 
-	/* USER CODE END SPI1_Init 1 */
-	/* SPI1 parameter configuration*/
-	hspi1.Instance = SPI1;
-	hspi1.Init.Mode = SPI_MODE_MASTER;
-	hspi1.Init.Direction = SPI_DIRECTION_2LINES;
-	hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
-	hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
-	hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
-	hspi1.Init.NSS = SPI_NSS_SOFT;
-	hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
-	hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
-	hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
-	hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
-	hspi1.Init.CRCPolynomial = 10;
-	if (HAL_SPI_Init(&hspi1) != HAL_OK) {
-		Error_Handler();
-	}
-	/* USER CODE BEGIN SPI1_Init 2 */
+  /* USER CODE END IWDG_Init 1 */
+  hiwdg.Instance = IWDG;
+  hiwdg.Init.Prescaler = IWDG_PRESCALER_4;
+  hiwdg.Init.Reload = 4095;
+  if (HAL_IWDG_Init(&hiwdg) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN IWDG_Init 2 */
 
-	/* USER CODE END SPI1_Init 2 */
+  /* USER CODE END IWDG_Init 2 */
 
 }
 
 /**
- * @brief UART4 Initialization Function
- * @param None
- * @retval None
- */
-static void MX_UART4_Init(void) {
+  * @brief SDIO Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_SDIO_SD_Init(void)
+{
 
-	/* USER CODE BEGIN UART4_Init 0 */
+  /* USER CODE BEGIN SDIO_Init 0 */
 
-	/* USER CODE END UART4_Init 0 */
+  /* USER CODE END SDIO_Init 0 */
 
-	/* USER CODE BEGIN UART4_Init 1 */
+  /* USER CODE BEGIN SDIO_Init 1 */
 
-	/* USER CODE END UART4_Init 1 */
-	huart4.Instance = UART4;
-	huart4.Init.BaudRate = 115200;
-	huart4.Init.WordLength = UART_WORDLENGTH_8B;
-	huart4.Init.StopBits = UART_STOPBITS_1;
-	huart4.Init.Parity = UART_PARITY_NONE;
-	huart4.Init.Mode = UART_MODE_TX_RX;
-	huart4.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-	huart4.Init.OverSampling = UART_OVERSAMPLING_16;
-	if (HAL_UART_Init(&huart4) != HAL_OK) {
-		Error_Handler();
-	}
-	/* USER CODE BEGIN UART4_Init 2 */
+  /* USER CODE END SDIO_Init 1 */
+  hsd.Instance = SDIO;
+  hsd.Init.ClockEdge = SDIO_CLOCK_EDGE_RISING;
+  hsd.Init.ClockBypass = SDIO_CLOCK_BYPASS_DISABLE;
+  hsd.Init.ClockPowerSave = SDIO_CLOCK_POWER_SAVE_DISABLE;
+  hsd.Init.BusWide = SDIO_BUS_WIDE_1B;
+  hsd.Init.HardwareFlowControl = SDIO_HARDWARE_FLOW_CONTROL_DISABLE;
+  hsd.Init.ClockDiv = 0;
+  /* USER CODE BEGIN SDIO_Init 2 */
 
-	/* USER CODE END UART4_Init 2 */
+  /* USER CODE END SDIO_Init 2 */
 
 }
 
 /**
- * @brief USART1 Initialization Function
- * @param None
- * @retval None
- */
-static void MX_USART1_UART_Init(void) {
+  * @brief SPI1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_SPI1_Init(void)
+{
 
-	/* USER CODE BEGIN USART1_Init 0 */
+  /* USER CODE BEGIN SPI1_Init 0 */
 
-	/* USER CODE END USART1_Init 0 */
+  /* USER CODE END SPI1_Init 0 */
 
-	/* USER CODE BEGIN USART1_Init 1 */
+  /* USER CODE BEGIN SPI1_Init 1 */
 
-	/* USER CODE END USART1_Init 1 */
-	huart1.Instance = USART1;
-	huart1.Init.BaudRate = 115200;
-	huart1.Init.WordLength = UART_WORDLENGTH_8B;
-	huart1.Init.StopBits = UART_STOPBITS_1;
-	huart1.Init.Parity = UART_PARITY_NONE;
-	huart1.Init.Mode = UART_MODE_TX_RX;
-	huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-	huart1.Init.OverSampling = UART_OVERSAMPLING_16;
-	if (HAL_UART_Init(&huart1) != HAL_OK) {
-		Error_Handler();
-	}
-	/* USER CODE BEGIN USART1_Init 2 */
+  /* USER CODE END SPI1_Init 1 */
+  /* SPI1 parameter configuration*/
+  hspi1.Instance = SPI1;
+  hspi1.Init.Mode = SPI_MODE_MASTER;
+  hspi1.Init.Direction = SPI_DIRECTION_2LINES;
+  hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
+  hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
+  hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
+  hspi1.Init.NSS = SPI_NSS_SOFT;
+  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
+  hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
+  hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
+  hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
+  hspi1.Init.CRCPolynomial = 10;
+  if (HAL_SPI_Init(&hspi1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN SPI1_Init 2 */
 
-	/* USER CODE END USART1_Init 2 */
-
-}
-
-/**
- * @brief USART2 Initialization Function
- * @param None
- * @retval None
- */
-static void MX_USART2_UART_Init(void) {
-
-	/* USER CODE BEGIN USART2_Init 0 */
-
-	/* USER CODE END USART2_Init 0 */
-
-	/* USER CODE BEGIN USART2_Init 1 */
-
-	/* USER CODE END USART2_Init 1 */
-	huart2.Instance = USART2;
-	huart2.Init.BaudRate = 115200;
-	huart2.Init.WordLength = UART_WORDLENGTH_8B;
-	huart2.Init.StopBits = UART_STOPBITS_1;
-	huart2.Init.Parity = UART_PARITY_NONE;
-	huart2.Init.Mode = UART_MODE_TX_RX;
-	huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-	huart2.Init.OverSampling = UART_OVERSAMPLING_16;
-	if (HAL_UART_Init(&huart2) != HAL_OK) {
-		Error_Handler();
-	}
-	/* USER CODE BEGIN USART2_Init 2 */
-
-	/* USER CODE END USART2_Init 2 */
+  /* USER CODE END SPI1_Init 2 */
 
 }
 
 /**
- * @brief USART3 Initialization Function
- * @param None
- * @retval None
- */
-static void MX_USART3_UART_Init(void) {
+  * @brief UART4 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_UART4_Init(void)
+{
 
-	/* USER CODE BEGIN USART3_Init 0 */
+  /* USER CODE BEGIN UART4_Init 0 */
 
-	/* USER CODE END USART3_Init 0 */
+  /* USER CODE END UART4_Init 0 */
 
-	/* USER CODE BEGIN USART3_Init 1 */
+  /* USER CODE BEGIN UART4_Init 1 */
 
-	/* USER CODE END USART3_Init 1 */
-	huart3.Instance = USART3;
-	huart3.Init.BaudRate = 115200;
-	huart3.Init.WordLength = UART_WORDLENGTH_8B;
-	huart3.Init.StopBits = UART_STOPBITS_1;
-	huart3.Init.Parity = UART_PARITY_NONE;
-	huart3.Init.Mode = UART_MODE_TX_RX;
-	huart3.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-	huart3.Init.OverSampling = UART_OVERSAMPLING_16;
-	if (HAL_UART_Init(&huart3) != HAL_OK) {
-		Error_Handler();
-	}
-	/* USER CODE BEGIN USART3_Init 2 */
+  /* USER CODE END UART4_Init 1 */
+  huart4.Instance = UART4;
+  huart4.Init.BaudRate = 115200;
+  huart4.Init.WordLength = UART_WORDLENGTH_8B;
+  huart4.Init.StopBits = UART_STOPBITS_1;
+  huart4.Init.Parity = UART_PARITY_NONE;
+  huart4.Init.Mode = UART_MODE_TX_RX;
+  huart4.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart4.Init.OverSampling = UART_OVERSAMPLING_16;
+  if (HAL_UART_Init(&huart4) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN UART4_Init 2 */
 
-	/* USER CODE END USART3_Init 2 */
+  /* USER CODE END UART4_Init 2 */
+
+}
+
+/**
+  * @brief USART1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART1_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART1_Init 0 */
+
+  /* USER CODE END USART1_Init 0 */
+
+  /* USER CODE BEGIN USART1_Init 1 */
+
+  /* USER CODE END USART1_Init 1 */
+  huart1.Instance = USART1;
+  huart1.Init.BaudRate = 115200;
+  huart1.Init.WordLength = UART_WORDLENGTH_8B;
+  huart1.Init.StopBits = UART_STOPBITS_1;
+  huart1.Init.Parity = UART_PARITY_NONE;
+  huart1.Init.Mode = UART_MODE_TX_RX;
+  huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart1.Init.OverSampling = UART_OVERSAMPLING_16;
+  if (HAL_UART_Init(&huart1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART1_Init 2 */
+
+  /* USER CODE END USART1_Init 2 */
+
+}
+
+/**
+  * @brief USART2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART2_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART2_Init 0 */
+
+  /* USER CODE END USART2_Init 0 */
+
+  /* USER CODE BEGIN USART2_Init 1 */
+
+  /* USER CODE END USART2_Init 1 */
+  huart2.Instance = USART2;
+  huart2.Init.BaudRate = 115200;
+  huart2.Init.WordLength = UART_WORDLENGTH_8B;
+  huart2.Init.StopBits = UART_STOPBITS_1;
+  huart2.Init.Parity = UART_PARITY_NONE;
+  huart2.Init.Mode = UART_MODE_TX_RX;
+  huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart2.Init.OverSampling = UART_OVERSAMPLING_16;
+  if (HAL_UART_Init(&huart2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART2_Init 2 */
+
+  /* USER CODE END USART2_Init 2 */
+
+}
+
+/**
+  * @brief USART3 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART3_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART3_Init 0 */
+
+  /* USER CODE END USART3_Init 0 */
+
+  /* USER CODE BEGIN USART3_Init 1 */
+
+  /* USER CODE END USART3_Init 1 */
+  huart3.Instance = USART3;
+  huart3.Init.BaudRate = 115200;
+  huart3.Init.WordLength = UART_WORDLENGTH_8B;
+  huart3.Init.StopBits = UART_STOPBITS_1;
+  huart3.Init.Parity = UART_PARITY_NONE;
+  huart3.Init.Mode = UART_MODE_TX_RX;
+  huart3.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart3.Init.OverSampling = UART_OVERSAMPLING_16;
+  if (HAL_UART_Init(&huart3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART3_Init 2 */
+
+  /* USER CODE END USART3_Init 2 */
 
 }
 
 /** 
- * Enable DMA controller clock
- */
-static void MX_DMA_Init(void) {
+  * Enable DMA controller clock
+  */
+static void MX_DMA_Init(void) 
+{
 
-	/* DMA controller clock enable */
-	__HAL_RCC_DMA2_CLK_ENABLE();
+  /* DMA controller clock enable */
+  __HAL_RCC_DMA2_CLK_ENABLE();
 
-	/* DMA interrupt init */
-	/* DMA2_Stream2_IRQn interrupt configuration */
-	HAL_NVIC_SetPriority(DMA2_Stream2_IRQn, 5, 0);
-	HAL_NVIC_EnableIRQ(DMA2_Stream2_IRQn);
+  /* DMA interrupt init */
+  /* DMA2_Stream2_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA2_Stream2_IRQn, 5, 0);
+  HAL_NVIC_EnableIRQ(DMA2_Stream2_IRQn);
 
 }
 
 /**
- * @brief GPIO Initialization Function
- * @param None
- * @retval None
- */
-static void MX_GPIO_Init(void) {
-	GPIO_InitTypeDef GPIO_InitStruct = { 0 };
+  * @brief GPIO Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_GPIO_Init(void)
+{
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
 
-	/* GPIO Ports Clock Enable */
-	__HAL_RCC_GPIOC_CLK_ENABLE();
-	__HAL_RCC_GPIOA_CLK_ENABLE();
-	__HAL_RCC_GPIOB_CLK_ENABLE();
-	__HAL_RCC_GPIOD_CLK_ENABLE();
+  /* GPIO Ports Clock Enable */
+  __HAL_RCC_GPIOC_CLK_ENABLE();
+  __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
+  __HAL_RCC_GPIOD_CLK_ENABLE();
 
-	/*Configure GPIO pin Output Level */
-	HAL_GPIO_WritePin(XBEE_RESET_GPIO_Port, XBEE_RESET_Pin, GPIO_PIN_RESET);
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(XBEE_RESET_GPIO_Port, XBEE_RESET_Pin, GPIO_PIN_RESET);
 
-	/*Configure GPIO pin Output Level */
-	HAL_GPIO_WritePin(RF_SPI1_CSN_GPIO_Port, RF_SPI1_CSN_Pin, GPIO_PIN_RESET);
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(RF_SPI1_CSN_GPIO_Port, RF_SPI1_CSN_Pin, GPIO_PIN_RESET);
 
-	/*Configure GPIO pin Output Level */
-	HAL_GPIO_WritePin(GPIOB,
-			RF_PWR_UP_Pin | RF_TRX_CE_Pin | RF_TX_EN_Pin | GNSS_FORCE_ON_Pin
-					| GNSS_RESET_Pin, GPIO_PIN_RESET);
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOB, RF_PWR_UP_Pin|RF_TRX_CE_Pin|RF_TX_EN_Pin|GNSS_FORCE_ON_Pin 
+                          |GNSS_RESET_Pin, GPIO_PIN_RESET);
 
-	/*Configure GPIO pins : XBEE_RSSI_Pin RF_DR_Pin RF_AM_Pin */
-	GPIO_InitStruct.Pin = XBEE_RSSI_Pin | RF_DR_Pin | RF_AM_Pin;
-	GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-	GPIO_InitStruct.Pull = GPIO_NOPULL;
-	HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+  /*Configure GPIO pins : XBEE_RSSI_Pin RF_DR_Pin RF_AM_Pin */
+  GPIO_InitStruct.Pin = XBEE_RSSI_Pin|RF_DR_Pin|RF_AM_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-	/*Configure GPIO pin : XBEE_RESET_Pin */
-	GPIO_InitStruct.Pin = XBEE_RESET_Pin;
-	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-	GPIO_InitStruct.Pull = GPIO_NOPULL;
-	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-	HAL_GPIO_Init(XBEE_RESET_GPIO_Port, &GPIO_InitStruct);
+  /*Configure GPIO pin : XBEE_RESET_Pin */
+  GPIO_InitStruct.Pin = XBEE_RESET_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(XBEE_RESET_GPIO_Port, &GPIO_InitStruct);
 
-	/*Configure GPIO pin : RF_SPI1_CSN_Pin */
-	GPIO_InitStruct.Pin = RF_SPI1_CSN_Pin;
-	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-	GPIO_InitStruct.Pull = GPIO_NOPULL;
-	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-	HAL_GPIO_Init(RF_SPI1_CSN_GPIO_Port, &GPIO_InitStruct);
+  /*Configure GPIO pin : RF_SPI1_CSN_Pin */
+  GPIO_InitStruct.Pin = RF_SPI1_CSN_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(RF_SPI1_CSN_GPIO_Port, &GPIO_InitStruct);
 
-	/*Configure GPIO pins : RF_CD_Pin RF_uPCLK_Pin GNSS_1PPS_Pin */
-	GPIO_InitStruct.Pin = RF_CD_Pin | RF_uPCLK_Pin | GNSS_1PPS_Pin;
-	GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-	GPIO_InitStruct.Pull = GPIO_NOPULL;
-	HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+  /*Configure GPIO pins : RF_CD_Pin RF_uPCLK_Pin GNSS_1PPS_Pin */
+  GPIO_InitStruct.Pin = RF_CD_Pin|RF_uPCLK_Pin|GNSS_1PPS_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-	/*Configure GPIO pins : RF_PWR_UP_Pin RF_TRX_CE_Pin RF_TX_EN_Pin GNSS_FORCE_ON_Pin
-	 GNSS_RESET_Pin */
-	GPIO_InitStruct.Pin = RF_PWR_UP_Pin | RF_TRX_CE_Pin | RF_TX_EN_Pin
-			| GNSS_FORCE_ON_Pin | GNSS_RESET_Pin;
-	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-	GPIO_InitStruct.Pull = GPIO_NOPULL;
-	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-	HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+  /*Configure GPIO pins : RF_PWR_UP_Pin RF_TRX_CE_Pin RF_TX_EN_Pin GNSS_FORCE_ON_Pin 
+                           GNSS_RESET_Pin */
+  GPIO_InitStruct.Pin = RF_PWR_UP_Pin|RF_TRX_CE_Pin|RF_TX_EN_Pin|GNSS_FORCE_ON_Pin 
+                          |GNSS_RESET_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
 }
 
@@ -681,8 +705,9 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
  * @retval None
  */
 /* USER CODE END Header_StartWatchdogTask */
-void StartWatchdogTask(void const *argument) {
-	/* USER CODE BEGIN 5 */
+void StartWatchdogTask(void const * argument)
+{
+  /* USER CODE BEGIN 5 */
 	/* Initialize the watchdog */
 	HAL_IWDG_Init(&hiwdg);
 
@@ -738,7 +763,7 @@ void StartWatchdogTask(void const *argument) {
 		}
 		osDelay(WCU_DEFAULT_TASK_DELAY);
 	}
-	/* USER CODE END 5 */
+  /* USER CODE END 5 */ 
 }
 
 /* USER CODE BEGIN Header_StartBtReceiveTask */
@@ -748,8 +773,9 @@ void StartWatchdogTask(void const *argument) {
  * @retval None
  */
 /* USER CODE END Header_StartBtReceiveTask */
-void StartBtReceiveTask(void const *argument) {
-	/* USER CODE BEGIN StartBtReceiveTask */
+void StartBtReceiveTask(void const * argument)
+{
+  /* USER CODE BEGIN StartBtReceiveTask */
 	static CanFrameTypedef canFrame = { .DataDirection = TX }; /* CAN frame structure */
 	static uint8_t btUartRxBuff[WCU_BT_UART_RX_BUFF_SIZE]; /* UART Rx buffer */
 	static uint16_t readCrc; /* Buffer for the transmitted CRC */
@@ -845,7 +871,7 @@ void StartBtReceiveTask(void const *argument) {
 		}
 		osDelay(WCU_DEFAULT_TASK_DELAY);
 	}
-	/* USER CODE END StartBtReceiveTask */
+  /* USER CODE END StartBtReceiveTask */
 }
 
 /* USER CODE BEGIN Header_StartXbeeSendTask */
@@ -855,8 +881,9 @@ void StartBtReceiveTask(void const *argument) {
  * @retval None
  */
 /* USER CODE END Header_StartXbeeSendTask */
-void StartXbeeSendTask(void const *argument) {
-	/* USER CODE BEGIN StartXbeeSendTask */
+void StartXbeeSendTask(void const * argument)
+{
+  /* USER CODE BEGIN StartXbeeSendTask */
 	static CanFrameTypedef frameBuff; /* CAN frame buffer */
 	static uint8_t xbeeUartTxBuff[R3TP_VER0_FRAME_SIZE]; /* UART Tx buffer */
 	static uint16_t calculatedCrc; /* Buffer for the calculated CRC */
@@ -941,7 +968,7 @@ void StartXbeeSendTask(void const *argument) {
 
 		osDelay(WCU_DEFAULT_TASK_DELAY);
 	}
-	/* USER CODE END StartXbeeSendTask */
+  /* USER CODE END StartXbeeSendTask */
 }
 
 /* USER CODE BEGIN Header_StartXbeeReceiveTask */
@@ -951,8 +978,9 @@ void StartXbeeSendTask(void const *argument) {
  * @retval None
  */
 /* USER CODE END Header_StartXbeeReceiveTask */
-void StartXbeeReceiveTask(void const *argument) {
-	/* USER CODE BEGIN StartXbeeReceiveTask */
+void StartXbeeReceiveTask(void const * argument)
+{
+  /* USER CODE BEGIN StartXbeeReceiveTask */
 	static uint8_t xbeeUartRxBuff[R3TP_VER1_MAX_FRAME_SIZE]; /* UART Rx buffer */
 	static uint16_t readCrc; /* Buffer for the transmitted CRC */
 	static uint16_t calculatedCrc; /* Buffer for the calculated CRC */
@@ -1059,7 +1087,7 @@ void StartXbeeReceiveTask(void const *argument) {
 		}
 		osDelay(WCU_DEFAULT_TASK_DELAY);
 	}
-	/* USER CODE END StartXbeeReceiveTask */
+  /* USER CODE END StartXbeeReceiveTask */
 }
 
 /* USER CODE BEGIN Header_StartGnssReceiveTask */
@@ -1069,8 +1097,9 @@ void StartXbeeReceiveTask(void const *argument) {
  * @retval None
  */
 /* USER CODE END Header_StartGnssReceiveTask */
-void StartGnssReceiveTask(void const *argument) {
-	/* USER CODE BEGIN StartGnssReceiveTask */
+void StartGnssReceiveTask(void const * argument)
+{
+  /* USER CODE BEGIN StartGnssReceiveTask */
 	/* Infinite loop */
 	for (;;) {
 
@@ -1084,7 +1113,7 @@ void StartGnssReceiveTask(void const *argument) {
 		}
 		osDelay(WCU_DEFAULT_TASK_DELAY);
 	}
-	/* USER CODE END StartGnssReceiveTask */
+  /* USER CODE END StartGnssReceiveTask */
 }
 
 /* USER CODE BEGIN Header_StartRfReceiveTask */
@@ -1094,8 +1123,9 @@ void StartGnssReceiveTask(void const *argument) {
  * @retval None
  */
 /* USER CODE END Header_StartRfReceiveTask */
-void StartRfReceiveTask(void const *argument) {
-	/* USER CODE BEGIN StartRfReceiveTask */
+void StartRfReceiveTask(void const * argument)
+{
+  /* USER CODE BEGIN StartRfReceiveTask */
 	/* Infinite loop */
 	for (;;) {
 
@@ -1109,7 +1139,7 @@ void StartRfReceiveTask(void const *argument) {
 		}
 		osDelay(WCU_DEFAULT_TASK_DELAY);
 	}
-	/* USER CODE END StartRfReceiveTask */
+  /* USER CODE END StartRfReceiveTask */
 }
 
 /* USER CODE BEGIN Header_StartCanGatekeeperTask */
@@ -1119,8 +1149,9 @@ void StartRfReceiveTask(void const *argument) {
  * @retval None
  */
 /* USER CODE END Header_StartCanGatekeeperTask */
-void StartCanGatekeeperTask(void const *argument) {
-	/* USER CODE BEGIN StartCanGatekeeperTask */
+void StartCanGatekeeperTask(void const * argument)
+{
+  /* USER CODE BEGIN StartCanGatekeeperTask */
 	static CanFrameTypedef frameBuff; /* CAN frame buffer */
 	static uint32_t dummy; /* CAN Tx mailbox */
 	/* Infinite loop */
@@ -1168,7 +1199,7 @@ void StartCanGatekeeperTask(void const *argument) {
 		}
 		osDelay(WCU_DEFAULT_TASK_DELAY);
 	}
-	/* USER CODE END StartCanGatekeeperTask */
+  /* USER CODE END StartCanGatekeeperTask */
 }
 
 /* USER CODE BEGIN Header_StartSdGatekeeperTask */
@@ -1178,44 +1209,54 @@ void StartCanGatekeeperTask(void const *argument) {
  * @retval None
  */
 /* USER CODE END Header_StartSdGatekeeperTask */
-void StartSdGatekeeperTask(void const *argument) {
-	/* USER CODE BEGIN StartSdGatekeeperTask */
+void StartSdGatekeeperTask(void const * argument)
+{
+  /* USER CODE BEGIN StartSdGatekeeperTask */
+
+	/* Read telemetry subscription */
+	/* Push the subscription to the queue */
+	/* Notify the xbeeReceive */
+
 	/* Infinite loop */
 	for (;;) {
+		/* Wait for incoming error messages */
+		/* Wait for new subscription */
 		osDelay(WCU_DEFAULT_TASK_DELAY);
 	}
-	/* USER CODE END StartSdGatekeeperTask */
+  /* USER CODE END StartSdGatekeeperTask */
+}
+
+ /**
+  * @brief  Period elapsed callback in non blocking mode
+  * @note   This function is called  when TIM6 interrupt took place, inside
+  * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
+  * a global variable "uwTick" used as application time base.
+  * @param  htim : TIM handle
+  * @retval None
+  */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+  /* USER CODE BEGIN Callback 0 */
+
+  /* USER CODE END Callback 0 */
+  if (htim->Instance == TIM6) {
+    HAL_IncTick();
+  }
+  /* USER CODE BEGIN Callback 1 */
+
+  /* USER CODE END Callback 1 */
 }
 
 /**
- * @brief  Period elapsed callback in non blocking mode
- * @note   This function is called  when TIM6 interrupt took place, inside
- * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
- * a global variable "uwTick" used as application time base.
- * @param  htim : TIM handle
- * @retval None
- */
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
-	/* USER CODE BEGIN Callback 0 */
-
-	/* USER CODE END Callback 0 */
-	if (htim->Instance == TIM6) {
-		HAL_IncTick();
-	}
-	/* USER CODE BEGIN Callback 1 */
-
-	/* USER CODE END Callback 1 */
-}
-
-/**
- * @brief  This function is executed in case of error occurrence.
- * @retval None
- */
-void Error_Handler(void) {
-	/* USER CODE BEGIN Error_Handler_Debug */
+  * @brief  This function is executed in case of error occurrence.
+  * @retval None
+  */
+void Error_Handler(void)
+{
+  /* USER CODE BEGIN Error_Handler_Debug */
 	/* User can add his own implementation to report the HAL error return state */
 
-	/* USER CODE END Error_Handler_Debug */
+  /* USER CODE END Error_Handler_Debug */
 }
 
 #ifdef  USE_FULL_ASSERT

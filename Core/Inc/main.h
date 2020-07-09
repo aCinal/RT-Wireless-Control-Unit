@@ -125,13 +125,19 @@ void Error_Handler(void);
  * @brief BT (WDTS) defines
  */
 #define WCU_BT_UART_RX_BUFF_SIZE				R3TP_VER0_FRAME_SIZE	/* UART Rx buffer size in bytes */
-#define WCU_BT_UART_RX_NOTIFY_TAKE_TIMEOUT		WCU_DEFAULT_TIMEOUT	/* UART Rx wait for notification timeout */
+#define WCU_BT_UART_RX_NOTIFY_TAKE_TIMEOUT		WCU_DEFAULT_TIMEOUT		/* UART Rx wait for notification timeout */
 
 /**
  * @brief Xbee (telemetry) defines
  */
-#define WCU_XBEE_UART_TX_TIMEOUT				WCU_DEFAULT_TIMEOUT /* UART Tx timeout */
-#define WCU_XBEE_UART_RX_TIMEOUT				WCU_DEFAULT_TIMEOUT	/* UART Rx timeout */
+#define WCU_XBEE_UART_TX_TIMEOUT				WCU_DEFAULT_TIMEOUT		/* UART Tx timeout */
+#define WCU_XBEE_UART_RX_TIMEOUT				WCU_DEFAULT_TIMEOUT		/* UART Rx timeout */
+
+/**
+ * @brief SD/FATFS defines
+ */
+#define WCU_ERROR_LOG_FILENAME					"ERRORLOG.TXT"			/* Error log filename */
+#define WCU_SUBSCRIPTION_FILENAME				"SUBSCRIPTION.TXT"		/* Subscription filename */
 
 /* USER CODE END Private defines */
 
