@@ -1,11 +1,11 @@
 /**
  * @author Adrian Cinal
- * @file rte12_libs_generic.h
+ * @file rt12e_libs_generic.h
  * @brief Header file providing macros facilitating data manipulation
  */
 
-#ifndef __RTE12_LIBS_GENERIC_H_
-#define __RTE12_LIBS_GENERIC_H_
+#ifndef __RT12E_LIBS_GENERIC_H_
+#define __RT12E_LIBS_GENERIC_H_
 
 /**
  * @brief Converts two separate 8-bit values to a single 16-bit value
@@ -32,4 +32,4 @@
  */
 #define GET16LSBITS(value) (uint16_t)(value & 0xFFFF)
 
-#endif /* __RTE12_LIBS_GENERIC_H_ */
+#endif /* __RT12E_LIBS_GENERIC_H_ */

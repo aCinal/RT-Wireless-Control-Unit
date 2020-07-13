@@ -1,11 +1,11 @@
 /**
  * @author Adrian Cinal
- * @file rte12_libs_r3tp.h
+ * @file rt12e_libs_r3tp.h
  * @brief Header file containing Racing Team Telemetry Transport Protocol (R3TP) defines and macros
  */
 
-#ifndef __RTE12_LIBS_R3TP_H_
-#define __RTE12_LIBS_R3TP_H_
+#ifndef __RT12E_LIBS_R3TP_H_
+#define __RT12E_LIBS_R3TP_H_
 
 /* Exported defines ------------------------------------------------------------*/
 #define R3TP_VER0_FRAME_SIZE 20U									/* R3TP version 0 frame size in bytes */
@@ -37,4 +37,4 @@
  */
 #define R3TP_VER1_MESSAGE_LENGTH(frameNum) (uint32_t)((uint32_t)frameNum * 4U + 12U)
 
-#endif /* __RTE12_LIBS_R3TP_H_ */
+#endif /* __RT12E_LIBS_R3TP_H_ */

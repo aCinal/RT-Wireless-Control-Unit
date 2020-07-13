@@ -1,11 +1,11 @@
 /**
  * @author Adrian Cinal
- * @file rte12_libs_can.h
+ * @file rt12e_libs_can.h
  * @brief Header file containing functions and defines facilitating the use of the CAN peripheral
  */
 
-#ifndef __RTE12_LIBS_CAN_H_
-#define __RTE12_LIBS_CAN_H_
+#ifndef __RT12E_LIBS_CAN_H_
+#define __RT12E_LIBS_CAN_H_
 
 #include "main.h"
 
@@ -54,4 +54,4 @@ typedef struct {
  */
 void setCanFilterList(CAN_HandleTypeDef *hcan, uint32_t* ids, uint32_t count);
 
-#endif /* __RTE12_LIBS_CAN_H_ */
+#endif /* __RT12E_LIBS_CAN_H_ */

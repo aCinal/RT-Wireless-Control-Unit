@@ -19,6 +19,8 @@
 /* USER CODE END Header */
 
 /* Includes ------------------------------------------------------------------*/
+#include <rt12e_libs_can.h>
+#include <rt12e_libs_generic.h>
 #include "main.h"
 #include "cmsis_os.h"
 #include "fatfs.h"
@@ -26,8 +28,6 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
-#include "rte12_libs_generic.h"
-#include "rte12_libs_can.h"
 #include <stdbool.h>
 #include <string.h>
 

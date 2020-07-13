@@ -1,5 +1,5 @@
-Core/Src/rte12_libs_can.o: ../Core/Src/rte12_libs_can.c \
- ../Core/Inc/rte12_libs_can.h ../Core/Inc/main.h \
+Core/Src/rt12e_libs_can.o: ../Core/Src/rt12e_libs_can.c \
+ ../Core/Inc/rt12e_libs_can.h ../Core/Inc/main.h \
  ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h \
  ../Core/Inc/stm32f4xx_hal_conf.h \
  ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h \
@@ -34,9 +34,9 @@ Core/Src/rte12_libs_can.o: ../Core/Src/rte12_libs_can.c \
  ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_tim.h \
  ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_tim_ex.h \
  ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h \
- ../Core/Inc/rte12_libs_r3tp.h
+ ../Core/Inc/rt12e_libs_r3tp.h
 
-../Core/Inc/rte12_libs_can.h:
+../Core/Inc/rt12e_libs_can.h:
 
 ../Core/Inc/main.h:
 
@@ -108,4 +108,4 @@ Core/Src/rte12_libs_can.o: ../Core/Src/rte12_libs_can.c \
 
 ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h:
 
-../Core/Inc/rte12_libs_r3tp.h:
+../Core/Inc/rt12e_libs_r3tp.h:

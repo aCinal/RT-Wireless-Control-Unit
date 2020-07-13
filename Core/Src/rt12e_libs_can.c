@@ -1,10 +1,10 @@
 /**
  * @author Adrian Cinal
- * @file rte12_libs_can.c
+ * @file rt12e_libs_can.c
  * @brief Source file defining functions facilitating the use of the CAN peripheral
  */
 
-#include "rte12_libs_can.h"
+#include <rt12e_libs_can.h>
 
 /**
  * @brief Configures the CAN filters according to the provided list of CAN IDs
