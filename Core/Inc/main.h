@@ -50,6 +50,12 @@ extern "C" {
 /* Exported macro ------------------------------------------------------------*/
 /* USER CODE BEGIN EM */
 
+/**
+ * TODO:
+ * @brief Logs an error message to the SD card
+ */
+#define LOGERROR(message) (void)message;
+
 /* USER CODE END EM */
 
 /* Exported functions prototypes ---------------------------------------------*/
@@ -136,8 +142,8 @@ void Error_Handler(void);
 /**
  * @brief SD/FATFS defines
  */
-#define WCU_ERROR_LOG_FILENAME					"ERRORLOG.TXT"			/* Error log filename */
-#define WCU_SUBSCRIPTION_FILENAME				"SUBSCRIPTION.TXT"		/* Subscription filename */
+#define WCU_ERROR_LOG_FILE_PATH					"ERRORLOG.TXT"			/* Error log filename */
+#define WCU_SUBSCRIPTION_FILE_PATH				"SUBSCRIPTION.CSV"		/* Subscription filename */
 
 /* USER CODE END Private defines */
 

@@ -48,8 +48,8 @@ RT12e-WCU.bin \
 all: RT12e-WCU.elf secondary-outputs
 
 # Tool invocations
-RT12e-WCU.elf: $(OBJS) $(USER_OBJS) C:\Users\litfam\STM32CubeIDE\workspace_1.1.0\RT12e-WCU\STM32F405RGTX_FLASH.ld
-	arm-none-eabi-gcc -o "RT12e-WCU.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\litfam\STM32CubeIDE\workspace_1.1.0\RT12e-WCU\STM32F405RGTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="RT12e-WCU.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+RT12e-WCU.elf: $(OBJS) $(USER_OBJS) C:\Users\Adrian\Documents\PWR_Racing_Team\RT12e-WCU\rt12e-wcu\STM32F405RGTX_FLASH.ld
+	arm-none-eabi-gcc -o "RT12e-WCU.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\Adrian\Documents\PWR_Racing_Team\RT12e-WCU\rt12e-wcu\STM32F405RGTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="RT12e-WCU.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
