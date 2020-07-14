@@ -50,12 +50,6 @@ extern "C" {
 /* Exported macro ------------------------------------------------------------*/
 /* USER CODE BEGIN EM */
 
-/**
- * TODO:
- * @brief Logs an error message to the SD card
- */
-#define LOGERROR(message) (void)message;
-
 /* USER CODE END EM */
 
 /* Exported functions prototypes ---------------------------------------------*/
@@ -115,17 +109,19 @@ void Error_Handler(void);
 /**
  * @brief Generic defines
  */
-#define WCU_DEFAULT_TASK_DELAY							1U							/* Default task delay */
-#define WCU_DEFAULT_TIMEOUT								portMAX_DELAY				/* Default timeout */
-#define WCU_CRC_MUTEX_TIMEOUT							WCU_DEFAULT_TIMEOUT			/* crcMutex acquire timeout */
-#define WCU_REPORTTOWATCHDOG_QUEUE_SEND_TIMEOUT			WCU_DEFAULT_TIMEOUT			/* reportToWatchdog queue send timeout */
-#define WCU_REPORTTOWATCHDOG_QUEUE_RECEIVE_TIMEOUT		0U							/* reportToWatchdog queue receive timeout */
-#define WCU_CANTRANSMIT_QUEUE_SEND_TIMEOUT				WCU_DEFAULT_TIMEOUT			/* canTransmit queue send timeout */
-#define WCU_CANTRANSMIT_QUEUE_RECEIVE_TIMEOUT			0U							/* canTransmit queue receive timeout */
-#define WCU_CANSUBBEDFRAMES_QUEUE_SEND_TIMEOUT			WCU_DEFAULT_TIMEOUT			/* canTlmtryFrames queue send timeout */
-#define WCU_CANSUBBEDFRAMES_QUEUE_RECEIVE_TIMEOUT		0U							/* canTlmtryFrames queue receive timeout */
 #define WCU_NUMBER_OF_WATCHED_THREADS					(uint8_t)5U					/* Number of threads watched by the IWDG */
 #define WCU_CAN_PAYLOAD_SIZE							8U							/* CAN payload size in bytes */
+#define WCU_DEFAULT_TASK_DELAY							1U							/* Default task delay */
+#define WCU_DEFAULT_TIMEOUT								portMAX_DELAY				/* Default timeout */
+#define WCU_REPORTTOWATCHDOGQUEUE_SEND_TIMEOUT			WCU_DEFAULT_TIMEOUT			/* reportToWatchdogQueue send timeout */
+#define WCU_REPORTTOWATCHDOGQUEUE_RECEIVE_TIMEOUT		0U							/* reportToWatchdogQueue receive timeout */
+#define WCU_CANTRANSMITQUEUE_SEND_TIMEOUT				WCU_DEFAULT_TIMEOUT			/* canTransmitQueue send timeout */
+#define WCU_CANTRANSMITQUEUE_RECEIVE_TIMEOUT			0U							/* canTransmitQueue receive timeout */
+#define WCU_CANRECEIVEQUEUE_SEND_TIMEOUT				WCU_DEFAULT_TIMEOUT			/* canReceiveQueue send timeout */
+#define WCU_CANRECEIVEQUEUE_RECEIVE_TIMEOUT				0U							/* canReceiveQueue receive timeout */
+#define WCU_LOGERRORQUEUE_SEND_TIMEOUT					WCU_DEFAULT_TIMEOUT			/* logErrorQueue send timeout */
+#define WCU_LOGERRORQUEUE_RECEIVE_TIMEOUT				0U							/* logErrorQueue receive timeout */
+#define WCU_CRCMUTEX_TIMEOUT							WCU_DEFAULT_TIMEOUT			/* crcMutex acquire timeout */
 
 /**
  * @brief BT (WDTS) defines
@@ -142,8 +138,8 @@ void Error_Handler(void);
 /**
  * @brief SD/FATFS defines
  */
-#define WCU_ERROR_LOG_FILE_PATH					"ERRORLOG.TXT"			/* Error log filename */
-#define WCU_SUBSCRIPTION_FILE_PATH				"SUBSCRIPTION.CSV"		/* Subscription filename */
+#define WCU_ERROR_LOG_PATH						"ERRORLOG.TXT"			/* Error log file path */
+#define WCU_SUBSCRIPTION_PATH					"SUBSCRIPTION.CSV"		/* Subscription file path */
 
 /* USER CODE END Private defines */
 
