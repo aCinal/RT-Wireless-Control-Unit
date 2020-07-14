@@ -119,8 +119,8 @@ void Error_Handler(void);
 #define WCU_CANTRANSMITQUEUE_RECEIVE_TIMEOUT			0U							/* canTransmitQueue receive timeout */
 #define WCU_CANRECEIVEQUEUE_SEND_TIMEOUT				WCU_DEFAULT_TIMEOUT			/* canReceiveQueue send timeout */
 #define WCU_CANRECEIVEQUEUE_RECEIVE_TIMEOUT				0U							/* canReceiveQueue receive timeout */
-#define WCU_LOGERRORQUEUE_SEND_TIMEOUT					WCU_DEFAULT_TIMEOUT			/* logErrorQueue send timeout */
-#define WCU_LOGERRORQUEUE_RECEIVE_TIMEOUT				0U							/* logErrorQueue receive timeout */
+#define WCU_SDIOLOGERRORQUEUE_SEND_TIMEOUT				WCU_DEFAULT_TIMEOUT			/* sdioLogErrorQueue send timeout */
+#define WCU_SDIOLOGERRORQUEUE_RECEIVE_TIMEOUT			0U							/* sdioLogErrorQueue receive timeout */
 #define WCU_CRCMUTEX_TIMEOUT							WCU_DEFAULT_TIMEOUT			/* crcMutex acquire timeout */
 
 /**

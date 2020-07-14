@@ -68,7 +68,7 @@
 		/* Write the message to the memory block */ \
 		sprintf(errMsg, message); \
 		/* Push the pointer to the message to the logErrorQueue */ \
-		if(pdPASS != xQueueSend(logErrorQueueHandle, &errMsg, WCU_LOGERRORQUEUE_SEND_TIMEOUT)) { \
+		if(pdPASS != xQueueSend(sdioLogErrorQueueHandle, &errMsg, WCU_SDIOLOGERRORQUEUE_SEND_TIMEOUT)) { \
 			/* Cleanup on failure to push to queue */ \
 			vPortFree(errMsg);\
 		} \
@@ -103,12 +103,11 @@ osThreadId xbeeReceiveHandle;
 osThreadId gnssReceiveHandle;
 osThreadId rfReceiveHandle;
 osThreadId canGatekeeperHandle;
-osThreadId sdGatekeeperHandle;
+osThreadId sdioGatekeeperHandle;
 osMessageQId reportToWatchdogQueueHandle;
 osMessageQId canTransmitQueueHandle;
 osMessageQId canReceiveQueueHandle;
-osMessageQId sdSubscriptionQueueHandle;
-osMessageQId logErrorQueueHandle;
+osMessageQId sdioLogErrorQueueHandle;
 osMutexId crcMutexHandle;
 /* USER CODE BEGIN PV */
 
@@ -139,7 +138,7 @@ void StartXbeeReceiveTask(void const * argument);
 void StartGnssReceiveTask(void const * argument);
 void StartRfReceiveTask(void const * argument);
 void StartCanGatekeeperTask(void const * argument);
-void StartSdGatekeeperTask(void const * argument);
+void StartSdioGatekeeperTask(void const * argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -226,13 +225,9 @@ int main(void)
   osMessageQDef(canReceiveQueue, 16, CanFrameTypedef);
   canReceiveQueueHandle = osMessageCreate(osMessageQ(canReceiveQueue), NULL);
 
-  /* definition and creation of sdSubscriptionQueue */
-  osMessageQDef(sdSubscriptionQueue, 32, uint32_t);
-  sdSubscriptionQueueHandle = osMessageCreate(osMessageQ(sdSubscriptionQueue), NULL);
-
-  /* definition and creation of logErrorQueue */
-  osMessageQDef(logErrorQueue, 16, const char*);
-  logErrorQueueHandle = osMessageCreate(osMessageQ(logErrorQueue), NULL);
+  /* definition and creation of sdioLogErrorQueue */
+  osMessageQDef(sdioLogErrorQueue, 16, const char*);
+  sdioLogErrorQueueHandle = osMessageCreate(osMessageQ(sdioLogErrorQueue), NULL);
 
   /* USER CODE BEGIN RTOS_QUEUES */
 	/* add queues, ... */
@@ -267,9 +262,9 @@ int main(void)
   osThreadDef(canGatekeeper, StartCanGatekeeperTask, osPriorityNormal, 0, 128);
   canGatekeeperHandle = osThreadCreate(osThread(canGatekeeper), NULL);
 
-  /* definition and creation of sdGatekeeper */
-  osThreadDef(sdGatekeeper, StartSdGatekeeperTask, osPriorityNormal, 0, 2048);
-  sdGatekeeperHandle = osThreadCreate(osThread(sdGatekeeper), NULL);
+  /* definition and creation of sdioGatekeeper */
+  osThreadDef(sdioGatekeeper, StartSdioGatekeeperTask, osPriorityNormal, 0, 2048);
+  sdioGatekeeperHandle = osThreadCreate(osThread(sdioGatekeeper), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
 	/* add threads, ... */
@@ -1197,17 +1192,16 @@ void StartCanGatekeeperTask(void const * argument)
   /* USER CODE END StartCanGatekeeperTask */
 }
 
-/* USER CODE BEGIN Header_StartSdGatekeeperTask */
+/* USER CODE BEGIN Header_StartSdioGatekeeperTask */
 /**
- * @brief Function implementing the sdGatekeeper thread.
- * @param argument: Not used
- * @retval None
- */
-/* USER CODE END Header_StartSdGatekeeperTask */
-void StartSdGatekeeperTask(void const * argument)
+* @brief Function implementing the sdioGatekeeper thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartSdioGatekeeperTask */
+void StartSdioGatekeeperTask(void const * argument)
 {
-  /* USER CODE BEGIN StartSdGatekeeperTask */
-
+  /* USER CODE BEGIN StartSdioGatekeeperTask */
 	static FATFS fatFs; /* File system object structure */
 	static FIL errorLogFile; /* Error log file object structure */
 	static FIL subscriptionFile; /* Telemetry subscription file object structure */
@@ -1226,7 +1220,7 @@ void StartSdGatekeeperTask(void const * argument)
 	/* Infinite loop */
 	for (;;) {
 		/* Wait for incoming error messages */
-		if(pdPASS == xQueueReceive(logErrorQueueHandle, &errorLogBuff, WCU_LOGERRORQUEUE_RECEIVE_TIMEOUT)) {
+		if(pdPASS == xQueueReceive(sdioLogErrorQueueHandle, &errorLogBuff, WCU_SDIOLOGERRORQUEUE_RECEIVE_TIMEOUT)) {
 			if(FR_OK == f_open(&errorLogFile, WCU_ERROR_LOG_PATH, FA_WRITE | FA_OPEN_APPEND)) {
 				f_write(&errorLogFile, errorLogBuff, strlen(errorLogBuff), &bytesWritten);
 				/* Close the file */
@@ -1243,7 +1237,7 @@ void StartSdGatekeeperTask(void const * argument)
 
 		osDelay(WCU_DEFAULT_TASK_DELAY);
 	}
-  /* USER CODE END StartSdGatekeeperTask */
+  /* USER CODE END StartSdioGatekeeperTask */
 }
 
  /**
