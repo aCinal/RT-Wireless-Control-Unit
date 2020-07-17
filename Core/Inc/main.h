@@ -122,6 +122,7 @@ void Error_Handler(void);
 #define WCU_SDIOLOGERRORQUEUE_SEND_TIMEOUT				WCU_DEFAULT_TIMEOUT			/* sdioLogErrorQueue send timeout */
 #define WCU_SDIOLOGERRORQUEUE_RECEIVE_TIMEOUT			0U							/* sdioLogErrorQueue receive timeout */
 #define WCU_CRCMUTEX_TIMEOUT							WCU_DEFAULT_TIMEOUT			/* crcMutex acquire timeout */
+#define WCU_ERROR_LOG_TIMESTAMP_LENGTH					11							/* Length of the error log timestamp */
 
 /**
  * @brief BT (WDTS) defines

@@ -62,11 +62,13 @@
  */
 #define LOGERROR(message) do { \
 	/* Allocate the memory for the error message */ \
-	char* errMsg = pvPortMalloc(strlen(message)); \
+	char* errMsg = pvPortMalloc(WCU_ERROR_LOG_TIMESTAMP_LENGTH + strlen(message) + 1); \
 	/* Assert successful memory allocation */ \
 	if(errMsg != NULL) { \
+		/* Write the timestamp to the memory block */ \
+		sprintf(errMsg, "%010lu ", HAL_GetTick()); \
 		/* Write the message to the memory block */ \
-		sprintf(errMsg, message); \
+		sprintf(errMsg + WCU_ERROR_LOG_TIMESTAMP_LENGTH, message); \
 		/* Push the pointer to the message to the logErrorQueue */ \
 		if(pdPASS != xQueueSend(sdioLogErrorQueueHandle, &errMsg, WCU_SDIOLOGERRORQUEUE_SEND_TIMEOUT)) { \
 			/* Cleanup on failure to push to queue */ \
@@ -832,7 +834,7 @@ void StartBtReceiveTask(void const * argument)
 			}
 
 			/* Read CRC - note that the CRC is transmitted as little endian */
-			readCrc = READAS16BIT(btUartRxBuff[3], btUartRxBuff[2]);
+			readCrc = READ16(btUartRxBuff[3], btUartRxBuff[2]);
 
 			/* Clear the CHECKSUM field */
 			memset(btUartRxBuff + 2U, 0x00, 2U);
@@ -840,7 +842,7 @@ void StartBtReceiveTask(void const * argument)
 			/* Calculate the CRC */
 			if (osOK == osMutexWait(crcMutexHandle, WCU_CRCMUTEX_TIMEOUT)) {
 				calculatedCrc =
-						GET16LSBITS(
+						TWOLOWBYTES(
 								HAL_CRC_Calculate(&hcrc, (uint32_t*)btUartRxBuff, WCU_BT_UART_RX_BUFF_SIZE / 4U));
 				osMutexRelease(crcMutexHandle);
 			} else {
@@ -855,7 +857,7 @@ void StartBtReceiveTask(void const * argument)
 			}
 
 			/* Read the CAN ID - note that the CAN ID is transmitted as little endian */
-			canFrame.Header.Tx.StdId = READAS32BIT(btUartRxBuff[7],
+			canFrame.Header.Tx.StdId = READ32(btUartRxBuff[7],
 					btUartRxBuff[6], btUartRxBuff[5], btUartRxBuff[4]);
 			/* Read the Data Length Code */
 			canFrame.Header.Tx.DLC = (uint32_t) (
@@ -927,8 +929,8 @@ void StartXbeeSendTask(void const * argument)
 				R3TP_END_SEQ_HIGH_BYTE;
 
 				/* Set CAN ID field - note that the CAN ID is transmitted as little endian */
-				xbeeUartTxBuff[4] = GETLSBOF16(frameBuff.Header.Rx.StdId);
-				xbeeUartTxBuff[5] = GETMSBOF16(frameBuff.Header.Rx.StdId);
+				xbeeUartTxBuff[4] = LSB16(frameBuff.Header.Rx.StdId);
+				xbeeUartTxBuff[5] = MSB16(frameBuff.Header.Rx.StdId);
 
 				/* Set the DLC field */
 				xbeeUartTxBuff[8] = (uint8_t) frameBuff.Header.Rx.DLC;
@@ -942,13 +944,13 @@ void StartXbeeSendTask(void const * argument)
 				if (osOK
 						== osMutexWait(crcMutexHandle, WCU_CRCMUTEX_TIMEOUT)) {
 					calculatedCrc =
-							GET16LSBITS(
+							TWOLOWBYTES(
 									HAL_CRC_Calculate(&hcrc, (uint32_t*)xbeeUartTxBuff, R3TP_VER0_FRAME_SIZE / 4));
 					osMutexRelease(crcMutexHandle);
 
 					/* Set the CRC field - note that the CRC is transmitted as little endian */
-					xbeeUartTxBuff[2] = GETLSBOF16(calculatedCrc);
-					xbeeUartTxBuff[3] = GETMSBOF16(calculatedCrc);
+					xbeeUartTxBuff[2] = LSB16(calculatedCrc);
+					xbeeUartTxBuff[3] = MSB16(calculatedCrc);
 				} else {
 					/* Log error */
 					LOGERROR("crcMutex timeout in xbeeSend\r\n");
@@ -1006,7 +1008,7 @@ void StartXbeeReceiveTask(void const * argument)
 			WCU_XBEE_UART_RX_TIMEOUT);
 
 			/* Read the FRAME NUM field */
-			frameNum = READAS32BIT(xbeeUartRxBuff[7], xbeeUartRxBuff[6],
+			frameNum = READ32(xbeeUartRxBuff[7], xbeeUartRxBuff[6],
 					xbeeUartRxBuff[5], xbeeUartRxBuff[4]);
 
 			/* Assert the payload won't overflow the buffer */
@@ -1038,7 +1040,7 @@ void StartXbeeReceiveTask(void const * argument)
 			}
 
 			/* Read the CHECKSUM */
-			readCrc = READAS16BIT(xbeeUartRxBuff[3], xbeeUartRxBuff[2]);
+			readCrc = READ16(xbeeUartRxBuff[3], xbeeUartRxBuff[2]);
 
 			/* Clear the CHECKSUM field */
 			memset(xbeeUartRxBuff + 2U, 0x00, 2U);
@@ -1046,7 +1048,7 @@ void StartXbeeReceiveTask(void const * argument)
 			if (osOK == osMutexWait(crcMutexHandle, WCU_CRCMUTEX_TIMEOUT)) {
 				/* Calculate the CRC */
 				calculatedCrc =
-						GET16LSBITS(
+						TWOLOWBYTES(
 								HAL_CRC_Calculate(&hcrc, (uint32_t* )xbeeUartRxBuff, R3TP_VER1_MESSAGE_LENGTH(frameNum)/4));
 				osMutexRelease(crcMutexHandle);
 			} else {
@@ -1065,7 +1067,7 @@ void StartXbeeReceiveTask(void const * argument)
 			/* Read the payload */
 			for (uint32_t i = 0; i < frameNum; i += 1) {
 				subscription[i] =
-						READAS32BIT(
+						READ32(
 								*(R3TP_VER1_PAYLOAD_BEGIN_OFFSET(xbeeUartRxBuff, 3 + 4*i)),
 								*(R3TP_VER1_PAYLOAD_BEGIN_OFFSET(xbeeUartRxBuff, 2 + 4*i)),
 								*(R3TP_VER1_PAYLOAD_BEGIN_OFFSET(xbeeUartRxBuff, 1 + 4*i)),
