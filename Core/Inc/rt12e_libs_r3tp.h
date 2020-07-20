@@ -10,11 +10,11 @@
 /* Exported defines ------------------------------------------------------------*/
 #define R3TP_VER0_FRAME_SIZE 20U									/* R3TP version 0 frame size in bytes */
 #define R3TP_VER1_MAX_FRAME_NUM 28U									/* Maximum number of frames in a subscription */
-#define R3TP_VER1_MAX_FRAME_SIZE 12 + 4 * R3TP_VER1_MAX_FRAME_NUM	/* R3TP version 1 max frame size in bytes */
-#define R3TP_VER0_VER_RES_SEQ_BYTE 0x00								/* VER 0 protocol version byte */
-#define R3TP_VER1_VER_RES_SEQ_BYTE 0x20								/* VER 1 protocol version byte */
-#define R3TP_END_SEQ_LOW_BYTE 0xDE									/* R3TP end sequence low byte */
-#define R3TP_END_SEQ_HIGH_BYTE 0xED									/* R3TP end sequence high byte */
+#define R3TP_VER1_MAX_FRAME_SIZE 12U + 4U * R3TP_VER1_MAX_FRAME_NUM	/* R3TP version 1 max frame size in bytes */
+#define R3TP_VER0_VER_RES_SEQ_BYTE 0x00U							/* VER 0 protocol version byte */
+#define R3TP_VER1_VER_RES_SEQ_BYTE 0x20U							/* VER 1 protocol version byte */
+#define R3TP_END_SEQ_LOW_BYTE 0xDEU									/* R3TP end sequence low byte */
+#define R3TP_END_SEQ_HIGH_BYTE 0xEDU								/* R3TP end sequence high byte */
 
 /* Exported macro ------------------------------------------------------------*/
 /**

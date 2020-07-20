@@ -96,7 +96,9 @@ UART_HandleTypeDef huart4;
 UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
 UART_HandleTypeDef huart3;
+DMA_HandleTypeDef hdma_uart4_rx;
 DMA_HandleTypeDef hdma_usart1_rx;
+DMA_HandleTypeDef hdma_usart3_rx;
 
 osThreadId watchdogHandle;
 osThreadId btReceiveHandle;
@@ -112,11 +114,6 @@ osMessageQId canReceiveQueueHandle;
 osMessageQId sdioLogErrorQueueHandle;
 osMutexId crcMutexHandle;
 /* USER CODE BEGIN PV */
-
-/* Intuitive names for UART handles */
-UART_HandleTypeDef *phuart_bt = &huart1;
-UART_HandleTypeDef *phuart_gnss = &huart3;
-UART_HandleTypeDef *phuart_xbee = &huart4;
 
 /* USER CODE END PV */
 
@@ -409,7 +406,7 @@ static void MX_IWDG_Init(void)
 
   /* USER CODE END IWDG_Init 1 */
   hiwdg.Instance = IWDG;
-  hiwdg.Init.Prescaler = IWDG_PRESCALER_4;
+  hiwdg.Init.Prescaler = IWDG_PRESCALER_256;
   hiwdg.Init.Reload = 4095;
   if (HAL_IWDG_Init(&hiwdg) != HAL_OK)
   {
@@ -503,7 +500,7 @@ static void MX_UART4_Init(void)
 
   /* USER CODE END UART4_Init 1 */
   huart4.Instance = UART4;
-  huart4.Init.BaudRate = 115200;
+  huart4.Init.BaudRate = 19200;
   huart4.Init.WordLength = UART_WORDLENGTH_8B;
   huart4.Init.StopBits = UART_STOPBITS_1;
   huart4.Init.Parity = UART_PARITY_NONE;
@@ -536,7 +533,7 @@ static void MX_USART1_UART_Init(void)
 
   /* USER CODE END USART1_Init 1 */
   huart1.Instance = USART1;
-  huart1.Init.BaudRate = 115200;
+  huart1.Init.BaudRate = 19200;
   huart1.Init.WordLength = UART_WORDLENGTH_8B;
   huart1.Init.StopBits = UART_STOPBITS_1;
   huart1.Init.Parity = UART_PARITY_NONE;
@@ -569,7 +566,7 @@ static void MX_USART2_UART_Init(void)
 
   /* USER CODE END USART2_Init 1 */
   huart2.Instance = USART2;
-  huart2.Init.BaudRate = 115200;
+  huart2.Init.BaudRate = 19200;
   huart2.Init.WordLength = UART_WORDLENGTH_8B;
   huart2.Init.StopBits = UART_STOPBITS_1;
   huart2.Init.Parity = UART_PARITY_NONE;
@@ -602,7 +599,7 @@ static void MX_USART3_UART_Init(void)
 
   /* USER CODE END USART3_Init 1 */
   huart3.Instance = USART3;
-  huart3.Init.BaudRate = 115200;
+  huart3.Init.BaudRate = 19200;
   huart3.Init.WordLength = UART_WORDLENGTH_8B;
   huart3.Init.StopBits = UART_STOPBITS_1;
   huart3.Init.Parity = UART_PARITY_NONE;
@@ -627,8 +624,15 @@ static void MX_DMA_Init(void)
 
   /* DMA controller clock enable */
   __HAL_RCC_DMA2_CLK_ENABLE();
+  __HAL_RCC_DMA1_CLK_ENABLE();
 
   /* DMA interrupt init */
+  /* DMA1_Stream1_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Stream1_IRQn, 5, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Stream1_IRQn);
+  /* DMA1_Stream2_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Stream2_IRQn, 5, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Stream2_IRQn);
   /* DMA2_Stream2_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA2_Stream2_IRQn, 5, 0);
   HAL_NVIC_EnableIRQ(DMA2_Stream2_IRQn);
@@ -718,9 +722,15 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 		/* Notify btReceive task */
 		vTaskNotifyGiveFromISR((TaskHandle_t) btReceiveHandle, &dummy);
 		break;
+
 	case (uint32_t) GNSS_UART_INSTANCE:
 		/* Notify gnssReceive task */
 		vTaskNotifyGiveFromISR((TaskHandle_t) gnssReceiveHandle, &dummy);
+		break;
+
+	case (uint32_t) XBEE_UART_INSTANCE:
+		/* Notify xbeeReceive task */
+		vTaskNotifyGiveFromISR((TaskHandle_t) xbeeReceiveHandle, &dummy);
 		break;
 	}
 }
@@ -812,6 +822,7 @@ void StartBtReceiveTask(void const * argument)
 
 	/* Infinite loop */
 	for (;;) {
+		/* Listen for the message */
 		HAL_UART_Receive_DMA(&BT_UART_HANDLE, btUartRxBuff,
 		WCU_BT_UART_RX_BUFF_SIZE);
 
@@ -833,11 +844,12 @@ void StartBtReceiveTask(void const * argument)
 				continue;
 			}
 
-			/* Read CRC - note that the CRC is transmitted as little endian */
+			/* Read the CHECKSUM field - note that the CRC is transmitted as little endian */
 			readCrc = READ16(btUartRxBuff[3], btUartRxBuff[2]);
 
 			/* Clear the CHECKSUM field */
-			memset(btUartRxBuff + 2U, 0x00, 2U);
+			btUartRxBuff[2] = 0x00U;
+			btUartRxBuff[3] = 0x00U;
 
 			/* Calculate the CRC */
 			if (osOK == osMutexWait(crcMutexHandle, WCU_CRCMUTEX_TIMEOUT)) {
@@ -857,8 +869,8 @@ void StartBtReceiveTask(void const * argument)
 			}
 
 			/* Read the CAN ID - note that the CAN ID is transmitted as little endian */
-			canFrame.Header.Tx.StdId = READ32(btUartRxBuff[7],
-					btUartRxBuff[6], btUartRxBuff[5], btUartRxBuff[4]);
+			canFrame.Header.Tx.StdId = READ32(btUartRxBuff[7], btUartRxBuff[6],
+					btUartRxBuff[5], btUartRxBuff[4]);
 			/* Read the Data Length Code */
 			canFrame.Header.Tx.DLC = (uint32_t) (
 					btUartRxBuff[8] < WCU_CAN_PAYLOAD_SIZE ?
@@ -941,14 +953,13 @@ void StartXbeeSendTask(void const * argument)
 				}
 
 				/* Calculate the CRC */
-				if (osOK
-						== osMutexWait(crcMutexHandle, WCU_CRCMUTEX_TIMEOUT)) {
+				if (osOK == osMutexWait(crcMutexHandle, WCU_CRCMUTEX_TIMEOUT)) {
 					calculatedCrc =
 							TWOLOWBYTES(
 									HAL_CRC_Calculate(&hcrc, (uint32_t*)xbeeUartTxBuff, R3TP_VER0_FRAME_SIZE / 4));
 					osMutexRelease(crcMutexHandle);
 
-					/* Set the CRC field - note that the CRC is transmitted as little endian */
+					/* Set the CHECKSUM field - note that the CRC is transmitted as little endian */
 					xbeeUartTxBuff[2] = LSB16(calculatedCrc);
 					xbeeUartTxBuff[3] = MSB16(calculatedCrc);
 				} else {
@@ -998,14 +1009,32 @@ void StartXbeeReceiveTask(void const * argument)
 
 	/* Infinite loop */
 	for (;;) {
-		/* Listen for the subscription (VER1) frame */
-		HAL_UART_Receive(&XBEE_UART_HANDLE, xbeeUartRxBuff, 1,
-		WCU_XBEE_UART_RX_TIMEOUT);
-		/* Validate the VER and RES/SEQ field */
-		if (R3TP_VER1_VER_RES_SEQ_BYTE == xbeeUartRxBuff[0]) {
+		/* Listen for the subscription frame VER octet */
+		HAL_UART_Receive_DMA(&XBEE_UART_HANDLE, xbeeUartRxBuff, 1);
+
+		/* Wait for notify from ISR/message received callback */
+		if (0UL < ulTaskNotifyTake(pdTRUE,
+		WCU_XBEE_UART_RX_NOTIFY_TAKE_TIMEOUT)) {
+			/* Validate the VER and RES/SEQ field */
+			if (R3TP_VER1_VER_RES_SEQ_BYTE != xbeeUartRxBuff[0]) {
+				/* Log the error */
+				LOGERROR("Invalid VER/RES/SEQ in xbeeReceive\r\n");
+				/* Assert the invalid message won't raise any more interrupts */
+				while(HAL_OK == HAL_UART_Receive(&XBEE_UART_HANDLE, xbeeUartRxBuff, 1, WCU_XBEE_UART_RX_CLEANUP_TIMEOUT)) {
+					__NOP();
+				}
+				continue;
+			}
+
 			/* On valid version byte, receive SEQ NUM, CHECKSUM and FRAME NUM */
-			HAL_UART_Receive(&XBEE_UART_HANDLE, xbeeUartRxBuff + 1, 7,
-			WCU_XBEE_UART_RX_TIMEOUT);
+			if (HAL_OK
+					!= HAL_UART_Receive(&XBEE_UART_HANDLE, xbeeUartRxBuff + 1,
+							7, WCU_XBEE_UART_RX_TIMEOUT)) {
+				/* Log error */
+				LOGERROR(
+						"Failed to receive SEQ NUM, CHECKSUM and FRAME NUM in xbeeReceive\r\n");
+				continue;
+			}
 
 			/* Read the FRAME NUM field */
 			frameNum = READ32(xbeeUartRxBuff[7], xbeeUartRxBuff[6],
@@ -1015,18 +1044,32 @@ void StartXbeeReceiveTask(void const * argument)
 			if (frameNum > R3TP_VER1_MAX_FRAME_NUM) {
 				/* Log error */
 				LOGERROR("Invalid FRAME NUM in xbeeReceive\r\n");
+				/* Assert the invalid message won't raise any more interrupts */
+				while(HAL_OK == HAL_UART_Receive(&XBEE_UART_HANDLE, xbeeUartRxBuff, 1, WCU_XBEE_UART_RX_CLEANUP_TIMEOUT)) {
+					__NOP();
+				}
 				continue;
 			}
 
 			/* Receive the payload */
-			HAL_UART_Receive(&XBEE_UART_HANDLE,
-					R3TP_VER1_PAYLOAD_BEGIN(xbeeUartRxBuff), frameNum * 4,
-					WCU_XBEE_UART_RX_TIMEOUT);
+			if (HAL_OK
+					!= HAL_UART_Receive(&XBEE_UART_HANDLE,
+							R3TP_VER1_PAYLOAD_BEGIN(xbeeUartRxBuff),
+							frameNum * 4, WCU_XBEE_UART_RX_TIMEOUT)) {
+				/* Log error */
+				LOGERROR("Failed to receive the payload in xbeeReceive\r\n");
+				continue;
+			}
 
 			/* Receive the frame align bytes (two) and END SEQ (also two bytes) */
-			HAL_UART_Receive(&XBEE_UART_HANDLE,
-					R3TP_VER1_EPILOGUE_BEGIN(xbeeUartRxBuff, frameNum), 4,
-					WCU_XBEE_UART_RX_TIMEOUT);
+			if (HAL_OK
+					!= HAL_UART_Receive(&XBEE_UART_HANDLE,
+							R3TP_VER1_EPILOGUE_BEGIN(xbeeUartRxBuff, frameNum),
+							4, WCU_XBEE_UART_RX_TIMEOUT)) {
+				/* Log error */
+				LOGERROR("Failed to receive END SEQ in xbeeReceive\r\n");
+				continue;
+			}
 
 			/* Validate the END SEQ field */
 			if ((R3TP_END_SEQ_LOW_BYTE
@@ -1036,17 +1079,22 @@ void StartXbeeReceiveTask(void const * argument)
 									- 1U])) {
 				/* Log error */
 				LOGERROR("Invalid END SEQ in xbeeReceive\r\n");
+				/* Assert the invalid message won't raise any more interrupts */
+				while(HAL_OK == HAL_UART_Receive(&XBEE_UART_HANDLE, xbeeUartRxBuff, 1, WCU_XBEE_UART_RX_CLEANUP_TIMEOUT)) {
+					__NOP();
+				}
 				continue;
 			}
 
-			/* Read the CHECKSUM */
+			/* Read the CHECKSUM field - note that the CRC is transmitted as little endian */
 			readCrc = READ16(xbeeUartRxBuff[3], xbeeUartRxBuff[2]);
 
 			/* Clear the CHECKSUM field */
-			memset(xbeeUartRxBuff + 2U, 0x00, 2U);
+			xbeeUartRxBuff[2] = 0x00U;
+			xbeeUartRxBuff[3] = 0x00U;
 
+			/* Calculate the CRC */
 			if (osOK == osMutexWait(crcMutexHandle, WCU_CRCMUTEX_TIMEOUT)) {
-				/* Calculate the CRC */
 				calculatedCrc =
 						TWOLOWBYTES(
 								HAL_CRC_Calculate(&hcrc, (uint32_t* )xbeeUartRxBuff, R3TP_VER1_MESSAGE_LENGTH(frameNum)/4));
@@ -1061,6 +1109,10 @@ void StartXbeeReceiveTask(void const * argument)
 			if (readCrc != calculatedCrc) {
 				/* Log error */
 				LOGERROR("Invalid CRC in xbeeReceive\r\n");
+				/* Assert the invalid message won't raise any more interrupts */
+				while(HAL_OK == HAL_UART_Receive(&XBEE_UART_HANDLE, xbeeUartRxBuff, 1, WCU_XBEE_UART_RX_CLEANUP_TIMEOUT)) {
+					__NOP();
+				}
 				continue;
 			}
 
@@ -1196,10 +1248,10 @@ void StartCanGatekeeperTask(void const * argument)
 
 /* USER CODE BEGIN Header_StartSdioGatekeeperTask */
 /**
-* @brief Function implementing the sdioGatekeeper thread.
-* @param argument: Not used
-* @retval None
-*/
+ * @brief Function implementing the sdioGatekeeper thread.
+ * @param argument: Not used
+ * @retval None
+ */
 /* USER CODE END Header_StartSdioGatekeeperTask */
 void StartSdioGatekeeperTask(void const * argument)
 {
@@ -1207,7 +1259,7 @@ void StartSdioGatekeeperTask(void const * argument)
 	static FATFS fatFs; /* File system object structure */
 	static FIL errorLogFile; /* Error log file object structure */
 	static FIL subscriptionFile; /* Telemetry subscription file object structure */
-	static char* errorLogBuff; /* Buffer for the pointer to the error message */
+	static char *errorLogBuff; /* Buffer for the pointer to the error message */
 	static UINT bytesWritten; /* Buffer for the number of bytes written */
 
 	/* Mount a logical drive */
@@ -1222,9 +1274,14 @@ void StartSdioGatekeeperTask(void const * argument)
 	/* Infinite loop */
 	for (;;) {
 		/* Wait for incoming error messages */
-		if(pdPASS == xQueueReceive(sdioLogErrorQueueHandle, &errorLogBuff, WCU_SDIOLOGERRORQUEUE_RECEIVE_TIMEOUT)) {
-			if(FR_OK == f_open(&errorLogFile, WCU_ERROR_LOG_PATH, FA_WRITE | FA_OPEN_APPEND)) {
-				f_write(&errorLogFile, errorLogBuff, strlen(errorLogBuff), &bytesWritten);
+		if (pdPASS
+				== xQueueReceive(sdioLogErrorQueueHandle, &errorLogBuff,
+						WCU_SDIOLOGERRORQUEUE_RECEIVE_TIMEOUT)) {
+			if (FR_OK
+					== f_open(&errorLogFile, WCU_ERROR_LOG_PATH,
+							FA_WRITE | FA_OPEN_APPEND)) {
+				f_write(&errorLogFile, errorLogBuff, strlen(errorLogBuff),
+						&bytesWritten);
 				/* Close the file */
 				f_close(&errorLogFile);
 				/* Free the allocated memory */
@@ -1236,6 +1293,7 @@ void StartSdioGatekeeperTask(void const * argument)
 		/*
 		 * TODO: Wait for new telemetry subscription
 		 */
+		(void)subscriptionFile;
 
 		osDelay(WCU_DEFAULT_TASK_DELAY);
 	}

@@ -106,9 +106,6 @@ void Error_Handler(void);
 #define GNSS_RESET_GPIO_Port GPIOB
 /* USER CODE BEGIN Private defines */
 
-/**
- * @brief Generic defines
- */
 #define WCU_NUMBER_OF_WATCHED_THREADS					(uint8_t)5U					/* Number of threads watched by the IWDG */
 #define WCU_CAN_PAYLOAD_SIZE							8U							/* CAN payload size in bytes */
 #define WCU_DEFAULT_TASK_DELAY							1U							/* Default task delay */
@@ -123,24 +120,14 @@ void Error_Handler(void);
 #define WCU_SDIOLOGERRORQUEUE_RECEIVE_TIMEOUT			0U							/* sdioLogErrorQueue receive timeout */
 #define WCU_CRCMUTEX_TIMEOUT							WCU_DEFAULT_TIMEOUT			/* crcMutex acquire timeout */
 #define WCU_ERROR_LOG_TIMESTAMP_LENGTH					11							/* Length of the error log timestamp */
-
-/**
- * @brief BT (WDTS) defines
- */
-#define WCU_BT_UART_RX_BUFF_SIZE				R3TP_VER0_FRAME_SIZE	/* UART Rx buffer size in bytes */
-#define WCU_BT_UART_RX_NOTIFY_TAKE_TIMEOUT		WCU_DEFAULT_TIMEOUT		/* UART Rx wait for notification timeout */
-
-/**
- * @brief Xbee (telemetry) defines
- */
-#define WCU_XBEE_UART_TX_TIMEOUT				WCU_DEFAULT_TIMEOUT		/* UART Tx timeout */
-#define WCU_XBEE_UART_RX_TIMEOUT				WCU_DEFAULT_TIMEOUT		/* UART Rx timeout */
-
-/**
- * @brief SD/FATFS defines
- */
-#define WCU_ERROR_LOG_PATH						"ERRORLOG.TXT"			/* Error log file path */
-#define WCU_SUBSCRIPTION_PATH					"SUBSCRIPTION.CSV"		/* Subscription file path */
+#define WCU_BT_UART_RX_BUFF_SIZE						R3TP_VER0_FRAME_SIZE		/* UART Rx buffer size in bytes */
+#define WCU_BT_UART_RX_NOTIFY_TAKE_TIMEOUT				WCU_DEFAULT_TIMEOUT			/* UART Rx wait for notification timeout */
+#define WCU_XBEE_UART_TX_TIMEOUT						WCU_DEFAULT_TIMEOUT			/* UART Tx timeout */
+#define WCU_XBEE_UART_RX_TIMEOUT						500U						/* UART Rx timeout */
+#define WCU_XBEE_UART_RX_CLEANUP_TIMEOUT				10U							/* UART Rx cleanup timeout */
+#define WCU_XBEE_UART_RX_NOTIFY_TAKE_TIMEOUT			WCU_DEFAULT_TIMEOUT			/* UART Rx wait for notification timeout */
+#define WCU_ERROR_LOG_PATH								"ERRORLOG.TXT"				/* Error log file path */
+#define WCU_SUBSCRIPTION_PATH							"SUBSCRIPTION.CSV"			/* Subscription file path */
 
 /* USER CODE END Private defines */
 
