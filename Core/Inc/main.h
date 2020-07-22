@@ -106,12 +106,15 @@ void Error_Handler(void);
 #define GNSS_RESET_GPIO_Port GPIOB
 /* USER CODE BEGIN Private defines */
 
-#define WCU_NUMBER_OF_WATCHED_THREADS					(uint8_t)5U					/* Number of threads watched by the IWDG */
+#define WCU_WATCHDOG_NOTIFICATIONVALUE_BTRECEIVE		0x00000001UL				/* btReceive task's unique notification value for checking in with the watchdog */
+#define WCU_WATCHDOG_NOTIFICATIONVALUE_XBEESEND			0x00000002UL				/* xbeeSend task's unique notification value for checking in with the watchdog */
+#define WCU_WATCHDOG_NOTIFICATIONVALUE_GNSSRECEIVE		0x00000004UL				/* gnssReceive task's unique notification value for checking in with the watchdog */
+#define WCU_WATCHDOG_NOTIFICATIONVALUE_RFRECEIVE		0x00000008UL				/* rfReceive task's unique notification value for checking in with the watchdog */
+#define WCU_WATCHDOG_NOTIFICATIONVALUE_CANGATEKEEPER	0x00000010UL				/* canGatekeeper task's unique notification value for checking in with the watchdog */
 #define WCU_CAN_PAYLOAD_SIZE							8U							/* CAN payload size in bytes */
 #define WCU_DEFAULT_TASK_DELAY							1U							/* Default task delay */
 #define WCU_DEFAULT_TIMEOUT								portMAX_DELAY				/* Default timeout */
-#define WCU_REPORTTOWATCHDOGQUEUE_SEND_TIMEOUT			WCU_DEFAULT_TIMEOUT			/* reportToWatchdogQueue send timeout */
-#define WCU_REPORTTOWATCHDOGQUEUE_RECEIVE_TIMEOUT		0U							/* reportToWatchdogQueue receive timeout */
+#define WCU_IWDGGATEKEEPER_XTASKNOTIFYWAIT_TIMEOUT		WCU_DEFAULT_TIMEOUT			/* iwdgGatekeeper xTaskNotifyWait timeout */
 #define WCU_CANTRANSMITQUEUE_SEND_TIMEOUT				WCU_DEFAULT_TIMEOUT			/* canTransmitQueue send timeout */
 #define WCU_CANTRANSMITQUEUE_RECEIVE_TIMEOUT			0U							/* canTransmitQueue receive timeout */
 #define WCU_CANRECEIVEQUEUE_SEND_TIMEOUT				WCU_DEFAULT_TIMEOUT			/* canReceiveQueue send timeout */
@@ -120,12 +123,14 @@ void Error_Handler(void);
 #define WCU_SDIOLOGERRORQUEUE_RECEIVE_TIMEOUT			0U							/* sdioLogErrorQueue receive timeout */
 #define WCU_CRCMUTEX_TIMEOUT							WCU_DEFAULT_TIMEOUT			/* crcMutex acquire timeout */
 #define WCU_ERROR_LOG_TIMESTAMP_LENGTH					11							/* Length of the error log timestamp */
-#define WCU_BT_UART_RX_BUFF_SIZE						R3TP_VER0_FRAME_SIZE		/* UART Rx buffer size in bytes */
-#define WCU_BT_UART_RX_NOTIFY_TAKE_TIMEOUT				WCU_DEFAULT_TIMEOUT			/* UART Rx wait for notification timeout */
-#define WCU_XBEE_UART_TX_TIMEOUT						WCU_DEFAULT_TIMEOUT			/* UART Tx timeout */
-#define WCU_XBEE_UART_RX_TIMEOUT						500U						/* UART Rx timeout */
-#define WCU_XBEE_UART_RX_CLEANUP_TIMEOUT				10U							/* UART Rx cleanup timeout */
-#define WCU_XBEE_UART_RX_NOTIFY_TAKE_TIMEOUT			WCU_DEFAULT_TIMEOUT			/* UART Rx wait for notification timeout */
+#define WCU_BTRECEIVE_UART_BUFF_SIZE					R3TP_VER0_FRAME_SIZE		/* btReceive UART Rx buffer size in bytes */
+#define WCU_BTRECEIVE_ULTASKNOTIFYTAKE_TIMEOUT			WCU_DEFAULT_TIMEOUT			/* btReceive ulTaskNotifyTake timeout */
+#define WCU_XBEESEND_ULTASKNOTIFYTAKE_TIMEOUT			WCU_DEFAULT_TIMEOUT			/* xbeeSend ulTaskNotifyTake timeout */
+#define WCU_XBEERECEIVE_UART_BUFF_SIZE					R3TP_VER1_MAX_FRAME_SIZE	/* xbeeReceive UART Rx buffer size in bytes */
+#define WCU_XBEERECEIVE_SUBSCRIPTION_BUFF_SIZE			R3TP_VER1_MAX_FRAME_NUM		/* xbeeReceive subscription buffer size in bytes */
+#define WCU_XBEERECEIVE_UART_TIMEOUT					500U						/* xbeeReceive UART Rx timeout */
+#define WCU_XBEERECEIVE_UART_CLEANUP_TIMEOUT			10U							/* xbeeReceive UART Rx cleanup timeout */
+#define WCU_XBEERECEIVE_ULTASKNOTIFYTAKE_TIMEOUT		WCU_DEFAULT_TIMEOUT			/* xbeeReceive ulTaskNotifyTake timeout */
 #define WCU_ERROR_LOG_PATH								"ERRORLOG.TXT"				/* Error log file path */
 #define WCU_SUBSCRIPTION_PATH							"SUBSCRIPTION.CSV"			/* Subscription file path */
 
