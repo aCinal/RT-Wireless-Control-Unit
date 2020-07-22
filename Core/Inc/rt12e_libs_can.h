@@ -54,4 +54,18 @@ typedef struct {
  */
 void setCanFilterList(CAN_HandleTypeDef *hcan, uint32_t* ids, uint32_t count);
 
+/**
+ * @brief Configures the CAN filters to block all incoming messages
+ * @param hcan pointer to a CAN_HandleTypeDef structure that contains
+ *         the configuration information for the specified CAN.
+ */
+void setCanFilterBlockAll(CAN_HandleTypeDef *hcan);
+
+/**
+ * @brief Configures the CAN filters to allow all incoming messages to pass through
+ * @param hcan pointer to a CAN_HandleTypeDef structure that contains
+ *         the configuration information for the specified CAN.
+ */
+void setCanFilterBlockNone(CAN_HandleTypeDef *hcan);
+
 #endif /* __RT12E_LIBS_CAN_H_ */

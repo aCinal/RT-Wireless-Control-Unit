@@ -106,11 +106,11 @@ void Error_Handler(void);
 #define GNSS_RESET_GPIO_Port GPIOB
 /* USER CODE BEGIN Private defines */
 
-#define WCU_WATCHDOG_NOTIFICATIONVALUE_BTRECEIVE		0x00000001UL				/* btReceive task's unique notification value for checking in with the watchdog */
-#define WCU_WATCHDOG_NOTIFICATIONVALUE_XBEESEND			0x00000002UL				/* xbeeSend task's unique notification value for checking in with the watchdog */
-#define WCU_WATCHDOG_NOTIFICATIONVALUE_GNSSRECEIVE		0x00000004UL				/* gnssReceive task's unique notification value for checking in with the watchdog */
-#define WCU_WATCHDOG_NOTIFICATIONVALUE_RFRECEIVE		0x00000008UL				/* rfReceive task's unique notification value for checking in with the watchdog */
-#define WCU_WATCHDOG_NOTIFICATIONVALUE_CANGATEKEEPER	0x00000010UL				/* canGatekeeper task's unique notification value for checking in with the watchdog */
+#define WCU_WATCHDOG_NOTIFICATIONVALUE_BTRECEIVE		0x00000001U					/* btReceive task's unique notification value for checking in with the watchdog */
+#define WCU_WATCHDOG_NOTIFICATIONVALUE_XBEESEND			0x00000002U					/* xbeeSend task's unique notification value for checking in with the watchdog */
+#define WCU_WATCHDOG_NOTIFICATIONVALUE_GNSSRECEIVE		0x00000004U					/* gnssReceive task's unique notification value for checking in with the watchdog */
+#define WCU_WATCHDOG_NOTIFICATIONVALUE_RFRECEIVE		0x00000008U					/* rfReceive task's unique notification value for checking in with the watchdog */
+#define WCU_WATCHDOG_NOTIFICATIONVALUE_CANGATEKEEPER	0x00000010U					/* canGatekeeper task's unique notification value for checking in with the watchdog */
 #define WCU_CAN_PAYLOAD_SIZE							8U							/* CAN payload size in bytes */
 #define WCU_DEFAULT_TASK_DELAY							1U							/* Default task delay */
 #define WCU_DEFAULT_TIMEOUT								portMAX_DELAY				/* Default timeout */
