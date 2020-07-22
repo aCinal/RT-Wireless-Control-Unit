@@ -755,7 +755,12 @@ void StartIwdgGatekeeperTask(void const *argument) {
 						&notificationValue,
 						WCU_IWDGGATEKEEPER_XTASKNOTIFYWAIT_TIMEOUT)) {
 			/* If all tasks checked in */
-			if (notificationValue == 0) {
+			if (notificationValue
+					== (WCU_WATCHDOG_NOTIFICATIONVALUE_BTRECEIVE
+							| WCU_WATCHDOG_NOTIFICATIONVALUE_XBEESEND
+							| WCU_WATCHDOG_NOTIFICATIONVALUE_GNSSRECEIVE |
+							WCU_WATCHDOG_NOTIFICATIONVALUE_RFRECEIVE
+							| WCU_WATCHDOG_NOTIFICATIONVALUE_CANGATEKEEPER)) {
 				/* Refresh the counter */
 				HAL_IWDG_Refresh(&hiwdg);
 				/* Clear the notification value */
@@ -786,10 +791,12 @@ void StartBtReceiveTask(void const *argument) {
 	for (;;) {
 		/* Listen for the message */
 		HAL_UART_Receive_DMA(&BT_UART_HANDLE, btUartRxBuff,
-				WCU_BTRECEIVE_UART_BUFF_SIZE);
+		WCU_BTRECEIVE_UART_BUFF_SIZE);
 
 		/* Wait for notify from ISR/message received callback */
-		if (0UL < ulTaskNotifyTake(pdTRUE, WCU_BTRECEIVE_ULTASKNOTIFYTAKE_TIMEOUT)) {
+		if (0UL
+				< ulTaskNotifyTake(pdTRUE,
+						WCU_BTRECEIVE_ULTASKNOTIFYTAKE_TIMEOUT)) {
 			/* Validate the VER and RES/SEQ field */
 			if (R3TP_VER0_VER_RES_SEQ_BYTE != btUartRxBuff[0]) {
 				LOGERROR("Invalid VER/RES/SEQ in btReceive\r\n");
@@ -814,9 +821,9 @@ void StartBtReceiveTask(void const *argument) {
 
 			/* Calculate the CRC */
 			if (osOK == osMutexWait(crcMutexHandle, WCU_CRCMUTEX_TIMEOUT)) {
-				calculatedCrc = TWOLOWBYTES(
-						HAL_CRC_Calculate(&hcrc, (uint32_t* )btUartRxBuff,
-								WCU_BTRECEIVE_UART_BUFF_SIZE / 4U));
+				calculatedCrc =
+						TWOLOWBYTES(
+								HAL_CRC_Calculate(&hcrc, (uint32_t* )btUartRxBuff, WCU_BTRECEIVE_UART_BUFF_SIZE / 4U));
 				osMutexRelease(crcMutexHandle);
 			} else {
 				LOGERROR("crcMutex timeout in btReceive\r\n");
@@ -936,7 +943,9 @@ void StartXbeeSendTask(void const *argument) {
 			R3TP_VER0_FRAME_SIZE);
 
 			/* Wait for the transmission to end */
-			if (0UL < ulTaskNotifyTake(pdTRUE, WCU_XBEESEND_ULTASKNOTIFYTAKE_TIMEOUT)) {
+			if (0UL
+					< ulTaskNotifyTake(pdTRUE,
+							WCU_XBEESEND_ULTASKNOTIFYTAKE_TIMEOUT)) {
 				/* Log error */
 				LOGERROR(
 						"xbeeSend failed to receive notification from TxCpltCallback\r\n");
@@ -973,7 +982,7 @@ void StartXbeeReceiveTask(void const *argument) {
 
 		/* Wait for notify from ISR/message received callback */
 		if (0UL < ulTaskNotifyTake(pdTRUE,
-				WCU_XBEERECEIVE_ULTASKNOTIFYTAKE_TIMEOUT)) {
+		WCU_XBEERECEIVE_ULTASKNOTIFYTAKE_TIMEOUT)) {
 			/* Validate the VER and RES/SEQ field */
 			if (R3TP_VER1_VER_RES_SEQ_BYTE != xbeeUartRxBuff[0]) {
 				/* Log the error */
