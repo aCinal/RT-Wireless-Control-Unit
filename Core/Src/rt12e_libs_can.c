@@ -115,4 +115,3 @@ void setCanFilterBlockNone(CAN_HandleTypeDef *hcan) {
 	/* Configure the filter */
 	HAL_CAN_ConfigFilter(hcan, &filterConfig);
 }
-

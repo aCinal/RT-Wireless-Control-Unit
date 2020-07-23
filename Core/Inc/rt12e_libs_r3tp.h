@@ -20,7 +20,7 @@
 /**
  * @brief This macro returns the address at which the payload of an R3TP version 1 frame begins in reference to the buffer
  */
-#define R3TP_VER1_PAYLOAD_BEGIN(buff) (uint8_t*)((uint8_t*)buff + (uint32_t)8)
+#define R3TP_VER1_PAYLOAD_BEGIN(buff) (uint8_t*)((uint8_t*)buff + 8U)
 
 /**
  * @brief This macro returns the address offset from the start of the payload of an R3TP version 1 frame
