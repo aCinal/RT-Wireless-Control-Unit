@@ -145,6 +145,20 @@ void StartSdioGatekeeperTask(void const * argument);
 
 /* USER CODE BEGIN PFP */
 
+/**
+ * @brief Waits for SDIO gatekeeper to test if there is a valid subscription stored on the SD card
+ * @retval None
+ */
+void xbeeSubscribe_WaitSubscriptionFromSD(void);
+
+/**
+ * @brief Tries loading the telemetry subscription from the SD card
+ * @param fp Pointer to the blank file object
+ * @param path Pointer to the file name
+ * @retval uint32_t Number of frames loaded from SD card or error code if over 28UL
+ */
+uint32_t sdioGatekeeper_LoadTelemetrySubscription(FIL* fp, const TCHAR* path);
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -748,6 +762,165 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 	}
 }
 
+/**
+ * @brief Waits for SDIO gatekeeper to test if there is a valid subscription stored on the SD card
+ * @retval None
+ */
+void xbeeSubscribe_WaitSubscriptionFromSD(void) {
+	uint32_t frameNum; /* Number of frames in a subscription */
+	uint32_t subscription[R3TP_VER1_MAX_FRAME_NUM]; /* Buffer for telemetry subscription CAN IDs */
+	uint32_t notificationValue; /* Buffer for the notification value */
+
+	/* Wait for sdioGatekeeper to notify the task if there is a valid subscription stored on the SD card */
+	if (pdTRUE
+			== xTaskNotifyWait(0x00000000UL, 0xFFFFFFFFUL, &notificationValue,
+					WCU_XBEESUBSCRIBE_XTASKNOTIFYWAIT_TIMEOUT)) {
+		if (notificationValue <= 28UL) {
+			/* If notificationValue is less than or equal to 28, it is to be interpreted as the number of frames waiting in the queue */
+			frameNum = notificationValue;
+
+			enum { SUBSCRIPTIONREAD_OK = 0U, SUBSCRIPTIONREAD_ERROR } readStatus = SUBSCRIPTIONREAD_OK; /* Status flag */
+
+			for (uint32_t i = 0UL; i < frameNum; i += 1UL) {
+				if (pdTRUE
+						!= xQueueReceive(sdioSubscriptionQueueHandle,
+								subscription + i,
+								WCU_SDIOSUBSCRIPTIONQUEUE_RECEIVE_TIMEOUT)) {
+					/* Log error and break */
+					LOGERROR(
+							"xbeeSubscribe failed to receive from sdioSubscriptionQueue\r\n");
+					readStatus = SUBSCRIPTIONREAD_ERROR;
+					break;
+				}
+			}
+
+			/* If no error occured */
+			if (SUBSCRIPTIONREAD_OK == readStatus) {
+				/* Set the CAN filters */
+				setCanFilterList(&hcan1, subscription, frameNum);
+			}
+
+		} else {
+
+			/* Log error */
+			switch (notificationValue) {
+			case WCU_XBEESUBSCRIBE_NOTIFICATIONVALUE_FOPENFAILED:
+				LOGERROR(
+						"sdioGatekeeper failed to open the subscription file\r\n");
+				break;
+			case WCU_XBEESUBSCRIBE_NOTIFICATIONVALUE_FREADFAILED:
+				LOGERROR(
+						"sdioGatekeeper failed to read from the subscription file\r\n");
+				break;
+			case WCU_XBEESUBSCRIBE_NOTIFICATIONVALUE_INVALIDFRAMENUM:
+				LOGERROR("Invalid FRAME NUM in the subscription file\r\n");
+				break;
+			case WCU_XBEESUBSCRIBE_NOTIFICATIONVALUE_XQUEUESENDFAILED:
+				LOGERROR(
+						"sdioGatekeeper failed to send to sdioSubscriptionQueue\r\n");
+				break;
+			default:
+				LOGERROR("Invalid FRAME NUM in xbeeSubscribe (SD)\r\n");
+				break;
+			}
+
+		}
+	}
+
+}
+
+/**
+ * @brief Tries loading the telemetry subscription from the SD card
+ * @param fp Pointer to the blank file object
+ * @param path Pointer to the file name
+ * @retval uint32_t Number of frames loaded from SD card or error code if over 28UL
+ */
+uint32_t sdioGatekeeper_LoadTelemetrySubscription(FIL* fp, const TCHAR* path) {
+	/* Try opening the file */
+	if (FR_OK
+			== f_open(fp, path,
+					FA_READ | FA_OPEN_EXISTING)) {
+
+		uint32_t frameNum; /* Buffer for the number of frames */
+		uint32_t frameBuff; /* Buffer for a subscription frame */
+		uint8_t temp[4U]; /* Temporary buffer for four bytes to be read as a single 32-bit little endian value */
+		UINT bytesRead; /* Buffer for the number of bytes read */
+
+		/* Read the number of frames */
+		if (FR_OK == f_read(fp, temp, 4U, &bytesRead)) {
+			/* Parse the number of frames */
+			frameNum = READ32(temp[3U], temp[2U], temp[1U], temp[0U]);
+
+			/* Assert valid number of frames */
+			if (frameNum <= R3TP_VER1_MAX_FRAME_NUM) {
+				/* Read the payload and push it to the queue */
+				for (uint32_t i = 0U; i < frameNum; i += 1U) {
+					if (FR_OK
+							== f_read(fp, temp, 4U,
+									&bytesRead)) {
+						/* Assert end of file was not reached */
+						if (bytesRead < 4U) {
+							/* On invalid number of frames */
+							/* Close the file */
+							f_close(fp);
+							/* Queue cleanup */
+							xQueueReset(sdioSubscriptionQueueHandle);
+							return WCU_XBEESUBSCRIBE_NOTIFICATIONVALUE_INVALIDFRAMENUM;
+						}
+
+						/* Parse the frame */
+						frameBuff = READ32(temp[3U], temp[2U], temp[1U],
+								temp[0U]);
+
+						/* Send the frame to the queue */
+						if (pdPASS
+								!= xQueueSend(sdioSubscriptionQueueHandle,
+										&frameBuff,
+										WCU_SDIOSUBSCRIPTIONQUEUE_SEND_TIMEOUT)) {
+							/* If failed to send to queue */
+							/* Close the file */
+							f_close(fp);
+							/* Queue cleanup */
+							xQueueReset(sdioSubscriptionQueueHandle);
+							return WCU_XBEESUBSCRIBE_NOTIFICATIONVALUE_XQUEUESENDFAILED;
+						}
+					} else {
+						/* If failed to read the frame */
+						/* Close the file */
+						f_close(fp);
+						/* Queue cleanup */
+						xQueueReset(sdioSubscriptionQueueHandle);
+						return WCU_XBEESUBSCRIBE_NOTIFICATIONVALUE_FREADFAILED;
+					}
+				}
+
+				/* If no error occured */
+				/* Close the file */
+				f_close(fp);
+				return frameNum;
+
+			} else {
+				/* On invalid number of frames */
+				/* Close the file */
+				f_close(fp);
+				return WCU_XBEESUBSCRIBE_NOTIFICATIONVALUE_INVALIDFRAMENUM;
+			}
+		} else {
+			/* If failed to read the number of frames */
+			/* Close the file */
+			f_close(fp);
+			return WCU_XBEESUBSCRIBE_NOTIFICATIONVALUE_FREADFAILED;
+		}
+
+		/* Close the file */
+		f_close(fp);
+
+	} else {
+		/* If failed to open the file */
+		return WCU_XBEESUBSCRIBE_NOTIFICATIONVALUE_FOPENFAILED;
+	}
+}
+
 /* USER CODE END 4 */
 
 /* USER CODE BEGIN Header_StartIwdgGatekeeperTask */
@@ -994,62 +1167,9 @@ void StartXbeeSubscribeTask(void const * argument)
 	static uint16_t calculatedCrc; /* Buffer for the calculated CRC */
 	static uint32_t frameNum; /* Number of frames in a subscription */
 	static uint32_t subscription[R3TP_VER1_MAX_FRAME_NUM]; /* Buffer for telemetry subscription CAN IDs */
-	static uint32_t notificationValue; /* Buffer for the notification value */
-	enum {
-		XBEESUBSCRIBE_OK = 0U, XBEESUBSCRIBE_ERROR
-	} Status = XBEESUBSCRIBE_OK; /* Status flag */
 
-	/* Wait for sdioGatekeeper to notify the task if there is a valid subscription stored on the SD card */
-	if (pdTRUE
-			== xTaskNotifyWait(0x00000000UL, 0xFFFFFFFFUL, &notificationValue,
-					WCU_XBEESUBSCRIBE_XTASKNOTIFYWAIT_TIMEOUT)) {
-		if (notificationValue <= 28UL) {
-			Status = XBEESUBSCRIBE_OK; /* Reset the status flag */
-			/* If notificationValue is less than or equal to 28, it is to be interpreted as the number of frames waiting in the queue */
-			frameNum = notificationValue;
-
-			for (uint32_t i = 0UL; i < frameNum; i += 1UL) {
-				if (pdTRUE
-						!= xQueueReceive(sdioSubscriptionQueueHandle,
-								subscription + i,
-								WCU_SDIOSUBSCRIPTIONQUEUE_RECEIVE_TIMEOUT)) {
-					/* Log error and break */
-					LOGERROR(
-							"xbeeSubscribe failed to receive from sdioSubscriptionQueue\r\n");
-					Status = XBEESUBSCRIBE_ERROR;
-					break;
-				}
-			}
-
-			/* If no error occured */
-			if (XBEESUBSCRIBE_OK == Status) {
-				/* Set the CAN filters */
-				setCanFilterList(&hcan1, subscription, frameNum);
-			}
-		} else {
-			/* Log error */
-			switch (notificationValue) {
-			case WCU_XBEESUBSCRIBE_NOTIFICATIONVALUE_FOPENFAILED:
-				LOGERROR(
-						"sdioGatekeeper failed to open the subscription file\r\n");
-				break;
-			case WCU_XBEESUBSCRIBE_NOTIFICATIONVALUE_FREADFAILED:
-				LOGERROR(
-						"sdioGatekeeper failed to read from the subscription file\r\n");
-				break;
-			case WCU_XBEESUBSCRIBE_NOTIFICATIONVALUE_INVALIDFRAMENUM:
-				LOGERROR("Invalid FRAME NUM in the subscription file\r\n");
-				break;
-			case WCU_XBEESUBSCRIBE_NOTIFICATIONVALUE_XQUEUESENDFAILED:
-				LOGERROR(
-						"sdioGatekeeper failed to send to sdioSubscriptionQueue\r\n");
-				break;
-			default:
-				LOGERROR("Invalid FRAME NUM in xbeeSubscribe (SD)\r\n");
-				break;
-			}
-		}
-	}
+	/* Wait for SDIO gatekeeper to test if there is a valid subscription stored on the SD card */
+	xbeeSubscribe_WaitSubscriptionFromSD();
 
 	/* Infinite loop */
 	for (;;) {
@@ -1181,7 +1301,7 @@ void StartXbeeSubscribeTask(void const * argument)
 			}
 
 			/* Write subscription to sdioSubscriptionQueue */
-			Status = XBEESUBSCRIBE_OK; /* Reset the status flag */
+			enum { SUBSCRIPTIONWRITE_OK = 0U, SUBSCRIPTIONWRITE_ERROR } writeStatus = SUBSCRIPTIONWRITE_OK; /* Status flag */
 			for (uint32_t i = 0UL; i < frameNum; i += 1UL) {
 				/* Send the frame to the queue */
 				if (pdTRUE
@@ -1193,13 +1313,13 @@ void StartXbeeSubscribeTask(void const * argument)
 							"xbeeSubscribe failed to send to sdioSubscriptionQueue\r\n");
 					/* Cleanup */
 					xQueueReset(sdioSubscriptionQueueHandle);
-					Status = XBEESUBSCRIBE_ERROR;
+					writeStatus = SUBSCRIPTIONWRITE_ERROR;
 					break;
 				}
 			}
 
 			/* If no error occured while pushing the subscription to sdioSubscriptionQueue */
-			if (XBEESUBSCRIBE_OK == Status) {
+			if (SUBSCRIPTIONWRITE_OK == writeStatus) {
 				/* Notify sdioGatekeeper */
 				(void) xTaskNotify(sdioGatekeeperHandle, frameNum,
 						eSetValueWithOverwrite);
@@ -1321,105 +1441,20 @@ void StartSdioGatekeeperTask(void const * argument)
 	static char *errorLogBuff; /* Buffer for the pointer to the error message */
 	static uint32_t notificationValue; /* Buffer for the notification value */
 
-	/* Mount the logical drive */
-	while (FR_OK != f_mount(&fatFs, SDPath, 0x01U)) {
-		__NOP();
+
+	/* Try mounting the logical drive */
+	if(FR_OK != f_mount(&fatFs, SDPath, 1)) {
+		/* On f_mount failure, suspend the task */
+		vTaskSuspend(NULL);
 	}
+
 
 	/* Try loading the telemetry subscription from the SD card */
-	if (FR_OK
-			== f_open(&subscriptionFile, WCU_SDIOGATEEKEPER_SUBSCR_PATH,
-					FA_READ | FA_OPEN_EXISTING)) {
+	notificationValue = sdioGatekeeper_LoadTelemetrySubscription(&subscriptionFile, WCU_SDIOGATEEKEPER_SUBSCR_PATH);
+	/* Notify xbeeSubscribe of the result */
+	(void) xTaskNotify(xbeeSubscribeHandle, notificationValue,
+			eSetValueWithOverwrite);
 
-		enum {
-			SDIOGATEKEEPER_OK = 0U, SDIOGATEKEEPER_ERROR
-		} Status; /* Status flag */
-		uint32_t frameNum; /* Buffer for the number of frames */
-		uint32_t frameBuff; /* Buffer for a subscription frame */
-		uint8_t temp[4U]; /* Temporary buffer for four bytes to be read as a single 32-bit little endian value */
-		UINT bytesRead; /* Buffer for the number of bytes read */
-
-		/* Read the number of frames */
-		if (FR_OK == f_read(&subscriptionFile, temp, 4U, &bytesRead)) {
-			/* Parse the number of frames */
-			frameNum = READ32(temp[3U], temp[2U], temp[1U], temp[0U]);
-
-			/* Assert valid number of frames */
-			if (frameNum <= R3TP_VER1_MAX_FRAME_NUM) {
-				Status = SDIOGATEKEEPER_OK; /* Reset the status flag */
-
-				/* Read the payload and push it to the queue */
-				for (uint32_t i = 0U; i < frameNum; i += 1U) {
-					if (FR_OK
-							== f_read(&subscriptionFile, temp, 4U,
-									&bytesRead)) {
-						/* Assert end of file was not reached */
-						if (bytesRead < 4U) {
-							/* On invalid number of frames */
-							(void) xTaskNotify(xbeeSubscribeHandle,
-									WCU_XBEESUBSCRIBE_NOTIFICATIONVALUE_INVALIDFRAMENUM,
-									eSetValueWithOverwrite);
-							Status = SDIOGATEKEEPER_ERROR;
-							break;
-						}
-
-						/* Parse the frame */
-						frameBuff = READ32(temp[3U], temp[2U], temp[1U],
-								temp[0U]);
-
-						/* Send the frame to the queue */
-						if (pdPASS
-								!= xQueueSend(sdioSubscriptionQueueHandle,
-										&frameBuff,
-										WCU_SDIOSUBSCRIPTIONQUEUE_SEND_TIMEOUT)) {
-							/* If failed to send to queue */
-							(void) xTaskNotify(xbeeSubscribeHandle,
-									WCU_XBEESUBSCRIBE_NOTIFICATIONVALUE_XQUEUESENDFAILED,
-									eSetValueWithOverwrite);
-							Status = SDIOGATEKEEPER_ERROR;
-							/* Cleanup */
-							xQueueReset(sdioSubscriptionQueueHandle);
-							break;
-						}
-					} else {
-						/* If failed to read the frame */
-						(void) xTaskNotify(xbeeSubscribeHandle,
-								WCU_XBEESUBSCRIBE_NOTIFICATIONVALUE_FREADFAILED,
-								eSetValueWithOverwrite);
-						Status = SDIOGATEKEEPER_ERROR;
-						break;
-					}
-				}
-
-				/* If no error occured */
-				if (SDIOGATEKEEPER_OK == Status) {
-					/* Notify the xbeeSubscribe task to start reading from the queue */
-					(void) xTaskNotify(xbeeSubscribeHandle, frameNum,
-							eSetValueWithOverwrite);
-				}
-
-			} else {
-				/* On invalid number of frames */
-				(void) xTaskNotify(xbeeSubscribeHandle,
-						WCU_XBEESUBSCRIBE_NOTIFICATIONVALUE_INVALIDFRAMENUM,
-						eSetValueWithOverwrite);
-			}
-		} else {
-			/* If failed to read the number of frames */
-			(void) xTaskNotify(xbeeSubscribeHandle,
-					WCU_XBEESUBSCRIBE_NOTIFICATIONVALUE_FREADFAILED,
-					eSetValueWithOverwrite);
-		}
-
-		/* Close the file */
-		f_close(&subscriptionFile);
-
-	} else {
-		/* If failed to open the file */
-		(void) xTaskNotify(xbeeSubscribeHandle,
-				WCU_XBEESUBSCRIBE_NOTIFICATIONVALUE_FOPENFAILED,
-				eSetValueWithOverwrite);
-	}
 
 	/* Infinite loop */
 	for (;;) {
@@ -1428,6 +1463,7 @@ void StartSdioGatekeeperTask(void const * argument)
 		/* Listen on incoming error messages */
 		if (pdTRUE == xQueueReceive(sdioLogErrorQueueHandle, &errorLogBuff,
 		WCU_SDIOLOGERRORQUEUE_RECEIVE_TIMEOUT)) {
+
 			/* Try opening the file */
 			if (FR_OK == f_open(&errorLogFile, WCU_SDIOGATEKEEPER_ERRLOG_PATH,
 			FA_WRITE | FA_OPEN_APPEND)) {
@@ -1440,13 +1476,17 @@ void StartSdioGatekeeperTask(void const * argument)
 				vPortFree(errorLogBuff);
 				errorLogBuff = NULL;
 			}
+
 		}
+
+
 
 		/* Listen on notification from xbeeSubscribe */
 		if (pdTRUE
 				== xTaskNotifyWait(0x00000000UL, 0xFFFFFFFFUL,
 						&notificationValue,
 						WCU_SDIOGATEKEEPER_XTASKNOTIFYWAIT_TIMEOUT)) {
+
 			if (notificationValue <= 28UL) {
 				/* If notificationValue is less than or equal to 28, it is to be interpreted as the number of frames waiting in the queue */
 				uint32_t frameBuff; /* Buffer for a subscription frame */
@@ -1458,6 +1498,7 @@ void StartSdioGatekeeperTask(void const * argument)
 						== f_open(&subscriptionFile,
 								WCU_SDIOGATEEKEPER_SUBSCR_PATH,
 								FA_WRITE | FA_CREATE_ALWAYS)) {
+
 					/* Print the number of frames to the SD card */
 					temp[0U] = LSB32(notificationValue);
 					temp[1U] = LOWMID32(notificationValue);
@@ -1500,6 +1541,7 @@ void StartSdioGatekeeperTask(void const * argument)
 				/* Log error */
 				LOGERROR("Invalid notification value in sdioGatekeeper\r\n");
 			}
+
 		}
 	}
   /* USER CODE END StartSdioGatekeeperTask */
