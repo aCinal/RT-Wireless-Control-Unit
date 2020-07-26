@@ -40,6 +40,9 @@ extern "C" {
 /* Exported types ------------------------------------------------------------*/
 /* USER CODE BEGIN ET */
 
+typedef float float32_t; /* 32-bit floating point variable typedef */
+typedef double float64_t; /* 64-bit floating point variable typedef */
+
 /* USER CODE END ET */
 
 /* Exported constants --------------------------------------------------------*/
@@ -136,9 +139,13 @@ void Error_Handler(void);
 #define WCU_XBEESUBSCRIBE_ULTASKNOTIFYTAKE_TIMEOUT				WCU_DEFAULT_TIMEOUT			/* xbeeSubscribe ulTaskNotifyTake timeout */
 #define WCU_XBEESUBSCRIBE_XTASKNOTIFYWAIT_TIMEOUT				5000U						/* xbeeSubscribe xTaskNotifyWait timeout */
 #define WCU_SDIOGATEKEEPER_XTASKNOTIFYWAIT_TIMEOUT				0U							/* sdioGateekeper xTaskNotifyWait timeout */
+#define WCU_GNSSRECEIVE_ULTASKNOTIFYTAKE_TIMEOUT				WCU_DEFAULT_TIMEOUT			/* gnssReceive ulTaskNotifyTake timeout */
+#define WCU_GNSSRECEIVE_DEVICECONFIG_UART_TIMEOUT				WCU_DEFAULT_TIMEOUT			/* gnssReceive_DeviceConfig UART Tx timeout */
+#define WCU_GNSSRECEIVE_DEVICECONFIG_SETUP_DELAY				1000U						/* gnssReceive_DeviceConfig device setup delay */
 
 #define WCU_CAN_PAYLOAD_SIZE									8U							/* CAN payload size in bytes */
 #define WCU_ERROR_LOG_TIMESTAMP_SIZE							11U							/* Length of the error log timestamp */
+#define WCU_GNSSRECEIVE_UARTRXBUFF_SIZE							50U							/* Length of the UART Rx buffer */
 
 #define WCU_SDIOGATEKEEPER_ERRLOG_PATH							"ERRLOG.TXT"				/* Error log file path */
 #define WCU_SDIOGATEEKEPER_SUBSCR_PATH							"SUBSCR"					/* Subscription file path */
