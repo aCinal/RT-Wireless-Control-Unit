@@ -40,9 +40,6 @@ extern "C" {
 /* Exported types ------------------------------------------------------------*/
 /* USER CODE BEGIN ET */
 
-typedef float float32_t; /* 32-bit floating point variable typedef */
-typedef double float64_t; /* 64-bit floating point variable typedef */
-
 /* USER CODE END ET */
 
 /* Exported constants --------------------------------------------------------*/
@@ -142,6 +139,7 @@ void Error_Handler(void);
 #define WCU_GNSSRECEIVE_ULTASKNOTIFYTAKE_TIMEOUT				WCU_DEFAULT_TIMEOUT			/* gnssReceive ulTaskNotifyTake timeout */
 #define WCU_GNSSRECEIVE_DEVICECONFIG_UART_TIMEOUT				WCU_DEFAULT_TIMEOUT			/* gnssReceive_DeviceConfig UART Tx timeout */
 #define WCU_GNSSRECEIVE_DEVICECONFIG_SETUP_DELAY				1000U						/* gnssReceive_DeviceConfig device setup delay */
+#define WCU_IWDGGATEEKEEPER_INIT_DELAY							1000U						/* iwdgGatekeeper IWDG init delay */
 
 #define WCU_CAN_PAYLOAD_SIZE									8U							/* CAN payload size in bytes */
 #define WCU_ERROR_LOG_TIMESTAMP_SIZE							11U							/* Length of the error log timestamp */
@@ -149,6 +147,10 @@ void Error_Handler(void);
 
 #define WCU_SDIOGATEKEEPER_ERRLOG_PATH							"ERRLOG.TXT"				/* Error log file path */
 #define WCU_SDIOGATEEKEPER_SUBSCR_PATH							"SUBSCR"					/* Subscription file path */
+
+#define WCU_CANID_GPS_POS										0x700U						/* CAN ID: _700_GPS_POS */
+#define WCU_CANID_GPS_POS2										0x701U						/* CAN ID: _701_GPS_POS2 */
+#define WCU_CANID_GPS_STATUS									0x702U						/* CAN ID: _702_GPS_STATUS */
 
 /* USER CODE END Private defines */
 

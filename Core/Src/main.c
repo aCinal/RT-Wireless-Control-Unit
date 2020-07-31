@@ -28,6 +28,7 @@
 
 #include <rt12e_libs_generic.h>
 #include <rt12e_libs_can.h>
+#include <quectel_l26_gnss_parser.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -152,10 +153,31 @@ void StartSdioGatekeeperTask(void const *argument);
 void xbeeSubscribe_WaitSubscriptionFromSD(void);
 
 /**
- * @brief Configure the Quectel L26 device
+ * @brief Configures the Quectel L26 device
  * @retval None
  */
 void gnssReceive_DeviceConfig(void);
+
+/**
+ * @brief Sends _GPS_POS CAN frame
+ * @param pData Pointer to the GNSS data structure
+ * @retval None
+ */
+void gnssReceive_Send_GPS_POS(GnssDataTypedef* pData);
+
+/**
+ * @brief Sends _GPS_POS CAN frame
+ * @param pData Pointer to the GNSS data structure
+ * @retval None
+ */
+void gnssReceive_Send_GPS_POS2(GnssDataTypedef* pData);
+
+/**
+ * @brief Sends _GPS_POS CAN frame
+ * @param pData Pointer to the GNSS data structure
+ * @retval None
+ */
+void gnssReceive_Send_GPS_STATUS(GnssDataTypedef* pData);
 
 /**
  * @brief Tries loading the telemetry subscription from the SD card
@@ -820,11 +842,10 @@ void xbeeSubscribe_WaitSubscriptionFromSD(void) {
 
 		}
 	}
-
 }
 
 /**
- * @brief Configure the Quectel L26 device
+ * @brief Configures the Quectel L26 device
  * @retval None
  */
 void gnssReceive_DeviceConfig(void) {
@@ -852,6 +873,88 @@ void gnssReceive_DeviceConfig(void) {
 }
 
 /**
+ * @brief Sends _GPS_POS CAN frame
+ * @param pData Pointer to the GNSS data structure
+ * @retval None
+ */
+void gnssReceive_Send_GPS_POS(GnssDataTypedef* pData) {
+	CanFrameTypedef canFrame = { .DataDirection = TX }; /* CAN frame structure */
+
+	/* Configure the CAN Tx header */
+	canFrame.Header.Tx.DLC = 8;
+	canFrame.Header.Tx.IDE = CAN_ID_STD;
+	canFrame.Header.Tx.RTR = CAN_RTR_DATA;
+	canFrame.Header.Tx.StdId = WCU_CANID_GPS_POS;
+
+	/* Write the longitude to the frame payload */
+	int32_t longitude = normalizeCoordinate(pData->Longitude, pData->LonDir);
+	canFrame.Payload[0] = MSB32(longitude);
+	canFrame.Payload[1] = HIGHMID32(longitude);
+	canFrame.Payload[2] = LOWMID32(longitude);
+	canFrame.Payload[3] = LSB(longitude);
+
+	/* Write the latitude to the frame payload */
+	int32_t latitude = normalizeCoordinate(pData->Latitude, pData->LatDir);
+	canFrame.Payload[4] = MSB32(latitude);
+	canFrame.Payload[5] = HIGHMID32(longitude);
+	canFrame.Payload[6] = LOWMID32(longitude);
+	canFrame.Payload[7] = LSB(longitude);
+
+	/* Push CAN frame to queue */
+	if (pdTRUE
+			!= xQueueSend(canTransmitQueueHandle, &canFrame,
+					WCU_CANTRANSMITQUEUE_SEND_TIMEOUT)) {
+		LOGERROR("gnssReceive_Send_GPS_POS failed to send to canTransmitQueue\r\n");
+	}
+}
+
+/**
+ * @brief Sends _GPS_POS CAN frame
+ * @param pData Pointer to the GNSS data structure
+ * @retval None
+ */
+void gnssReceive_Send_GPS_POS2(GnssDataTypedef* pData) {
+	CanFrameTypedef canFrame = { .DataDirection = TX }; /* CAN frame structure */
+
+	/* Configure the CAN Tx header */
+	canFrame.Header.Tx.DLC = 6;
+	canFrame.Header.Tx.IDE = CAN_ID_STD;
+	canFrame.Header.Tx.RTR = CAN_RTR_DATA;
+	canFrame.Header.Tx.StdId = WCU_CANID_GPS_POS2;
+
+	/* Write the speed to the frame payload */
+	uint16_t speed = normalizeSpeed(pData->Speed);
+	canFrame.Payload[0] = MSB16(speed);
+	canFrame.Payload[1] = LSB(speed);
+
+	/* Write the direction to the frame payload */
+	uint16_t direction = normalizeDirection(pData->Direction);
+	canFrame.Payload[2] = MSB16(direction);
+	canFrame.Payload[3] = LSB(direction);
+
+	/* Write the altitude to the frame payload */
+	uint16_t altitude = normalizeAltitude(pData->Altitude);
+	canFrame.Payload[4] = MSB16(altitude);
+	canFrame.Payload[5] = LSB(altitude);
+
+	/* Push CAN frame to queue */
+	if (pdTRUE
+			!= xQueueSend(canTransmitQueueHandle, &canFrame,
+					WCU_CANTRANSMITQUEUE_SEND_TIMEOUT)) {
+		LOGERROR("gnssReceive_Send_GPS_POS2 failed to send to canTransmitQueue\r\n");
+	}
+}
+
+/**
+ * @brief Sends _GPS_POS CAN frame
+ * @param pData Pointer to the GNSS data structure
+ * @retval None
+ */
+void gnssReceive_Send_GPS_STATUS(GnssDataTypedef* pData) {
+
+}
+
+/**
  * @brief Tries loading the telemetry subscription from the SD card
  * @param fp Pointer to the blank file object
  * @param path Pointer to the file name
@@ -876,7 +979,7 @@ uint32_t sdioGatekeeper_LoadTelemetrySubscription(FIL *fp, const TCHAR *path) {
 			if (frameNum <= R3TP_VER1_MAX_FRAME_NUM) {
 				/* Read the payload and push it to the queue */
 				for (uint32_t i = 0U; i < frameNum; i += 1U) {
-					if (FR_OK == f_read(fp, temp, 4U, &bytesRead)) {
+					if (FR_OK == f_read(fp, temp, 4, &bytesRead)) {
 						/* Assert end of file was not reached */
 						if (bytesRead < 4U) {
 							/* On invalid number of frames */
@@ -953,6 +1056,9 @@ void StartIwdgGatekeeperTask(void const *argument) {
 	/* USER CODE BEGIN 5 */
 	static uint32_t notificationValue; /* Buffer to pass the notification value out of the xTaskNotifyWait function */
 
+	/* Give the other tasks time to set up */
+	vTaskDelay(WCU_IWDGGATEEKEEPER_INIT_DELAY);
+
 	/* Initialize the watchdog */
 	HAL_IWDG_Init(&hiwdg);
 
@@ -976,7 +1082,7 @@ void StartIwdgGatekeeperTask(void const *argument) {
 				HAL_IWDG_Refresh(&hiwdg);
 				/* Clear the notification value */
 				(void) xTaskNotifyWait(0xFFFFFFFFUL, 0xFFFFFFFFUL,
-						&notificationValue, 0U);
+						&notificationValue, 0);
 			}
 		}
 	}
@@ -1122,7 +1228,7 @@ void StartXbeeSendTask(void const *argument) {
 			R3TP_END_SEQ_HIGH_BYTE;
 
 			/* Set CAN ID field - note that the CAN ID is transmitted as little endian */
-			xbeeUartTxBuff[4] = LSB16(frameBuff.Header.Rx.StdId);
+			xbeeUartTxBuff[4] = LSB(frameBuff.Header.Rx.StdId);
 			xbeeUartTxBuff[5] = MSB16(frameBuff.Header.Rx.StdId);
 
 			/* Set the DLC field */
@@ -1141,7 +1247,7 @@ void StartXbeeSendTask(void const *argument) {
 				osMutexRelease(crcMutexHandle);
 
 				/* Set the CHECKSUM field - note that the CRC is transmitted as little endian */
-				xbeeUartTxBuff[2] = LSB16(calculatedCrc);
+				xbeeUartTxBuff[2] = LSB(calculatedCrc);
 				xbeeUartTxBuff[3] = MSB16(calculatedCrc);
 			} else {
 				/* Log error */
@@ -1191,7 +1297,7 @@ void StartXbeeSubscribeTask(void const *argument) {
 		osDelay(WCU_DEFAULT_TASK_DELAY);
 
 		/* Listen for the subscription frame VER octet */
-		HAL_UART_Receive_DMA(&XBEE_UART_HANDLE, xbeeUartRxBuff, 1U);
+		HAL_UART_Receive_DMA(&XBEE_UART_HANDLE, xbeeUartRxBuff, 1);
 
 		/* Wait for notify from ISR/message received callback */
 		if (0UL < ulTaskNotifyTake(pdTRUE,
@@ -1299,7 +1405,7 @@ void StartXbeeSubscribeTask(void const *argument) {
 				/* Assert the invalid message won't raise any more interrupts */
 				while (HAL_OK
 						== HAL_UART_Receive(&XBEE_UART_HANDLE, xbeeUartRxBuff,
-								1U, WCU_XBEESUBSCRIBE_UART_CLEANUP_TIMEOUT)) {
+								1, WCU_XBEESUBSCRIBE_UART_CLEANUP_TIMEOUT)) {
 					__NOP();
 				}
 				continue;
@@ -1359,6 +1465,7 @@ void StartXbeeSubscribeTask(void const *argument) {
 void StartGnssReceiveTask(void const *argument) {
 	/* USER CODE BEGIN StartGnssReceiveTask */
 	static uint8_t gnssUartRxBuff[WCU_GNSSRECEIVE_UARTRXBUFF_SIZE]; /* UART Rx buffer */
+	static GnssDataTypedef dataBuff; /* GNSS data buffer */
 
 	/* Configure the device */
 	gnssReceive_DeviceConfig();
@@ -1378,6 +1485,11 @@ void StartGnssReceiveTask(void const *argument) {
 			/*
 			 * TODO: Parse the message
 			 */
+
+			/* Send the data to CAN */
+			gnssReceive_Send_GPS_POS(&dataBuff);
+			gnssReceive_Send_GPS_POS2(&dataBuff);
+			gnssReceive_Send_GPS_STATUS(&dataBuff);
 		}
 
 		/* Report to watchdog */
@@ -1526,7 +1638,7 @@ void StartSdioGatekeeperTask(void const *argument) {
 				FA_WRITE | FA_CREATE_ALWAYS)) {
 
 					/* Print the number of frames to the SD card */
-					temp[0] = LSB32(notificationValue);
+					temp[0] = LSB(notificationValue);
 					temp[1] = LOWMID32(notificationValue);
 					temp[2] = HIGHMID32(notificationValue);
 					temp[3] = MSB32(notificationValue);
@@ -1545,7 +1657,7 @@ void StartSdioGatekeeperTask(void const *argument) {
 						}
 
 						/* Print the frame to the SD card */
-						temp[0] = LSB32(frameBuff);
+						temp[0] = LSB(frameBuff);
 						temp[1] = LOWMID32(frameBuff);
 						temp[2] = HIGHMID32(frameBuff);
 						temp[3] = MSB32(frameBuff);
