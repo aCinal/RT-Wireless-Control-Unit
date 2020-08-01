@@ -36,7 +36,7 @@ int32_t normalizeCoordinate(float64_t coordinate, uint32_t direction) {
  * @retval uint16_t Speed normalized as kilometers per hour multiplied by 10
  */
 uint16_t normalizeSpeed(float32_t speed) {
-	return round(speed * 10.0);
+	return lround(speed * 10.0);
 }
 
 /**
@@ -45,7 +45,7 @@ uint16_t normalizeSpeed(float32_t speed) {
  * @retval uint16_t Direction normalized as degrees multiplied by 10
  */
 uint16_t normalizeDirection(float32_t direction) {
-	return round(direction * 10.0);
+	return lround(direction * 10.0);
 }
 
 /**
@@ -54,5 +54,14 @@ uint16_t normalizeDirection(float32_t direction) {
  * @retval uint16_t Altitude normalized as meters multiplied by 10
  */
 uint16_t normalizeAltitude(float32_t altitude) {
-	return round(altitude * 10.0);
+	return lround(altitude * 10.0);
+}
+
+/**
+ * @brief Normalizes the time to the format hhmmsssss
+ * @param time Time in format hhmmss.sss
+ * @retval uint32_t Time normalized to the format hhmmsssss
+ */
+uint32_t normalizeTime(float64_t time) {
+	return llround(time * 1000.0);
 }

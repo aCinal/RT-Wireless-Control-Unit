@@ -141,16 +141,15 @@ void Error_Handler(void);
 #define WCU_GNSSRECEIVE_DEVICECONFIG_SETUP_DELAY				1000U						/* gnssReceive_DeviceConfig device setup delay */
 #define WCU_IWDGGATEEKEEPER_INIT_DELAY							1000U						/* iwdgGatekeeper IWDG init delay */
 
-#define WCU_CAN_PAYLOAD_SIZE									8U							/* CAN payload size in bytes */
 #define WCU_ERROR_LOG_TIMESTAMP_SIZE							11U							/* Length of the error log timestamp */
 #define WCU_GNSSRECEIVE_UARTRXBUFF_SIZE							50U							/* Length of the UART Rx buffer */
 
 #define WCU_SDIOGATEKEEPER_ERRLOG_PATH							"ERRLOG.TXT"				/* Error log file path */
 #define WCU_SDIOGATEEKEPER_SUBSCR_PATH							"SUBSCR"					/* Subscription file path */
 
-#define WCU_CANID_GPS_POS										0x700U						/* CAN ID: _700_GPS_POS */
-#define WCU_CANID_GPS_POS2										0x701U						/* CAN ID: _701_GPS_POS2 */
-#define WCU_CANID_GPS_STATUS									0x702U						/* CAN ID: _702_GPS_STATUS */
+#define WCU_CANID_GPS_POS										0x700UL						/* CAN ID: _700_GPS_POS */
+#define WCU_CANID_GPS_POS2										0x701UL						/* CAN ID: _701_GPS_POS2 */
+#define WCU_CANID_GPS_STATUS									0x702UL						/* CAN ID: _702_GPS_STATUS */
 
 /* USER CODE END Private defines */
 

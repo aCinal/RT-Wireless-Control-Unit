@@ -9,6 +9,10 @@
 
 #include "main.h"
 
+/* Exported defines ------------------------------------------------------------*/
+#define CAN_FILTERBANKS_COUNT	28U	/* Number of CAN filter banks */
+#define CAN_PAYLOAD_SIZE		8U	/* CAN payload size in bytes */
+
 /* Exported typedef ------------------------------------------------------------*/
 /**
  * @brief Structure facilitating communication with the CAN peripheral gatekeeper
@@ -32,11 +36,8 @@ typedef struct {
 	/**
 	 * @brief CAN frame data
 	 */
-	uint8_t Payload[WCU_CAN_PAYLOAD_SIZE];
+	uint8_t Payload[CAN_PAYLOAD_SIZE];
 } CanFrameTypedef;
-
-/* Exported defines ------------------------------------------------------------*/
-#define CAN_FILTERBANKS_COUNT 28U /* Number of CAN filter banks */
 
 /* Exported macro ------------------------------------------------------------*/
 /**

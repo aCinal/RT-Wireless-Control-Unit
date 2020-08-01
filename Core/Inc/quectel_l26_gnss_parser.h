@@ -9,11 +9,7 @@
 
 #include "main.h"
 
-typedef float float32_t;						/* 32-bit floating point variable typedef */
-typedef double float64_t;						/* 64-bit floating point variable typedef */
-
-typedef uint8_t NMEASentencesRxFlagsTypedef;	/* Typedef for storing flags corresponding to received NMEA sentences */
-
+/* Exported defines ------------------------------------------------------------*/
 #define NMEA_RMC_RECEIVED		0x01U			/* --RMC NMEA sentence received flag */
 #define NMEA_GPVTG_RECEIVED		0x02U			/* GPVTG NMEA sentence received flag */
 #define NMEA_GPGGA_RECEIVED		0x04U			/* GPGGA NMEA sentence received flag */
@@ -21,6 +17,11 @@ typedef uint8_t NMEASentencesRxFlagsTypedef;	/* Typedef for storing flags corres
 #define NMEA_GSV_RECEIVED		0x10U			/* --GSV NMEA sentence received flag */
 #define NMEA_GLL_RECEIVED		0x20U			/* --GLL NMEA sentence received flag */
 #define NMEA_GPTXT_RECEIVED		0x40U			/* GPTXT NMEA sentence received flag */
+
+/* Exported typedefs ------------------------------------------------------------*/
+typedef float float32_t;						/* 32-bit floating point variable typedef */
+typedef double float64_t;						/* 64-bit floating point variable typedef */
+typedef uint8_t NMEASentencesRxFlagsTypedef;	/* Typedef for storing flags corresponding to received NMEA sentences */
 
 /**
  * @brief GNSS data structure
@@ -43,12 +44,13 @@ typedef struct {
 	uint8_t SatellitesInUse; /* Number of satellites in use */
 	uint8_t SatellitesVisibleGPS; /* Number of GPS satellites visible */
 	uint8_t SatellitesVisibleGLONASS; /* Number of GLONASS satellites visible */
-	enum { GNSS_GSA_NoFix = 1U, GNSS_GSA_2DFix, GNSS_GSA_3DFix } GSAFixStatus; /* --GSA sentence fix status */
+	enum { GNSS_GSA_NoFix = 1U, GNSS_GSA_2DFix, GNSS_GSA_3DFix } FixStatus; /* --GSA sentence fix status */
 
 	NMEASentencesRxFlagsTypedef SentencesRxFlags; /* Sentences received */
 
 } GnssDataTypedef;
 
+/* Exported function prototypes -----------------------------------------------*/
 /**
  * @brief Normalizes the coordinate (longitude/latitude) as degrees multiplied by 1,000,000
  * @param coordinate Coordinate in format 'dddmm.mmmm' (degree and minutes)
@@ -77,5 +79,12 @@ uint16_t normalizeDirection(float32_t direction);
  * @retval uint16_t Altitude normalized as meters multiplied by 10
  */
 uint16_t normalizeAltitude(float32_t altitude);
+
+/**
+ * @brief Normalizes the time to the format hhmmsssss
+ * @param time Time in format hhmmss.sss
+ * @retval uint32_t Time normalized to the format hhmmsssss
+ */
+uint32_t normalizeTime(float64_t time);
 
 #endif /* __QUECTEL_L26_GNSS_PARSER_H_ */

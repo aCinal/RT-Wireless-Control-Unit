@@ -163,21 +163,21 @@ void gnssReceive_DeviceConfig(void);
  * @param pData Pointer to the GNSS data structure
  * @retval None
  */
-void gnssReceive_Send_GPS_POS(GnssDataTypedef* pData);
+void gnssReceive_Send_GPS_POS(GnssDataTypedef *pData);
 
 /**
  * @brief Sends _GPS_POS CAN frame
  * @param pData Pointer to the GNSS data structure
  * @retval None
  */
-void gnssReceive_Send_GPS_POS2(GnssDataTypedef* pData);
+void gnssReceive_Send_GPS_POS2(GnssDataTypedef *pData);
 
 /**
  * @brief Sends _GPS_POS CAN frame
  * @param pData Pointer to the GNSS data structure
  * @retval None
  */
-void gnssReceive_Send_GPS_STATUS(GnssDataTypedef* pData);
+void gnssReceive_Send_GPS_STATUS(GnssDataTypedef *pData);
 
 /**
  * @brief Tries loading the telemetry subscription from the SD card
@@ -257,7 +257,7 @@ int main(void) {
 	/* definition and creation of canTransmitQueue */
 	osMessageQDef(canTransmitQueue, 16, CanFrameTypedef);
 	canTransmitQueueHandle = osMessageCreate(osMessageQ(canTransmitQueue),
-			NULL);
+	NULL);
 
 	/* definition and creation of canReceiveQueue */
 	osMessageQDef(canReceiveQueue, 16, CanFrameTypedef);
@@ -266,7 +266,7 @@ int main(void) {
 	/* definition and creation of sdioLogErrorQueue */
 	osMessageQDef(sdioLogErrorQueue, 16, const char*);
 	sdioLogErrorQueueHandle = osMessageCreate(osMessageQ(sdioLogErrorQueue),
-			NULL);
+	NULL);
 
 	/* definition and creation of sdioSubscriptionQueue */
 	osMessageQDef(sdioSubscriptionQueue, 32, uint32_t);
@@ -877,7 +877,7 @@ void gnssReceive_DeviceConfig(void) {
  * @param pData Pointer to the GNSS data structure
  * @retval None
  */
-void gnssReceive_Send_GPS_POS(GnssDataTypedef* pData) {
+void gnssReceive_Send_GPS_POS(GnssDataTypedef *pData) {
 	CanFrameTypedef canFrame = { .DataDirection = TX }; /* CAN frame structure */
 
 	/* Configure the CAN Tx header */
@@ -904,7 +904,8 @@ void gnssReceive_Send_GPS_POS(GnssDataTypedef* pData) {
 	if (pdTRUE
 			!= xQueueSend(canTransmitQueueHandle, &canFrame,
 					WCU_CANTRANSMITQUEUE_SEND_TIMEOUT)) {
-		LOGERROR("gnssReceive_Send_GPS_POS failed to send to canTransmitQueue\r\n");
+		LOGERROR(
+				"gnssReceive_Send_GPS_POS failed to send to canTransmitQueue\r\n");
 	}
 }
 
@@ -913,7 +914,7 @@ void gnssReceive_Send_GPS_POS(GnssDataTypedef* pData) {
  * @param pData Pointer to the GNSS data structure
  * @retval None
  */
-void gnssReceive_Send_GPS_POS2(GnssDataTypedef* pData) {
+void gnssReceive_Send_GPS_POS2(GnssDataTypedef *pData) {
 	CanFrameTypedef canFrame = { .DataDirection = TX }; /* CAN frame structure */
 
 	/* Configure the CAN Tx header */
@@ -941,7 +942,8 @@ void gnssReceive_Send_GPS_POS2(GnssDataTypedef* pData) {
 	if (pdTRUE
 			!= xQueueSend(canTransmitQueueHandle, &canFrame,
 					WCU_CANTRANSMITQUEUE_SEND_TIMEOUT)) {
-		LOGERROR("gnssReceive_Send_GPS_POS2 failed to send to canTransmitQueue\r\n");
+		LOGERROR(
+				"gnssReceive_Send_GPS_POS2 failed to send to canTransmitQueue\r\n");
 	}
 }
 
@@ -950,8 +952,45 @@ void gnssReceive_Send_GPS_POS2(GnssDataTypedef* pData) {
  * @param pData Pointer to the GNSS data structure
  * @retval None
  */
-void gnssReceive_Send_GPS_STATUS(GnssDataTypedef* pData) {
+void gnssReceive_Send_GPS_STATUS(GnssDataTypedef *pData) {
+	CanFrameTypedef canFrame = { .DataDirection = TX }; /* CAN frame structure */
 
+	/* Configure the CAN Tx header */
+	canFrame.Header.Tx.DLC = 8;
+	canFrame.Header.Tx.IDE = CAN_ID_STD;
+	canFrame.Header.Tx.RTR = CAN_RTR_DATA;
+	canFrame.Header.Tx.StdId = WCU_CANID_GPS_STATUS;
+
+	/* Write the satellites visible count to the frame payload */
+	canFrame.Payload[0] = pData->SatellitesVisibleGLONASS
+			+ pData->SatellitesVisibleGPS;
+	/* Clear two most significant bits */
+	canFrame.Payload[0] &= 0b00111111;
+	/* Use two most significant bits of the first byte to store fix status flags */
+	canFrame.Payload[0] |= (uint8_t) pData->FixStatus << 6U;
+
+	/* Write the satellites in use count to the frame payload */
+	canFrame.Payload[1] = pData->SatellitesInUse;
+
+	/* Write the time to the frame payload */
+	uint32_t time = normalizeTime(pData->Time);
+	canFrame.Payload[2] = MSB32(time);
+	canFrame.Payload[3] = HIGHMID32(time);
+	canFrame.Payload[4] = LOWMID32(time);
+	canFrame.Payload[5] = LSB(time);
+
+	/* Pack the date in the frame payload by overwriting four least significant bits of the time */
+	canFrame.Payload[5] |= (MSB32(pData->Date) & 0xF) << 4U;
+	canFrame.Payload[6] = 0xFF & (pData->Date >> 20U);
+	canFrame.Payload[7] = 0xFF & (pData->Date >> 12U);
+
+	/* Push CAN frame to queue */
+	if (pdTRUE
+			!= xQueueSend(canTransmitQueueHandle, &canFrame,
+					WCU_CANTRANSMITQUEUE_SEND_TIMEOUT)) {
+		LOGERROR(
+				"gnssReceive_Send_GPS_STATUS failed to send to canTransmitQueue\r\n");
+	}
 }
 
 /**
@@ -1157,12 +1196,14 @@ void StartBtReceiveTask(void const *argument) {
 			canFrame.Header.Tx.StdId = READ32(btUartRxBuff[7], btUartRxBuff[6],
 					btUartRxBuff[5], btUartRxBuff[4]);
 			/* Read the Data Length Code */
-			canFrame.Header.Tx.DLC = (uint32_t) (
-					btUartRxBuff[8] < WCU_CAN_PAYLOAD_SIZE ?
-							btUartRxBuff[8] : WCU_CAN_PAYLOAD_SIZE);
+			canFrame.Header.Tx.DLC = (uint32_t)btUartRxBuff[8];
+			if(CAN_PAYLOAD_SIZE < canFrame.Header.Tx.DLC) {
+				LOGERROR("Invalid DLC in btReceive\r\n");
+				continue;
+			}
 
 			/* Read the payload */
-			for (uint8_t i = 0; i < canFrame.Header.Tx.DLC; i += 1) {
+			for (uint8_t i = 0U; i < canFrame.Header.Tx.DLC; i += 1U) {
 				canFrame.Payload[i] = btUartRxBuff[9U + i];
 			}
 
@@ -1476,12 +1517,11 @@ void StartGnssReceiveTask(void const *argument) {
 
 		/* Listen for the message */
 		HAL_UART_Receive_DMA(&GNSS_UART_HANDLE, gnssUartRxBuff,
-				WCU_GNSSRECEIVE_UARTRXBUFF_SIZE);
+		WCU_GNSSRECEIVE_UARTRXBUFF_SIZE);
 
 		/* Wait for notify from ISR/message received callback */
-		if (0UL
-				< ulTaskNotifyTake(pdTRUE,
-						WCU_GNSSRECEIVE_ULTASKNOTIFYTAKE_TIMEOUT)) {
+		if (0UL < ulTaskNotifyTake(pdTRUE,
+		WCU_GNSSRECEIVE_ULTASKNOTIFYTAKE_TIMEOUT)) {
 			/*
 			 * TODO: Parse the message
 			 */
