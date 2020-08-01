@@ -16,25 +16,25 @@
 #define R3TP_END_SEQ_LOW_BYTE 0xDEU									/* R3TP end sequence low byte */
 #define R3TP_END_SEQ_HIGH_BYTE 0xEDU								/* R3TP end sequence high byte */
 
-/* Exported macro ------------------------------------------------------------*/
+/* Exported macros ------------------------------------------------------------*/
 /**
- * @brief This macro returns the address at which the payload of an R3TP version 1 frame begins in reference to the buffer
+ * @brief Returns the address at which the payload of an R3TP version 1 frame begins in reference to the start
  */
-#define R3TP_VER1_PAYLOAD_BEGIN(buff) (uint8_t*)((uint8_t*)buff + 8U)
+#define R3TP_VER1_PAYLOAD_BEGIN(start) (uint8_t*)((uint8_t*)start + 8UL)
 
 /**
- * @brief This macro returns the address offset from the start of the payload of an R3TP version 1 frame
+ * @brief Returns the address offset from the start of the payload of an R3TP version 1 frame
  */
-#define R3TP_VER1_PAYLOAD_BEGIN_OFFSET(buff, offset) (uint8_t*)((uint8_t*)buff + 8U + (uint32_t)offset)
+#define R3TP_VER1_PAYLOAD_BEGIN_OFFSET(start, offset) (uint8_t*)((uint8_t*)start + 8UL + (uint32_t)offset)
 
 /**
- * @brief This macro returns the address at which the epilogue (frame align and END SEQ) of an R3TP version 1 frame begins
+ * @brief Returns the address at which the epilogue (frame align and END SEQ) of an R3TP version 1 frame begins
  */
-#define R3TP_VER1_EPILOGUE_BEGIN(buff, frameNum) (uint8_t*)((uint8_t*)buff + 8U + (uint32_t)frameNum * 4U)
+#define R3TP_VER1_EPILOGUE_BEGIN(start, frameNum) (uint8_t*)((uint8_t*)start + 8UL + (uint32_t)frameNum * 4UL)
 
 /**
- * @brief This macro calculates the total length of an R3TP version 1 frame based on the number of subscription frames
+ * @brief Calculates the total length of an R3TP version 1 frame based on the number of subscription frames
  */
-#define R3TP_VER1_MESSAGE_LENGTH(frameNum) (uint32_t)((uint32_t)frameNum * 4U + 12U)
+#define R3TP_VER1_MESSAGE_LENGTH(frameNum) (uint32_t)((uint32_t)frameNum * 4UL + 12UL)
 
 #endif /* __RT12E_LIBS_R3TP_H_ */

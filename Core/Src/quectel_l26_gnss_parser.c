@@ -5,6 +5,8 @@
  */
 
 #include <quectel_l26_gnss_parser.h>
+#include <string.h>
+#include <stdlib.h>
 #include <math.h>
 
 /**
@@ -25,17 +27,56 @@ bool isDataComplete(GnssDataTypedef *pData) {
  * @param[in] pMessage Pointer to the message
  * @param[in] length Length of the message
  */
-GnssDataStatusTypedef parseMessage(GnssDataTypedef* pDataBuff, const char* pMessage, size_t length) {
-	static struct {
-		char Buff[NMEA_PARSER_BUFFER_SIZE];
-		size_t SentenceLength;
-	} messageBuffer;
+GnssDataStatusTypedef parseMessage(GnssDataTypedef *pDataBuff,
+		const char *pMessage, size_t length) {
+	static char MessageBuffer[NMEA_PARSER_BUFFER_SIZE]; /* Message buffer */
+	static size_t SentenceLength = 0; /* Sentence length */
 
-	/*
-	 * TODO: Parse the message
-	 */
-	(void)messageBuffer;
+	/* Go through the entire message */
+	for (size_t i = 0UL; i < length; i += 1UL) {
 
+		/* Test if the start character has been found */
+		if (0U < SentenceLength) {
+			/* Increment the length counter */
+			SentenceLength += 1UL;
+			/* Save the next character of the message */
+			MessageBuffer[SentenceLength - 1UL] = pMessage[i];
+			/* Test for buffer overflow */
+			if (NMEA_PARSER_BUFFER_SIZE <= SentenceLength) {
+				/* Reset the counter */
+				SentenceLength = 0;
+				return GNSS_DATA_ERROR;
+			}
+		} else {
+			/* Search for the start character */
+			if ('$' == pMessage[i]) {
+				/* Increment the length counter */
+				SentenceLength += 1;
+				/* Save the start character */
+				MessageBuffer[SentenceLength - 1UL] = pMessage[i];
+			}
+		}
+
+		/* If the length exceeds the minimum sentence length */
+		if (NMEA_SENTENCE_MINIMUM_LENGTH >= SentenceLength) {
+			/* Test if end sequence has been found */
+			if (('\r' == MessageBuffer[SentenceLength - 2UL])
+					&& ('\n' == MessageBuffer[SentenceLength - 1UL])
+					&& ('*' == MessageBuffer[SentenceLength - 5UL])) {
+				/* Parse the received sentence */
+				if (NMEA_ERROR_NONE
+						!= parseNmeaSentence(pDataBuff, MessageBuffer,
+								SentenceLength)) {
+					/* Reset the counter */
+					SentenceLength = 0;
+					return GNSS_DATA_ERROR;
+				}
+				/* Reset the counter */
+				SentenceLength = 0;
+			}
+		}
+
+	}
 	return (isDataComplete(pDataBuff) ? GNSS_DATA_READY : GNSS_DATA_PENDING);
 }
 
@@ -46,10 +87,156 @@ GnssDataStatusTypedef parseMessage(GnssDataTypedef* pDataBuff, const char* pMess
  * @param[in] length Length of the sentence
  * @retval NmeaParserStatusTypedef Error code
  */
-NmeaParserStatusTypedef parseNmeaSentence(GnssDataTypedef* pDataBuff, const char* pSentence, size_t length) {
-	/*
-	 * TODO: Parse NMEA sentence
-	 */
+NmeaParserStatusTypedef parseNmeaSentence(GnssDataTypedef *pDataBuff,
+		const char *pSentence, size_t length) {
+	/* Retrieve the message ID */
+	char messageId[6];
+	strncpy(messageId, pSentence + 1U, 5UL);
+	messageId[5] = '\0';
+
+	/* Read the checksum */
+	char checksumString[3] = { pSentence[length - 4UL], pSentence[length - 3UL],
+			'\0' };
+	uint8_t readChecksum = (uint8_t) strtoul(checksumString, NULL, 16);
+
+	/* Calculate the checksum - note that the checksum is calculated by exclusive OR of all characters between '$' and '*' */
+	uint8_t calculatedChecksum = pSentence[1];
+	for(size_t i = 2UL; i < (length - 5UL); i += 1UL) {
+		calculatedChecksum ^= pSentence[i];
+	}
+
+	/* Validate the checksum */
+	if(readChecksum != calculatedChecksum) {
+		return NMEA_ERROR_INVALID_CHECKSUM;
+	}
+
+	/* Parse the payload according to the message ID */
+	if((0 == strcmp(messageId, "GPRMC")) || (0 == strcmp(messageId, "GNRMC"))) {
+		/* Set the flag */
+		pDataBuff->SentencesReceived |= NMEA_RMC_RECEIVED;
+		/* Parse the payload */
+		return _NmeaParseRmcPayload(pDataBuff, NMEA_PAYLOAD_BEGIN(pSentence), NMEA_PAYLOAD_LENGTH(length));
+	}
+
+	if(0 == strcmp(messageId, "GPVTG")) {
+		/* Set the flag */
+		pDataBuff->SentencesReceived |= NMEA_GPVTG_RECEIVED;
+		/* Parse the payload */
+		return _NmeaParseGpvtgPayload(pDataBuff, NMEA_PAYLOAD_BEGIN(pSentence), NMEA_PAYLOAD_LENGTH(length));
+	}
+
+	if(0 == strcmp(messageId, "GPGGA")) {
+		/* Set the flag */
+		pDataBuff->SentencesReceived |= NMEA_GPGGA_RECEIVED;
+		/* Parse the payload */
+		return _NmeaParseGpggaPayload(pDataBuff, NMEA_PAYLOAD_BEGIN(pSentence), NMEA_PAYLOAD_LENGTH(length));
+	}
+
+	if((0 == strcmp(messageId, "GPGSA")) || (0 == strcmp(messageId, "GNGSA"))) {
+		/* Set the flag */
+		pDataBuff->SentencesReceived |= NMEA_GSA_RECEIVED;
+		/* Parse the payload */
+		return _NmeaParseGsaPayload(pDataBuff, NMEA_PAYLOAD_BEGIN(pSentence), NMEA_PAYLOAD_LENGTH(length));
+	}
+
+	if(0 == strcmp(messageId, "GPGSV")) {
+		/* Set the flag */
+		pDataBuff->SentencesReceived |= NMEA_GSV_RECEIVED;
+		/* Parse the payload */
+		return _NmeaParseGsvPayload(pDataBuff, NMEA_PAYLOAD_BEGIN(pSentence), NMEA_PAYLOAD_LENGTH(length));
+	}
+
+	if((0 == strcmp(messageId, "GPGLL")) || (0 == strcmp(messageId, "GNGLL"))) {
+		/* Set the flag */
+		pDataBuff->SentencesReceived |= NMEA_GLL_RECEIVED;
+		/* Parse the payload */
+		return _NmeaParseGllPayload(pDataBuff, NMEA_PAYLOAD_BEGIN(pSentence), NMEA_PAYLOAD_LENGTH(length));
+	}
+
+	if(0 == strcmp(messageId, "GPTXT")) {
+		/* Set the flag */
+		pDataBuff->SentencesReceived |= NMEA_GPTXT_RECEIVED;
+		/* Parse the payload */
+		return _NmeaParseGptxtPayload(pDataBuff, NMEA_PAYLOAD_BEGIN(pSentence), NMEA_PAYLOAD_LENGTH(length));
+	}
+
+	return NMEA_ERROR_INVALID_ID;
+}
+
+/**
+ * @brief Parses the payload of an NMEA --RMC sentence
+ * @param[out] pDataBuff Pointer to the GNSS data structure where the parsed data will be stored
+ * @param[in] pPayload Pointer to the sentence payload
+ * @param[in] length Length of the payload
+ * @retval NmeaParserStatusTypedef Error code
+ */
+NmeaParserStatusTypedef _NmeaParseRmcPayload(GnssDataTypedef *pDataBuff, const char *pPayload, size_t length) {
+	return NMEA_ERROR_NONE;
+}
+
+/**
+ * @brief Parses the payload of an NMEA GPVTG sentence
+ * @param[out] pDataBuff Pointer to the GNSS data structure where the parsed data will be stored
+ * @param[in] pPayload Pointer to the sentence payload
+ * @param[in] length Length of the payload
+ * @retval NmeaParserStatusTypedef Error code
+ */
+NmeaParserStatusTypedef _NmeaParseGpvtgPayload(GnssDataTypedef *pDataBuff, const char *pPayload, size_t length) {
+	return NMEA_ERROR_NONE;
+}
+
+/**
+ * @brief Parses the payload of an NMEA GPGGA sentence
+ * @param[out] pDataBuff Pointer to the GNSS data structure where the parsed data will be stored
+ * @param[in] pPayload Pointer to the sentence payload
+ * @param[in] length Length of the payload
+ * @retval NmeaParserStatusTypedef Error code
+ */
+NmeaParserStatusTypedef _NmeaParseGpggaPayload(GnssDataTypedef *pDataBuff, const char *pPayload, size_t length) {
+	return NMEA_ERROR_NONE;
+}
+
+/**
+ * @brief Parses the payload of an NMEA --GSA sentence
+ * @param[out] pDataBuff Pointer to the GNSS data structure where the parsed data will be stored
+ * @param[in] pPayload Pointer to the sentence payload
+ * @param[in] length Length of the payload
+ * @retval NmeaParserStatusTypedef Error code
+ */
+NmeaParserStatusTypedef _NmeaParseGsaPayload(GnssDataTypedef *pDataBuff, const char *pPayload, size_t length) {
+	return NMEA_ERROR_NONE;
+}
+
+/**
+ * @brief Parses the payload of an NMEA --GSV sentence
+ * @param[out] pDataBuff Pointer to the GNSS data structure where the parsed data will be stored
+ * @param[in] pPayload Pointer to the sentence payload
+ * @param[in] length Length of the payload
+ * @retval NmeaParserStatusTypedef Error code
+ */
+NmeaParserStatusTypedef _NmeaParseGsvPayload(GnssDataTypedef *pDataBuff, const char *pPayload, size_t length) {
+	return NMEA_ERROR_NONE;
+}
+
+/**
+ * @brief Parses the payload of an NMEA --GLL sentence
+ * @param[out] pDataBuff Pointer to the GNSS data structure where the parsed data will be stored
+ * @param[in] pPayload Pointer to the sentence payload
+ * @param[in] length Length of the payload
+ * @retval NmeaParserStatusTypedef Error code
+ */
+NmeaParserStatusTypedef _NmeaParseGllPayload(GnssDataTypedef *pDataBuff, const char *pPayload, size_t length) {
+	return NMEA_ERROR_NONE;
+}
+
+/**
+ * @brief Parses the payload of an NMEA GPTXT sentence
+ * @param[out] pDataBuff Pointer to the GNSS data structure where the parsed data will be stored
+ * @param[in] pPayload Pointer to the sentence payload
+ * @param[in] length Length of the payload
+ * @retval NmeaParserStatusTypedef Error code
+ */
+NmeaParserStatusTypedef _NmeaParseGptxtPayload(GnssDataTypedef *pDataBuff, const char *pPayload, size_t length) {
 	return NMEA_ERROR_NONE;
 }
 

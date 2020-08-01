@@ -11,15 +11,27 @@
 #include <stdbool.h>
 
 /* Exported defines ------------------------------------------------------------*/
-#define NMEA_PARSER_BUFFER_SIZE		512				/* Parser buffer size */
+#define NMEA_PARSER_BUFFER_SIZE			512				/* Parser buffer size */
+#define NMEA_SENTENCE_MINIMUM_LENGTH	11U				/* Minimum length of an NMEA sentence */
 
-#define NMEA_RMC_RECEIVED			0x01U			/* --RMC NMEA sentence received flag */
-#define NMEA_GPVTG_RECEIVED			0x02U			/* GPVTG NMEA sentence received flag */
-#define NMEA_GPGGA_RECEIVED			0x04U			/* GPGGA NMEA sentence received flag */
-#define NMEA_GSA_RECEIVED			0x08U			/* --GSA NMEA sentence received flag */
-#define NMEA_GSV_RECEIVED			0x10U			/* --GSV NMEA sentence received flag */
-#define NMEA_GLL_RECEIVED			0x20U			/* --GLL NMEA sentence received flag */
-#define NMEA_GPTXT_RECEIVED			0x40U			/* GPTXT NMEA sentence received flag */
+#define NMEA_RMC_RECEIVED				0x01U			/* --RMC NMEA sentence received flag */
+#define NMEA_GPVTG_RECEIVED				0x02U			/* GPVTG NMEA sentence received flag */
+#define NMEA_GPGGA_RECEIVED				0x04U			/* GPGGA NMEA sentence received flag */
+#define NMEA_GSA_RECEIVED				0x08U			/* --GSA NMEA sentence received flag */
+#define NMEA_GSV_RECEIVED				0x10U			/* --GSV NMEA sentence received flag */
+#define NMEA_GLL_RECEIVED				0x20U			/* --GLL NMEA sentence received flag */
+#define NMEA_GPTXT_RECEIVED				0x40U			/* GPTXT NMEA sentence received flag */
+
+/* Exported macros ------------------------------------------------------------*/
+/**
+ * @brief Returns the address at which the payload of an NMEA sentence begins in reference to the start
+ */
+#define NMEA_PAYLOAD_BEGIN(start) (char*)((char*)start + 6UL)
+
+/**
+ * @brief Returns the length of an NMEA sentence payload
+ */
+#define NMEA_PAYLOAD_LENGTH(sentenceLength) (size_t)(sentenceLength - 11UL)
 
 /* Exported typedefs ------------------------------------------------------------*/
 typedef float float32_t; /* 32-bit floating point variable typedef */
@@ -64,19 +76,17 @@ typedef struct {
  */
 typedef enum {
 	NMEA_ERROR_NONE = 0U,
-	NMEA_ERROR_BAD_LENGTH,
-	NMEA_ERROR_BAD_START_SEQ,
-	NMEA_ERROR_BAD_END_SEQ,
-	NMEA_ERROR_BAD_CHECKSUM
+	NMEA_ERROR_INVALID_LENGTH,
+	NMEA_ERROR_INVALID_FORMAT,
+	NMEA_ERROR_INVALID_CHECKSUM,
+	NMEA_ERROR_INVALID_ID
 } NmeaParserStatusTypedef;
 
 /**
  * @brief GNSS data status typedef
  */
 typedef enum {
-	GNSS_DATA_READY = 0U,
-	GNSS_DATA_PENDING,
-	GNSS_DATA_ERROR
+	GNSS_DATA_READY = 0U, GNSS_DATA_PENDING, GNSS_DATA_ERROR
 } GnssDataStatusTypedef;
 
 /* Exported function prototypes -----------------------------------------------*/
@@ -86,7 +96,7 @@ typedef enum {
  * @param pData Pointer to the GNSS data structure
  * @retval bool True if all sentences were received and the data is complete, false otherwise
  */
-bool isDataComplete(GnssDataTypedef* pData);
+bool isDataComplete(GnssDataTypedef *pData);
 
 /**
  * @brief Tries parsing the Quectel L26 message
@@ -94,7 +104,8 @@ bool isDataComplete(GnssDataTypedef* pData);
  * @param[in] pMessage Pointer to the message
  * @param[in] length Length of the message
  */
-GnssDataStatusTypedef parseMessage(GnssDataTypedef* pDataBuff, const char* pMessage, size_t length);
+GnssDataStatusTypedef parseMessage(GnssDataTypedef *pDataBuff,
+		const char *pMessage, size_t length);
 
 /**
  * @brief Parses an NMEA sentence
@@ -103,7 +114,71 @@ GnssDataStatusTypedef parseMessage(GnssDataTypedef* pDataBuff, const char* pMess
  * @param[in] length Length of the sentence
  * @retval NmeaParserStatusTypedef Error code
  */
-NmeaParserStatusTypedef parseNmeaSentence(GnssDataTypedef* pDataBuff, const char* pSentence, size_t length);
+NmeaParserStatusTypedef parseNmeaSentence(GnssDataTypedef *pDataBuff,
+		const char *pSentence, size_t length);
+
+/**
+ * @brief Parses the payload of an NMEA --RMC sentence
+ * @param[out] pDataBuff Pointer to the GNSS data structure where the parsed data will be stored
+ * @param[in] pPayload Pointer to the sentence payload
+ * @param[in] length Length of the payload
+ * @retval NmeaParserStatusTypedef Error code
+ */
+NmeaParserStatusTypedef _NmeaParseRmcPayload(GnssDataTypedef *pDataBuff, const char *pPayload, size_t length);
+
+/**
+ * @brief Parses the payload of an NMEA GPVTG sentence
+ * @param[out] pDataBuff Pointer to the GNSS data structure where the parsed data will be stored
+ * @param[in] pPayload Pointer to the sentence payload
+ * @param[in] length Length of the payload
+ * @retval NmeaParserStatusTypedef Error code
+ */
+NmeaParserStatusTypedef _NmeaParseGpvtgPayload(GnssDataTypedef *pDataBuff, const char *pPayload, size_t length);
+
+/**
+ * @brief Parses the payload of an NMEA GPGGA sentence
+ * @param[out] pDataBuff Pointer to the GNSS data structure where the parsed data will be stored
+ * @param[in] pPayload Pointer to the sentence payload
+ * @param[in] length Length of the payload
+ * @retval NmeaParserStatusTypedef Error code
+ */
+NmeaParserStatusTypedef _NmeaParseGpggaPayload(GnssDataTypedef *pDataBuff, const char *pPayload, size_t length);
+
+/**
+ * @brief Parses the payload of an NMEA --GSA sentence
+ * @param[out] pDataBuff Pointer to the GNSS data structure where the parsed data will be stored
+ * @param[in] pPayload Pointer to the sentence payload
+ * @param[in] length Length of the payload
+ * @retval NmeaParserStatusTypedef Error code
+ */
+NmeaParserStatusTypedef _NmeaParseGsaPayload(GnssDataTypedef *pDataBuff, const char *pPayload, size_t length);
+
+/**
+ * @brief Parses the payload of an NMEA --GSV sentence
+ * @param[out] pDataBuff Pointer to the GNSS data structure where the parsed data will be stored
+ * @param[in] pPayload Pointer to the sentence payload
+ * @param[in] length Length of the payload
+ * @retval NmeaParserStatusTypedef Error code
+ */
+NmeaParserStatusTypedef _NmeaParseGsvPayload(GnssDataTypedef *pDataBuff, const char *pPayload, size_t length);
+
+/**
+ * @brief Parses the payload of an NMEA --GLL sentence
+ * @param[out] pDataBuff Pointer to the GNSS data structure where the parsed data will be stored
+ * @param[in] pPayload Pointer to the sentence payload
+ * @param[in] length Length of the payload
+ * @retval NmeaParserStatusTypedef Error code
+ */
+NmeaParserStatusTypedef _NmeaParseGllPayload(GnssDataTypedef *pDataBuff, const char *pPayload, size_t length);
+
+/**
+ * @brief Parses the payload of an NMEA GPTXT sentence
+ * @param[out] pDataBuff Pointer to the GNSS data structure where the parsed data will be stored
+ * @param[in] pPayload Pointer to the sentence payload
+ * @param[in] length Length of the payload
+ * @retval NmeaParserStatusTypedef Error code
+ */
+NmeaParserStatusTypedef _NmeaParseGptxtPayload(GnssDataTypedef *pDataBuff, const char *pPayload, size_t length);
 
 /**
  * @brief Normalizes the coordinate (longitude/latitude) as degrees multiplied by 1,000,000
