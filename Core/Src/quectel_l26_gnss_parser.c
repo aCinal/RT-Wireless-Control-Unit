@@ -8,6 +8,52 @@
 #include <math.h>
 
 /**
+ * @brief Tests if all NMEA sentences were received
+ * @param pData Pointer to the GNSS data structure
+ * @retval bool True if all sentences were received and the data is complete, false otherwise
+ */
+bool isDataComplete(GnssDataTypedef *pData) {
+	/* Test if all flags are set */
+	return ((NMEA_RMC_RECEIVED | NMEA_GPVTG_RECEIVED | NMEA_GPGGA_RECEIVED
+			| NMEA_GSA_RECEIVED | NMEA_GSV_RECEIVED | NMEA_GLL_RECEIVED
+			| NMEA_GPTXT_RECEIVED) == pData->SentencesReceived);
+}
+
+/**
+ * @brief Tries parsing the Quectel L26 message
+ * @param[out] pDataBuff Pointer to the GNSS data structure where the parsed data will be stored
+ * @param[in] pMessage Pointer to the message
+ * @param[in] length Length of the message
+ */
+GnssDataStatusTypedef parseMessage(GnssDataTypedef* pDataBuff, const char* pMessage, size_t length) {
+	static struct {
+		char Buff[NMEA_PARSER_BUFFER_SIZE];
+		size_t SentenceLength;
+	} messageBuffer;
+
+	/*
+	 * TODO: Parse the message
+	 */
+	(void)messageBuffer;
+
+	return (isDataComplete(pDataBuff) ? GNSS_DATA_READY : GNSS_DATA_PENDING);
+}
+
+/**
+ * @brief Parses an NMEA sentence
+ * @param[out] pDataBuff Pointer to the GNSS data structure where the parsed data will be stored
+ * @param[in] pSentence Pointer to the NMEA sentence
+ * @param[in] length Length of the sentence
+ * @retval NmeaParserStatusTypedef Error code
+ */
+NmeaParserStatusTypedef parseNmeaSentence(GnssDataTypedef* pDataBuff, const char* pSentence, size_t length) {
+	/*
+	 * TODO: Parse NMEA sentence
+	 */
+	return NMEA_ERROR_NONE;
+}
+
+/**
  * @brief Normalizes the coordinate (longitude/latitude) as degrees multiplied by 1,000,000
  * @param coordinate Coordinate in format 'dddmm.mmmm' (degree and minutes)
  * @param direction Direction flag (GNSS_LATITUDE_NORTH, GNSS_LATITUDE_SOUTH, GNSS_LATITUDE_EAST, GNSS_LATITUDE_WEST)
@@ -21,10 +67,10 @@ int32_t normalizeCoordinate(float64_t coordinate, uint32_t direction) {
 	/* Add minutes as decimal fraction to the degrees */
 	float64_t floatResult = degrees + (minutes / 60.0);
 	/* Make the result negative if the direction is SOUTH or WEST */
-	if((GNSS_LATITUDE_SOUTH == direction) || (GNSS_LONGITUDE_WEST == direction)) {
+	if ((GNSS_LATITUDE_SOUTH == direction)
+			|| (GNSS_LONGITUDE_WEST == direction)) {
 		floatResult *= -1.0;
 	}
-
 	/* Round the result and multiply by 1000000.0 to get a 32-bit unsigned integer */
 	int32_t intResult = llround(floatResult * 1000000.0);
 	return intResult;

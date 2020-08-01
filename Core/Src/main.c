@@ -1511,25 +1511,42 @@ void StartGnssReceiveTask(void const *argument) {
 	/* Configure the device */
 	gnssReceive_DeviceConfig();
 
+	/* Listen for the message */
+	HAL_UART_Receive_DMA(&GNSS_UART_HANDLE, gnssUartRxBuff,
+	WCU_GNSSRECEIVE_UARTRXBUFF_SIZE);
+
 	/* Infinite loop */
 	for (;;) {
 		osDelay(WCU_DEFAULT_TASK_DELAY);
 
-		/* Listen for the message */
-		HAL_UART_Receive_DMA(&GNSS_UART_HANDLE, gnssUartRxBuff,
-		WCU_GNSSRECEIVE_UARTRXBUFF_SIZE);
 
 		/* Wait for notify from ISR/message received callback */
 		if (0UL < ulTaskNotifyTake(pdTRUE,
 		WCU_GNSSRECEIVE_ULTASKNOTIFYTAKE_TIMEOUT)) {
-			/*
-			 * TODO: Parse the message
-			 */
+			/* Try parsing the message */
+			switch(parseMessage(&dataBuff, (char*)gnssUartRxBuff, WCU_GNSSRECEIVE_UARTRXBUFF_SIZE)) {
+			case GNSS_DATA_READY: /* If the data is ready */
+				/* Send the data to CAN */
+				gnssReceive_Send_GPS_POS(&dataBuff);
+				gnssReceive_Send_GPS_POS2(&dataBuff);
+				gnssReceive_Send_GPS_STATUS(&dataBuff);
 
-			/* Send the data to CAN */
-			gnssReceive_Send_GPS_POS(&dataBuff);
-			gnssReceive_Send_GPS_POS2(&dataBuff);
-			gnssReceive_Send_GPS_STATUS(&dataBuff);
+				/* Clear the data buffer */
+				memset(&dataBuff, 0x00, sizeof(dataBuff));
+				break;
+
+			case GNSS_DATA_PENDING: /* If the data is not complete */
+				/* Listen for the message */
+				HAL_UART_Receive_DMA(&GNSS_UART_HANDLE, gnssUartRxBuff,
+				WCU_GNSSRECEIVE_UARTRXBUFF_SIZE);
+				break;
+
+			case GNSS_DATA_ERROR: /* If the parser failed */
+				LOGERROR("parseMessage failed in gnssReceive\r\n");
+				/* Listen for the message */
+				HAL_UART_Receive_DMA(&GNSS_UART_HANDLE, gnssUartRxBuff,
+				WCU_GNSSRECEIVE_UARTRXBUFF_SIZE);
+			}
 		}
 
 		/* Report to watchdog */
