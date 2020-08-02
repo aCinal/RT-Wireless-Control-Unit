@@ -10,15 +10,22 @@
 #include <math.h>
 
 /**
+ * @brief Tell the compiler that a variable is purposefully ignored, i.e. not used
+ */
+#define NOTUSED(x) ((void)x)
+
+/**
  * @brief Tests if all NMEA sentences were received
  * @param pData Pointer to the GNSS data structure
  * @retval bool True if all sentences were received and the data is complete, false otherwise
  */
 bool isDataComplete(GnssDataTypedef *pData) {
+
 	/* Test if all flags are set */
-	return ((NMEA_RMC_RECEIVED | NMEA_GPVTG_RECEIVED | NMEA_GPGGA_RECEIVED
+	return ((NMEA_RMC_RECEIVED | NMEA_VTG_RECEIVED | NMEA_GGA_RECEIVED
 			| NMEA_GSA_RECEIVED | NMEA_GSV_RECEIVED | NMEA_GLL_RECEIVED
-			| NMEA_GPTXT_RECEIVED) == pData->SentencesReceived);
+			| NMEA_TXT_RECEIVED) == pData->SentencesReceived);
+
 }
 
 /**
@@ -29,7 +36,8 @@ bool isDataComplete(GnssDataTypedef *pData) {
  */
 GnssDataStatusTypedef parseMessage(GnssDataTypedef *pDataBuff,
 		const char *pMessage, size_t length) {
-	static char MessageBuffer[NMEA_PARSER_BUFFER_SIZE]; /* Message buffer */
+
+	static char MessageBuffer[NMEA_PARSER_MESSAGE_BUFFER_SIZE]; /* Message buffer */
 	static size_t SentenceLength = 0; /* Sentence length */
 
 	/* Go through the entire message */
@@ -37,17 +45,20 @@ GnssDataStatusTypedef parseMessage(GnssDataTypedef *pDataBuff,
 
 		/* Test if the start character has been found */
 		if (0U < SentenceLength) {
+
 			/* Increment the length counter */
 			SentenceLength += 1UL;
 			/* Save the next character of the message */
 			MessageBuffer[SentenceLength - 1UL] = pMessage[i];
 			/* Test for buffer overflow */
-			if (NMEA_PARSER_BUFFER_SIZE <= SentenceLength) {
+			if (NMEA_PARSER_MESSAGE_BUFFER_SIZE <= SentenceLength) {
 				/* Reset the counter */
 				SentenceLength = 0;
 				return GNSS_DATA_ERROR;
 			}
+
 		} else {
+
 			/* Search for the start character */
 			if ('$' == pMessage[i]) {
 				/* Increment the length counter */
@@ -55,25 +66,32 @@ GnssDataStatusTypedef parseMessage(GnssDataTypedef *pDataBuff,
 				/* Save the start character */
 				MessageBuffer[SentenceLength - 1UL] = pMessage[i];
 			}
+
 		}
 
 		/* If the length exceeds the minimum sentence length */
 		if (NMEA_SENTENCE_MINIMUM_LENGTH >= SentenceLength) {
+
 			/* Test if end sequence has been found */
 			if (('\r' == MessageBuffer[SentenceLength - 2UL])
 					&& ('\n' == MessageBuffer[SentenceLength - 1UL])
 					&& ('*' == MessageBuffer[SentenceLength - 5UL])) {
+
 				/* Parse the received sentence */
 				if (NMEA_ERROR_NONE
 						!= parseNmeaSentence(pDataBuff, MessageBuffer,
 								SentenceLength)) {
+
 					/* Reset the counter */
 					SentenceLength = 0;
 					return GNSS_DATA_ERROR;
+
 				}
 				/* Reset the counter */
 				SentenceLength = 0;
+
 			}
+
 		}
 
 	}
@@ -89,6 +107,7 @@ GnssDataStatusTypedef parseMessage(GnssDataTypedef *pDataBuff,
  */
 NmeaParserStatusTypedef parseNmeaSentence(GnssDataTypedef *pDataBuff,
 		const char *pSentence, size_t length) {
+
 	/* Retrieve the message ID */
 	char messageId[6];
 	strncpy(messageId, pSentence + 1U, 5UL);
@@ -101,63 +120,87 @@ NmeaParserStatusTypedef parseNmeaSentence(GnssDataTypedef *pDataBuff,
 
 	/* Calculate the checksum - note that the checksum is calculated by exclusive OR of all characters between '$' and '*' */
 	uint8_t calculatedChecksum = pSentence[1];
-	for(size_t i = 2UL; i < (length - 5UL); i += 1UL) {
+	for (size_t i = 2UL; i < (length - 5UL); i += 1UL) {
 		calculatedChecksum ^= pSentence[i];
 	}
 
 	/* Validate the checksum */
-	if(readChecksum != calculatedChecksum) {
+	if (readChecksum != calculatedChecksum) {
 		return NMEA_ERROR_INVALID_CHECKSUM;
 	}
 
 	/* Parse the payload according to the message ID */
-	if((0 == strcmp(messageId, "GPRMC")) || (0 == strcmp(messageId, "GNRMC"))) {
+	if ((0 == strcmp(messageId, "GPRMC"))
+			|| (0 == strcmp(messageId, "GNRMC"))) {
+
 		/* Set the flag */
 		pDataBuff->SentencesReceived |= NMEA_RMC_RECEIVED;
 		/* Parse the payload */
-		return _NmeaParseRmcPayload(pDataBuff, NMEA_PAYLOAD_BEGIN(pSentence), NMEA_PAYLOAD_LENGTH(length));
+		return _NmeaParseRmcPayload(pDataBuff, NMEA_PAYLOAD_BEGIN(pSentence),
+				NMEA_PAYLOAD_LENGTH(length));
+
 	}
 
-	if(0 == strcmp(messageId, "GPVTG")) {
+	if (0 == strcmp(messageId, "GPVTG")) {
+
 		/* Set the flag */
-		pDataBuff->SentencesReceived |= NMEA_GPVTG_RECEIVED;
+		pDataBuff->SentencesReceived |= NMEA_VTG_RECEIVED;
 		/* Parse the payload */
-		return _NmeaParseGpvtgPayload(pDataBuff, NMEA_PAYLOAD_BEGIN(pSentence), NMEA_PAYLOAD_LENGTH(length));
+		return _NmeaParseVtgPayload(pDataBuff, NMEA_PAYLOAD_BEGIN(pSentence),
+				NMEA_PAYLOAD_LENGTH(length));
+
 	}
 
-	if(0 == strcmp(messageId, "GPGGA")) {
+	if (0 == strcmp(messageId, "GPGGA")) {
+
 		/* Set the flag */
-		pDataBuff->SentencesReceived |= NMEA_GPGGA_RECEIVED;
+		pDataBuff->SentencesReceived |= NMEA_GGA_RECEIVED;
 		/* Parse the payload */
-		return _NmeaParseGpggaPayload(pDataBuff, NMEA_PAYLOAD_BEGIN(pSentence), NMEA_PAYLOAD_LENGTH(length));
+		return _NmeaParseGgaPayload(pDataBuff, NMEA_PAYLOAD_BEGIN(pSentence),
+				NMEA_PAYLOAD_LENGTH(length));
+
 	}
 
-	if((0 == strcmp(messageId, "GPGSA")) || (0 == strcmp(messageId, "GNGSA"))) {
+	if ((0 == strcmp(messageId, "GPGSA"))
+			|| (0 == strcmp(messageId, "GNGSA"))) {
+
 		/* Set the flag */
 		pDataBuff->SentencesReceived |= NMEA_GSA_RECEIVED;
 		/* Parse the payload */
-		return _NmeaParseGsaPayload(pDataBuff, NMEA_PAYLOAD_BEGIN(pSentence), NMEA_PAYLOAD_LENGTH(length));
+		return _NmeaParseGsaPayload(pDataBuff, NMEA_PAYLOAD_BEGIN(pSentence),
+				NMEA_PAYLOAD_LENGTH(length));
+
 	}
 
-	if(0 == strcmp(messageId, "GPGSV")) {
+	if (0 == strcmp(messageId, "GPGSV")) {
+
 		/* Set the flag */
 		pDataBuff->SentencesReceived |= NMEA_GSV_RECEIVED;
 		/* Parse the payload */
-		return _NmeaParseGsvPayload(pDataBuff, NMEA_PAYLOAD_BEGIN(pSentence), NMEA_PAYLOAD_LENGTH(length));
+		return _NmeaParseGsvPayload(pDataBuff, NMEA_PAYLOAD_BEGIN(pSentence),
+				NMEA_PAYLOAD_LENGTH(length));
+
 	}
 
-	if((0 == strcmp(messageId, "GPGLL")) || (0 == strcmp(messageId, "GNGLL"))) {
+	if ((0 == strcmp(messageId, "GPGLL"))
+			|| (0 == strcmp(messageId, "GNGLL"))) {
+
 		/* Set the flag */
 		pDataBuff->SentencesReceived |= NMEA_GLL_RECEIVED;
 		/* Parse the payload */
-		return _NmeaParseGllPayload(pDataBuff, NMEA_PAYLOAD_BEGIN(pSentence), NMEA_PAYLOAD_LENGTH(length));
+		return _NmeaParseGllPayload(pDataBuff, NMEA_PAYLOAD_BEGIN(pSentence),
+				NMEA_PAYLOAD_LENGTH(length));
+
 	}
 
-	if(0 == strcmp(messageId, "GPTXT")) {
+	if (0 == strcmp(messageId, "GPTXT")) {
+
 		/* Set the flag */
-		pDataBuff->SentencesReceived |= NMEA_GPTXT_RECEIVED;
+		pDataBuff->SentencesReceived |= NMEA_TXT_RECEIVED;
 		/* Parse the payload */
-		return _NmeaParseGptxtPayload(pDataBuff, NMEA_PAYLOAD_BEGIN(pSentence), NMEA_PAYLOAD_LENGTH(length));
+		return _NmeaParseTxtPayload(pDataBuff, NMEA_PAYLOAD_BEGIN(pSentence),
+				NMEA_PAYLOAD_LENGTH(length));
+
 	}
 
 	return NMEA_ERROR_INVALID_ID;
@@ -170,8 +213,104 @@ NmeaParserStatusTypedef parseNmeaSentence(GnssDataTypedef *pDataBuff,
  * @param[in] length Length of the payload
  * @retval NmeaParserStatusTypedef Error code
  */
-NmeaParserStatusTypedef _NmeaParseRmcPayload(GnssDataTypedef *pDataBuff, const char *pPayload, size_t length) {
+NmeaParserStatusTypedef _NmeaParseRmcPayload(GnssDataTypedef *pDataBuff,
+		const char *pPayload, size_t length) {
+	char dataFieldBuffer[NMEA_PARSER_DATAFIELD_BUFFER_SIZE]; /* Buffer for the data field */
+	size_t bufferIndex = 0; /* Buffer index */
+	uint8_t dataFieldNumber = 0; /* Number of data field currently being parsed */
+
+	/* Go through the entire sentence */
+	for (size_t i = 0; i < length; i += 1UL) {
+		/* Test if not a comma, i.e. data fields separator */
+		if (',' != pPayload[i]) {
+
+			/* Save the data field character */
+			dataFieldBuffer[bufferIndex] = pPayload[i];
+			/* Increment the buffer index */
+			bufferIndex += 1UL;
+			/* Test for buffer overflow */
+			if (bufferIndex >= NMEA_PARSER_DATAFIELD_BUFFER_SIZE) {
+				return NMEA_ERROR_INVALID_FORMAT;
+			}
+
+		} else {
+
+			/* On comma, i.e. data field complete - parse the field */
+			switch (dataFieldNumber) {
+
+			case 0: /* UTC Time */
+
+				pDataBuff->Time = strtod(dataFieldBuffer, NULL);
+				break;
+
+			case 1: /* Data Valid */
+
+				if ('A' != dataFieldBuffer[0]) {
+					return NMEA_ERROR_INVALID_DATA;
+				}
+				break;
+
+			case 2: /* Latitude */
+
+				pDataBuff->Latitude = strtod(dataFieldBuffer, NULL);
+				break;
+
+			case 3: /* N/S */
+
+				switch (dataFieldBuffer[0]) {
+				case 'N':
+					pDataBuff->LatDir = GNSS_LATITUDE_NORTH;
+					break;
+				case 'S':
+					pDataBuff->LatDir = GNSS_LATITUDE_SOUTH;
+					break;
+				default:
+					return NMEA_ERROR_INVALID_DATA;
+				}
+				break;
+
+			case 4: /* Longitude */
+
+				pDataBuff->Longitude = strtod(dataFieldBuffer, NULL);
+				break;
+
+			case 5: /* E/W */
+
+				switch (dataFieldBuffer[0]) {
+				case 'E':
+					pDataBuff->LonDir = GNSS_LONGITUDE_EAST;
+					break;
+				case 'W':
+					pDataBuff->LonDir = GNSS_LONGITUDE_WEST;
+					break;
+				default:
+					return NMEA_ERROR_INVALID_DATA;
+				}
+				break;
+
+			case 8: /* Date */
+
+				pDataBuff->Date = strtol(dataFieldBuffer, NULL, 10);
+				break;
+
+			default: /* Ignore all other fields */
+
+				break;
+
+			}
+
+			/* Clear the buffer */
+			memset(dataFieldBuffer, 0x00, NMEA_PARSER_DATAFIELD_BUFFER_SIZE);
+			/* Reset the index counter */
+			bufferIndex = 0;
+			/* Increment the number of the data field */
+			dataFieldNumber += 1U;
+
+		}
+	}
+
 	return NMEA_ERROR_NONE;
+
 }
 
 /**
@@ -181,8 +320,59 @@ NmeaParserStatusTypedef _NmeaParseRmcPayload(GnssDataTypedef *pDataBuff, const c
  * @param[in] length Length of the payload
  * @retval NmeaParserStatusTypedef Error code
  */
-NmeaParserStatusTypedef _NmeaParseGpvtgPayload(GnssDataTypedef *pDataBuff, const char *pPayload, size_t length) {
+NmeaParserStatusTypedef _NmeaParseVtgPayload(GnssDataTypedef *pDataBuff,
+		const char *pPayload, size_t length) {
+	char dataFieldBuffer[NMEA_PARSER_DATAFIELD_BUFFER_SIZE]; /* Buffer for the data field */
+	size_t bufferIndex = 0; /* Buffer index */
+	uint8_t dataFieldNumber = 0; /* Number of data field currently being parsed */
+
+	/* Go through the entire sentence */
+	for (size_t i = 0; i < length; i += 1UL) {
+		/* Test if not a comma, i.e. data fields separator */
+		if (',' != pPayload[i]) {
+
+			/* Save the data field character */
+			dataFieldBuffer[bufferIndex] = pPayload[i];
+			/* Increment the buffer index */
+			bufferIndex += 1UL;
+			/* Test for buffer overflow */
+			if (bufferIndex >= NMEA_PARSER_DATAFIELD_BUFFER_SIZE) {
+				return NMEA_ERROR_INVALID_FORMAT;
+			}
+
+		} else {
+
+			/* On comma, i.e. data field complete - parse the field */
+			switch (dataFieldNumber) {
+
+			case 0: /* Course over ground in degree */
+
+				pDataBuff->COG = strtof(dataFieldBuffer, NULL);
+				break;
+
+			case 6: /* Speed over ground in km/h */
+
+				pDataBuff->Speed = strtof(dataFieldBuffer, NULL);
+				break;
+
+			default: /* Ignore all other fields */
+
+				break;
+
+			}
+
+			/* Clear the buffer */
+			memset(dataFieldBuffer, 0x00, NMEA_PARSER_DATAFIELD_BUFFER_SIZE);
+			/* Reset the index counter */
+			bufferIndex = 0;
+			/* Increment the number of the data field */
+			dataFieldNumber += 1U;
+
+		}
+	}
+
 	return NMEA_ERROR_NONE;
+
 }
 
 /**
@@ -192,8 +382,60 @@ NmeaParserStatusTypedef _NmeaParseGpvtgPayload(GnssDataTypedef *pDataBuff, const
  * @param[in] length Length of the payload
  * @retval NmeaParserStatusTypedef Error code
  */
-NmeaParserStatusTypedef _NmeaParseGpggaPayload(GnssDataTypedef *pDataBuff, const char *pPayload, size_t length) {
+NmeaParserStatusTypedef _NmeaParseGgaPayload(GnssDataTypedef *pDataBuff,
+		const char *pPayload, size_t length) {
+
+	char dataFieldBuffer[NMEA_PARSER_DATAFIELD_BUFFER_SIZE]; /* Buffer for the data field */
+	size_t bufferIndex = 0; /* Buffer index */
+	uint8_t dataFieldNumber = 0; /* Number of data field currently being parsed */
+
+	/* Go through the entire sentence */
+	for (size_t i = 0; i < length; i += 1UL) {
+		/* Test if not a comma, i.e. data fields separator */
+		if (',' != pPayload[i]) {
+
+			/* Save the data field character */
+			dataFieldBuffer[bufferIndex] = pPayload[i];
+			/* Increment the buffer index */
+			bufferIndex += 1UL;
+			/* Test for buffer overflow */
+			if (bufferIndex >= NMEA_PARSER_DATAFIELD_BUFFER_SIZE) {
+				return NMEA_ERROR_INVALID_FORMAT;
+			}
+
+		} else {
+
+			/* On comma, i.e. data field complete - parse the field */
+			switch (dataFieldNumber) {
+
+			case 6: /* Number of satellites being used (0-12) */
+
+				pDataBuff->SatellitesInUse = strtol(dataFieldBuffer, NULL, 10);
+				break;
+
+			case 8: /* Altitude in meters according to WGS84 ellipsoid */
+
+				pDataBuff->Altitude = strtof(dataFieldBuffer, NULL);
+				break;
+
+			default: /* Ignore all other fields */
+
+				break;
+
+			}
+
+			/* Clear the buffer */
+			memset(dataFieldBuffer, 0x00, NMEA_PARSER_DATAFIELD_BUFFER_SIZE);
+			/* Reset the index counter */
+			bufferIndex = 0;
+			/* Increment the number of the data field */
+			dataFieldNumber += 1U;
+
+		}
+	}
+
 	return NMEA_ERROR_NONE;
+
 }
 
 /**
@@ -203,8 +445,70 @@ NmeaParserStatusTypedef _NmeaParseGpggaPayload(GnssDataTypedef *pDataBuff, const
  * @param[in] length Length of the payload
  * @retval NmeaParserStatusTypedef Error code
  */
-NmeaParserStatusTypedef _NmeaParseGsaPayload(GnssDataTypedef *pDataBuff, const char *pPayload, size_t length) {
+NmeaParserStatusTypedef _NmeaParseGsaPayload(GnssDataTypedef *pDataBuff,
+		const char *pPayload, size_t length) {
+
+	char dataFieldBuffer[NMEA_PARSER_DATAFIELD_BUFFER_SIZE]; /* Buffer for the data field */
+	size_t bufferIndex = 0; /* Buffer index */
+	uint8_t dataFieldNumber = 0; /* Number of data field currently being parsed */
+
+	/* Go through the entire sentence */
+	for (size_t i = 0; i < length; i += 1UL) {
+		/* Test if not a comma, i.e. data fields separator */
+		if (',' != pPayload[i]) {
+
+			/* Save the data field character */
+			dataFieldBuffer[bufferIndex] = pPayload[i];
+			/* Increment the buffer index */
+			bufferIndex += 1UL;
+			/* Test for buffer overflow */
+			if (bufferIndex >= NMEA_PARSER_DATAFIELD_BUFFER_SIZE) {
+				return NMEA_ERROR_INVALID_FORMAT;
+			}
+
+		} else {
+
+			/* On comma, i.e. data field complete - parse the field */
+			switch (dataFieldNumber) {
+
+			case 1: /* Fix Status */
+
+				switch(dataFieldBuffer[0]) {
+				case 1:
+					pDataBuff->FixStatus = GNSS_FixStatus_NoFix;
+					break;
+
+				case 2:
+					pDataBuff->FixStatus = GNSS_FixStatus_2DFix;
+					break;
+
+				case 3:
+					pDataBuff->FixStatus = GNSS_FixStatus_3DFix;
+					break;
+
+				default:
+					return NMEA_ERROR_INVALID_DATA;
+				}
+				break;
+
+			default: /* Ignore all other fields */
+
+				break;
+
+			}
+
+			/* Clear the buffer */
+			memset(dataFieldBuffer, 0x00, NMEA_PARSER_DATAFIELD_BUFFER_SIZE);
+			/* Reset the index counter */
+			bufferIndex = 0;
+			/* Increment the number of the data field */
+			dataFieldNumber += 1U;
+
+		}
+	}
+
 	return NMEA_ERROR_NONE;
+
 }
 
 /**
@@ -214,8 +518,55 @@ NmeaParserStatusTypedef _NmeaParseGsaPayload(GnssDataTypedef *pDataBuff, const c
  * @param[in] length Length of the payload
  * @retval NmeaParserStatusTypedef Error code
  */
-NmeaParserStatusTypedef _NmeaParseGsvPayload(GnssDataTypedef *pDataBuff, const char *pPayload, size_t length) {
+NmeaParserStatusTypedef _NmeaParseGsvPayload(GnssDataTypedef *pDataBuff,
+		const char *pPayload, size_t length) {
+
+	char dataFieldBuffer[NMEA_PARSER_DATAFIELD_BUFFER_SIZE]; /* Buffer for the data field */
+	size_t bufferIndex = 0; /* Buffer index */
+	uint8_t dataFieldNumber = 0; /* Number of data field currently being parsed */
+
+	/* Go through the entire sentence */
+	for (size_t i = 0; i < length; i += 1UL) {
+		/* Test if not a comma, i.e. data fields separator */
+		if (',' != pPayload[i]) {
+
+			/* Save the data field character */
+			dataFieldBuffer[bufferIndex] = pPayload[i];
+			/* Increment the buffer index */
+			bufferIndex += 1UL;
+			/* Test for buffer overflow */
+			if (bufferIndex >= NMEA_PARSER_DATAFIELD_BUFFER_SIZE) {
+				return NMEA_ERROR_INVALID_FORMAT;
+			}
+
+		} else {
+
+			/* On comma, i.e. data field complete - parse the field */
+			switch (dataFieldNumber) {
+
+			case 2: /* Total satellites in view */
+
+				pDataBuff->SatellitesInView = strtol(dataFieldBuffer, NULL, 10);
+				break;
+
+			default: /* Ignore all other fields */
+
+				break;
+
+			}
+
+			/* Clear the buffer */
+			memset(dataFieldBuffer, 0x00, NMEA_PARSER_DATAFIELD_BUFFER_SIZE);
+			/* Reset the index counter */
+			bufferIndex = 0;
+			/* Increment the number of the data field */
+			dataFieldNumber += 1U;
+
+		}
+	}
+
 	return NMEA_ERROR_NONE;
+
 }
 
 /**
@@ -225,8 +576,16 @@ NmeaParserStatusTypedef _NmeaParseGsvPayload(GnssDataTypedef *pDataBuff, const c
  * @param[in] length Length of the payload
  * @retval NmeaParserStatusTypedef Error code
  */
-NmeaParserStatusTypedef _NmeaParseGllPayload(GnssDataTypedef *pDataBuff, const char *pPayload, size_t length) {
+NmeaParserStatusTypedef _NmeaParseGllPayload(GnssDataTypedef *pDataBuff,
+		const char *pPayload, size_t length) {
+
+	/* Message not used */
+	NOTUSED(pDataBuff);
+	NOTUSED(pPayload);
+	NOTUSED(length);
+
 	return NMEA_ERROR_NONE;
+
 }
 
 /**
@@ -236,8 +595,16 @@ NmeaParserStatusTypedef _NmeaParseGllPayload(GnssDataTypedef *pDataBuff, const c
  * @param[in] length Length of the payload
  * @retval NmeaParserStatusTypedef Error code
  */
-NmeaParserStatusTypedef _NmeaParseGptxtPayload(GnssDataTypedef *pDataBuff, const char *pPayload, size_t length) {
+NmeaParserStatusTypedef _NmeaParseTxtPayload(GnssDataTypedef *pDataBuff,
+		const char *pPayload, size_t length) {
+
+	/* Message not used */
+	NOTUSED(pDataBuff);
+	NOTUSED(pPayload);
+	NOTUSED(length);
+
 	return NMEA_ERROR_NONE;
+
 }
 
 /**
@@ -247,20 +614,27 @@ NmeaParserStatusTypedef _NmeaParseGptxtPayload(GnssDataTypedef *pDataBuff, const
  * @retval int32_t Coordinate normalized as degrees multiplied by 1,000,000
  */
 int32_t normalizeCoordinate(float64_t coordinate, uint32_t direction) {
+
 	/* Separate degrees from the minutes */
 	float64_t degrees = floor(coordinate / 100.0);
 	/* Get minutes */
 	float64_t minutes = coordinate - (degrees * 100.0);
 	/* Add minutes as decimal fraction to the degrees */
 	float64_t floatResult = degrees + (minutes / 60.0);
+
 	/* Make the result negative if the direction is SOUTH or WEST */
 	if ((GNSS_LATITUDE_SOUTH == direction)
 			|| (GNSS_LONGITUDE_WEST == direction)) {
+
 		floatResult *= -1.0;
+
 	}
+
 	/* Round the result and multiply by 1000000.0 to get a 32-bit unsigned integer */
 	int32_t intResult = llround(floatResult * 1000000.0);
+
 	return intResult;
+
 }
 
 /**
@@ -269,7 +643,9 @@ int32_t normalizeCoordinate(float64_t coordinate, uint32_t direction) {
  * @retval uint16_t Speed normalized as kilometers per hour multiplied by 10
  */
 uint16_t normalizeSpeed(float32_t speed) {
+
 	return lround(speed * 10.0);
+
 }
 
 /**
@@ -278,7 +654,9 @@ uint16_t normalizeSpeed(float32_t speed) {
  * @retval uint16_t Direction normalized as degrees multiplied by 10
  */
 uint16_t normalizeDirection(float32_t direction) {
+
 	return lround(direction * 10.0);
+
 }
 
 /**
@@ -287,7 +665,9 @@ uint16_t normalizeDirection(float32_t direction) {
  * @retval uint16_t Altitude normalized as meters multiplied by 10
  */
 uint16_t normalizeAltitude(float32_t altitude) {
+
 	return lround(altitude * 10.0);
+
 }
 
 /**
@@ -296,5 +676,7 @@ uint16_t normalizeAltitude(float32_t altitude) {
  * @retval uint32_t Time normalized to the format hhmmsssss
  */
 uint32_t normalizeTime(float64_t time) {
+
 	return llround(time * 1000.0);
+
 }

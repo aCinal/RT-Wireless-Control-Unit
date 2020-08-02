@@ -11,22 +11,23 @@
 #include <stdbool.h>
 
 /* Exported defines ------------------------------------------------------------*/
-#define NMEA_PARSER_BUFFER_SIZE			512				/* Parser buffer size */
-#define NMEA_SENTENCE_MINIMUM_LENGTH	11U				/* Minimum length of an NMEA sentence */
+#define NMEA_PARSER_MESSAGE_BUFFER_SIZE		512				/* Message parser buffer size */
+#define NMEA_PARSER_DATAFIELD_BUFFER_SIZE	11				/* Sentence parser buffer size */
+#define NMEA_SENTENCE_MINIMUM_LENGTH		11U				/* Minimum length of an NMEA sentence */
 
-#define NMEA_RMC_RECEIVED				0x01U			/* --RMC NMEA sentence received flag */
-#define NMEA_GPVTG_RECEIVED				0x02U			/* GPVTG NMEA sentence received flag */
-#define NMEA_GPGGA_RECEIVED				0x04U			/* GPGGA NMEA sentence received flag */
-#define NMEA_GSA_RECEIVED				0x08U			/* --GSA NMEA sentence received flag */
-#define NMEA_GSV_RECEIVED				0x10U			/* --GSV NMEA sentence received flag */
-#define NMEA_GLL_RECEIVED				0x20U			/* --GLL NMEA sentence received flag */
-#define NMEA_GPTXT_RECEIVED				0x40U			/* GPTXT NMEA sentence received flag */
+#define NMEA_RMC_RECEIVED					0x01U			/* --RMC NMEA sentence received flag */
+#define NMEA_VTG_RECEIVED					0x02U			/* GPVTG NMEA sentence received flag */
+#define NMEA_GGA_RECEIVED					0x04U			/* GPGGA NMEA sentence received flag */
+#define NMEA_GSA_RECEIVED					0x08U			/* --GSA NMEA sentence received flag */
+#define NMEA_GSV_RECEIVED					0x10U			/* --GSV NMEA sentence received flag */
+#define NMEA_GLL_RECEIVED					0x20U			/* --GLL NMEA sentence received flag */
+#define NMEA_TXT_RECEIVED					0x40U			/* GPTXT NMEA sentence received flag */
 
 /* Exported macros ------------------------------------------------------------*/
 /**
  * @brief Returns the address at which the payload of an NMEA sentence begins in reference to the start
  */
-#define NMEA_PAYLOAD_BEGIN(start) (char*)((char*)start + 6UL)
+#define NMEA_PAYLOAD_BEGIN(start) (char*)((char*)start + 7UL)
 
 /**
  * @brief Returns the length of an NMEA sentence payload
@@ -55,16 +56,15 @@ typedef struct {
 	float32_t Altitude; /* Altitude in meters */
 
 	float32_t Speed; /* Speed over ground in kilometers per hour */
-	float32_t Direction; /* Direction in degrees */
+	float32_t COG; /* Course over ground in degrees */
 
 	uint32_t Date; /* Date formatted as ddmmyy */
 	float64_t Time; /* Time formatted as hhmmss.sss */
 
 	uint8_t SatellitesInUse; /* Number of satellites in use */
-	uint8_t SatellitesVisibleGPS; /* Number of GPS satellites visible */
-	uint8_t SatellitesVisibleGLONASS; /* Number of GLONASS satellites visible */
+	uint8_t SatellitesInView; /* Number of satellites in view */
 	enum {
-		GNSS_GSA_NoFix = 1U, GNSS_GSA_2DFix, GNSS_GSA_3DFix
+		GNSS_FixStatus_NoFix = 1U, GNSS_FixStatus_2DFix, GNSS_FixStatus_3DFix
 	} FixStatus; /* --GSA sentence fix status */
 
 	NMEASentencesRxFlagsTypedef SentencesReceived; /* Sentences received flags */
@@ -79,7 +79,8 @@ typedef enum {
 	NMEA_ERROR_INVALID_LENGTH,
 	NMEA_ERROR_INVALID_FORMAT,
 	NMEA_ERROR_INVALID_CHECKSUM,
-	NMEA_ERROR_INVALID_ID
+	NMEA_ERROR_INVALID_ID,
+	NMEA_ERROR_INVALID_DATA
 } NmeaParserStatusTypedef;
 
 /**
@@ -133,7 +134,7 @@ NmeaParserStatusTypedef _NmeaParseRmcPayload(GnssDataTypedef *pDataBuff, const c
  * @param[in] length Length of the payload
  * @retval NmeaParserStatusTypedef Error code
  */
-NmeaParserStatusTypedef _NmeaParseGpvtgPayload(GnssDataTypedef *pDataBuff, const char *pPayload, size_t length);
+NmeaParserStatusTypedef _NmeaParseVtgPayload(GnssDataTypedef *pDataBuff, const char *pPayload, size_t length);
 
 /**
  * @brief Parses the payload of an NMEA GPGGA sentence
@@ -142,7 +143,7 @@ NmeaParserStatusTypedef _NmeaParseGpvtgPayload(GnssDataTypedef *pDataBuff, const
  * @param[in] length Length of the payload
  * @retval NmeaParserStatusTypedef Error code
  */
-NmeaParserStatusTypedef _NmeaParseGpggaPayload(GnssDataTypedef *pDataBuff, const char *pPayload, size_t length);
+NmeaParserStatusTypedef _NmeaParseGgaPayload(GnssDataTypedef *pDataBuff, const char *pPayload, size_t length);
 
 /**
  * @brief Parses the payload of an NMEA --GSA sentence
@@ -178,7 +179,7 @@ NmeaParserStatusTypedef _NmeaParseGllPayload(GnssDataTypedef *pDataBuff, const c
  * @param[in] length Length of the payload
  * @retval NmeaParserStatusTypedef Error code
  */
-NmeaParserStatusTypedef _NmeaParseGptxtPayload(GnssDataTypedef *pDataBuff, const char *pPayload, size_t length);
+NmeaParserStatusTypedef _NmeaParseTxtPayload(GnssDataTypedef *pDataBuff, const char *pPayload, size_t length);
 
 /**
  * @brief Normalizes the coordinate (longitude/latitude) as degrees multiplied by 1,000,000

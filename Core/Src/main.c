@@ -292,7 +292,7 @@ int main(void)
   xbeeSubscribeHandle = osThreadCreate(osThread(xbeeSubscribe), NULL);
 
   /* definition and creation of gnssReceive */
-  osThreadDef(gnssReceive, StartGnssReceiveTask, osPriorityNormal, 0, 128);
+  osThreadDef(gnssReceive, StartGnssReceiveTask, osPriorityAboveNormal, 0, 128);
   gnssReceiveHandle = osThreadCreate(osThread(gnssReceive), NULL);
 
   /* definition and creation of rfReceive */
@@ -811,7 +811,7 @@ void xbeeSubscribe_WaitSubscriptionFromSD(void) {
 				SUBSCRIPTIONREAD_OK = 0U, SUBSCRIPTIONREAD_ERROR
 			} readStatus = SUBSCRIPTIONREAD_OK; /* Status flag */
 
-			for (uint32_t i = 0UL; i < frameNum; i += 1UL) {
+			for (uint32_t i = 0; i < frameNum; i += 1UL) {
 				if (pdTRUE
 						!= xQueueReceive(sdioSubscriptionQueueHandle,
 								subscription + i,
@@ -943,7 +943,7 @@ void gnssReceive_Send_GPS_POS2(GnssDataTypedef *pData) {
 	canFrame.Payload[1] = LSB(speed);
 
 	/* Write the direction to the frame payload */
-	uint16_t direction = normalizeDirection(pData->Direction);
+	uint16_t direction = normalizeDirection(pData->COG);
 	canFrame.Payload[2] = MSB16(direction);
 	canFrame.Payload[3] = LSB(direction);
 
@@ -976,8 +976,7 @@ void gnssReceive_Send_GPS_STATUS(GnssDataTypedef *pData) {
 	canFrame.Header.Tx.StdId = WCU_CANID_GPS_STATUS;
 
 	/* Write the satellites visible count to the frame payload */
-	canFrame.Payload[0] = pData->SatellitesVisibleGLONASS
-			+ pData->SatellitesVisibleGPS;
+	canFrame.Payload[0] = pData->SatellitesInView;
 	/* Clear two most significant bits */
 	canFrame.Payload[0] &= 0b00111111;
 	/* Use two most significant bits of the first byte to store fix status flags */
@@ -1031,7 +1030,7 @@ uint32_t sdioGatekeeper_LoadTelemetrySubscription(FIL *fp, const TCHAR *path) {
 			/* Assert valid number of frames */
 			if (frameNum <= R3TP_VER1_MAX_FRAME_NUM) {
 				/* Read the payload and push it to the queue */
-				for (uint32_t i = 0U; i < frameNum; i += 1U) {
+				for (uint32_t i = 0; i < frameNum; i += 1UL) {
 					if (FR_OK == f_read(fp, temp, 4, &bytesRead)) {
 						/* Assert end of file was not reached */
 						if (bytesRead < 4U) {
@@ -1293,7 +1292,7 @@ void StartXbeeSendTask(void const * argument)
 			xbeeUartTxBuff[8] = (uint8_t) frameBuff.Header.Rx.DLC;
 
 			/* Set the DATA field */
-			for (uint8_t i = 0U; i < frameBuff.Header.Rx.DLC; i += 1U) {
+			for (uint8_t i = 0; i < frameBuff.Header.Rx.DLC; i += 1U) {
 				xbeeUartTxBuff[9U + i] = frameBuff.Payload[i];
 			}
 
@@ -1471,7 +1470,7 @@ void StartXbeeSubscribeTask(void const * argument)
 			}
 
 			/* Read the payload */
-			for (uint32_t i = 0UL; i < frameNum; i += 1UL) {
+			for (uint32_t i = 0; i < frameNum; i += 1UL) {
 				subscription[i] =
 						READ32(
 								*(R3TP_VER1_PAYLOAD_BEGIN_OFFSET(xbeeUartRxBuff, 3U + 4U*i)),
@@ -1484,7 +1483,7 @@ void StartXbeeSubscribeTask(void const * argument)
 			enum {
 				SUBSCRIPTIONWRITE_OK = 0U, SUBSCRIPTIONWRITE_ERROR
 			} writeStatus = SUBSCRIPTIONWRITE_OK; /* Status flag */
-			for (uint32_t i = 0UL; i < frameNum; i += 1UL) {
+			for (uint32_t i = 0; i < frameNum; i += 1UL) {
 				/* Send the frame to the queue */
 				if (pdTRUE
 						!= xQueueSend(sdioSubscriptionQueueHandle,
@@ -1728,7 +1727,7 @@ void StartSdioGatekeeperTask(void const * argument)
 					(void) f_write(&subscriptionFile, temp, 4U, &bytesWritten);
 
 					/* Print the subscription to the file */
-					for (uint32_t i = 0UL; i < notificationValue; i += 1UL) {
+					for (uint32_t i = 0; i < notificationValue; i += 1UL) {
 						if (pdTRUE
 								!= xQueueReceive(sdioSubscriptionQueueHandle,
 										&frameBuff,
