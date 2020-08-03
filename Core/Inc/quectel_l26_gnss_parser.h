@@ -7,7 +7,8 @@
 #ifndef __QUECTEL_L26_GNSS_PARSER_H_
 #define __QUECTEL_L26_GNSS_PARSER_H_
 
-#include "main.h"
+#include <stdint.h>
+#include <stdlib.h>
 #include <stdbool.h>
 
 /* Exported defines ------------------------------------------------------------*/

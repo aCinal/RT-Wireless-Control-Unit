@@ -79,7 +79,7 @@
 /**
  * @brief Checks in with the watchdog thread
  */
-#define WATCHDOG_CHECKIN(notificationValue) xTaskNotify((TaskHandle_t)iwdgGatekeeperHandle, notificationValue, eSetBits)
+#define WATCHDOG_CHECKIN(notificationValue) ((void)xTaskNotify((TaskHandle_t)iwdgGatekeeperHandle, notificationValue, eSetBits))
 
 /* USER CODE END PM */
 
@@ -758,11 +758,15 @@ static void MX_GPIO_Init(void)
  *                the configuration information for the specified UART module.
  * @retval None
  */
-__weak void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart) {
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart) {
+
 	if (XBEE_UART_INSTANCE == huart->Instance) {
+
 		/* Resume the xbeeSend task */
 		vTaskNotifyGiveFromISR(xbeeSendHandle, NULL);
+
 	}
+
 }
 
 /**
@@ -772,22 +776,29 @@ __weak void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart) {
  * @retval None
  */
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
+
 	switch ((uint32_t) huart->Instance) {
+
 	case (uint32_t) BT_UART_INSTANCE:
+
 		/* Notify btReceive task */
 		vTaskNotifyGiveFromISR(btReceiveHandle, NULL);
 		break;
 
 	case (uint32_t) GNSS_UART_INSTANCE:
+
 		/* Notify gnssReceive task */
 		vTaskNotifyGiveFromISR(gnssReceiveHandle, NULL);
 		break;
 
 	case (uint32_t) XBEE_UART_INSTANCE:
+
 		/* Notify xbeeSubscribe task */
 		vTaskNotifyGiveFromISR(xbeeSubscribeHandle, NULL);
 		break;
+
 	}
+
 }
 
 /**
@@ -795,6 +806,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
  * @retval None
  */
 void xbeeSubscribe_WaitSubscriptionFromSD(void) {
+
 	uint32_t frameNum; /* Number of frames in a subscription */
 	uint32_t subscription[R3TP_VER1_MAX_FRAME_NUM]; /* Buffer for telemetry subscription CAN IDs */
 	uint32_t notificationValue; /* Buffer for the notification value */
@@ -803,7 +815,9 @@ void xbeeSubscribe_WaitSubscriptionFromSD(void) {
 	if (pdTRUE
 			== xTaskNotifyWait(0x00000000UL, 0xFFFFFFFFUL, &notificationValue,
 			WCU_XBEESUBSCRIBE_XTASKNOTIFYWAIT_TIMEOUT)) {
+
 		if (notificationValue <= 28UL) {
+
 			/* If notificationValue is less than or equal to 28, it is to be interpreted as the number of frames waiting in the queue */
 			frameNum = notificationValue;
 
@@ -812,50 +826,69 @@ void xbeeSubscribe_WaitSubscriptionFromSD(void) {
 			} readStatus = SUBSCRIPTIONREAD_OK; /* Status flag */
 
 			for (uint32_t i = 0; i < frameNum; i += 1UL) {
+
 				if (pdTRUE
 						!= xQueueReceive(sdioSubscriptionQueueHandle,
 								subscription + i,
 								WCU_SDIOSUBSCRIPTIONQUEUE_RECEIVE_TIMEOUT)) {
+
 					/* Log error and break */
 					LOGERROR(
 							"xbeeSubscribe failed to receive from sdioSubscriptionQueue\r\n");
 					readStatus = SUBSCRIPTIONREAD_ERROR;
 					break;
+
 				}
+
 			}
 
 			/* If no error occured */
 			if (SUBSCRIPTIONREAD_OK == readStatus) {
+
 				/* Set the CAN filters */
 				setCanFilterList(&hcan1, subscription, frameNum);
+
 			}
 
 		} else {
 
 			/* Log error */
 			switch (notificationValue) {
+
 			case WCU_XBEESUBSCRIBE_NOTIFICATIONVALUE_FOPENFAILED:
+
 				LOGERROR(
 						"sdioGatekeeper failed to open the subscription file\r\n");
 				break;
+
 			case WCU_XBEESUBSCRIBE_NOTIFICATIONVALUE_FREADFAILED:
+
 				LOGERROR(
 						"sdioGatekeeper failed to read from the subscription file\r\n");
 				break;
+
 			case WCU_XBEESUBSCRIBE_NOTIFICATIONVALUE_INVALIDFRAMENUM:
+
 				LOGERROR("Invalid FRAME NUM in the subscription file\r\n");
 				break;
+
 			case WCU_XBEESUBSCRIBE_NOTIFICATIONVALUE_XQUEUESENDFAILED:
+
 				LOGERROR(
 						"sdioGatekeeper failed to send to sdioSubscriptionQueue\r\n");
 				break;
+
 			default:
+
 				LOGERROR("Invalid FRAME NUM in xbeeSubscribe (SD)\r\n");
 				break;
+
 			}
 
 		}
+
 	}
+
 }
 
 /**
@@ -863,6 +896,7 @@ void xbeeSubscribe_WaitSubscriptionFromSD(void) {
  * @retval None
  */
 void gnssReceive_DeviceConfig(void) {
+
 	/* Wait for the device to turn on and set up */
 	vTaskDelay(WCU_GNSSRECEIVE_DEVICECONFIG_SETUP_DELAY);
 
@@ -872,7 +906,9 @@ void gnssReceive_DeviceConfig(void) {
 			!= HAL_UART_Transmit(&GNSS_UART_HANDLE, (uint8_t*) PMTK_SET_POS_FIX,
 					sizeof(PMTK_SET_POS_FIX),
 					WCU_GNSSRECEIVE_DEVICECONFIG_UART_TIMEOUT)) {
+
 		Error_Handler();
+
 	}
 
 	/* Send packet 353 PMTK_API_SET_GNSS_SEARCH_MODE - configure the receiver to start searching GPS and GLONASS satellites */
@@ -882,8 +918,11 @@ void gnssReceive_DeviceConfig(void) {
 					(uint8_t*) PMTK_API_SET_GNSS_SEARCH_MODE,
 					sizeof(PMTK_API_SET_GNSS_SEARCH_MODE),
 					WCU_GNSSRECEIVE_DEVICECONFIG_UART_TIMEOUT)) {
+
 		Error_Handler();
+
 	}
+
 }
 
 /**
@@ -892,6 +931,7 @@ void gnssReceive_DeviceConfig(void) {
  * @retval None
  */
 void gnssReceive_Send_GPS_POS(GnssDataTypedef *pData) {
+
 	CanFrameTypedef canFrame = { .DataDirection = TX }; /* CAN frame structure */
 
 	/* Configure the CAN Tx header */
@@ -918,9 +958,12 @@ void gnssReceive_Send_GPS_POS(GnssDataTypedef *pData) {
 	if (pdTRUE
 			!= xQueueSend(canTransmitQueueHandle, &canFrame,
 					WCU_CANTRANSMITQUEUE_SEND_TIMEOUT)) {
+
 		LOGERROR(
 				"gnssReceive_Send_GPS_POS failed to send to canTransmitQueue\r\n");
+
 	}
+
 }
 
 /**
@@ -929,6 +972,7 @@ void gnssReceive_Send_GPS_POS(GnssDataTypedef *pData) {
  * @retval None
  */
 void gnssReceive_Send_GPS_POS2(GnssDataTypedef *pData) {
+
 	CanFrameTypedef canFrame = { .DataDirection = TX }; /* CAN frame structure */
 
 	/* Configure the CAN Tx header */
@@ -956,9 +1000,12 @@ void gnssReceive_Send_GPS_POS2(GnssDataTypedef *pData) {
 	if (pdTRUE
 			!= xQueueSend(canTransmitQueueHandle, &canFrame,
 					WCU_CANTRANSMITQUEUE_SEND_TIMEOUT)) {
+
 		LOGERROR(
 				"gnssReceive_Send_GPS_POS2 failed to send to canTransmitQueue\r\n");
+
 	}
+
 }
 
 /**
@@ -967,6 +1014,7 @@ void gnssReceive_Send_GPS_POS2(GnssDataTypedef *pData) {
  * @retval None
  */
 void gnssReceive_Send_GPS_STATUS(GnssDataTypedef *pData) {
+
 	CanFrameTypedef canFrame = { .DataDirection = TX }; /* CAN frame structure */
 
 	/* Configure the CAN Tx header */
@@ -1001,9 +1049,12 @@ void gnssReceive_Send_GPS_STATUS(GnssDataTypedef *pData) {
 	if (pdTRUE
 			!= xQueueSend(canTransmitQueueHandle, &canFrame,
 					WCU_CANTRANSMITQUEUE_SEND_TIMEOUT)) {
+
 		LOGERROR(
 				"gnssReceive_Send_GPS_STATUS failed to send to canTransmitQueue\r\n");
+
 	}
+
 }
 
 /**
@@ -1013,6 +1064,7 @@ void gnssReceive_Send_GPS_STATUS(GnssDataTypedef *pData) {
  * @retval uint32_t Number of frames loaded from SD card or error code if over 28UL
  */
 uint32_t sdioGatekeeper_LoadTelemetrySubscription(FIL *fp, const TCHAR *path) {
+
 	/* Try opening the file */
 	if (FR_OK == f_open(fp, path,
 	FA_READ | FA_OPEN_EXISTING)) {
@@ -1024,22 +1076,28 @@ uint32_t sdioGatekeeper_LoadTelemetrySubscription(FIL *fp, const TCHAR *path) {
 
 		/* Read the number of frames */
 		if (FR_OK == f_read(fp, temp, 4U, &bytesRead)) {
+
 			/* Parse the number of frames */
 			frameNum = READ32(temp[3], temp[2], temp[1], temp[0]);
 
 			/* Assert valid number of frames */
 			if (frameNum <= R3TP_VER1_MAX_FRAME_NUM) {
+
 				/* Read the payload and push it to the queue */
 				for (uint32_t i = 0; i < frameNum; i += 1UL) {
+
 					if (FR_OK == f_read(fp, temp, 4, &bytesRead)) {
+
 						/* Assert end of file was not reached */
 						if (bytesRead < 4U) {
+
 							/* On invalid number of frames */
 							/* Close the file */
-							f_close(fp);
+							(void) f_close(fp);
 							/* Queue cleanup */
-							xQueueReset(sdioSubscriptionQueueHandle);
+							(void) xQueueReset(sdioSubscriptionQueueHandle);
 							return WCU_XBEESUBSCRIBE_NOTIFICATIONVALUE_INVALIDFRAMENUM;
+
 						}
 
 						/* Parse the frame */
@@ -1050,49 +1108,63 @@ uint32_t sdioGatekeeper_LoadTelemetrySubscription(FIL *fp, const TCHAR *path) {
 								!= xQueueSend(sdioSubscriptionQueueHandle,
 										&frameBuff,
 										WCU_SDIOSUBSCRIPTIONQUEUE_SEND_TIMEOUT)) {
+
 							/* If failed to send to queue */
 							/* Close the file */
-							f_close(fp);
+							(void) f_close(fp);
 							/* Queue cleanup */
-							xQueueReset(sdioSubscriptionQueueHandle);
+							(void) xQueueReset(sdioSubscriptionQueueHandle);
 							return WCU_XBEESUBSCRIBE_NOTIFICATIONVALUE_XQUEUESENDFAILED;
+
 						}
+
 					} else {
+
 						/* If failed to read the frame */
 						/* Close the file */
-						f_close(fp);
+						(void) f_close(fp);
 						/* Queue cleanup */
-						xQueueReset(sdioSubscriptionQueueHandle);
+						(void) xQueueReset(sdioSubscriptionQueueHandle);
 						return WCU_XBEESUBSCRIBE_NOTIFICATIONVALUE_FREADFAILED;
+
 					}
+
 				}
 
 				/* On success */
 				/* Close the file */
-				f_close(fp);
+				(void) f_close(fp);
 				/* Return the number of frames read */
 				return frameNum;
 
 			} else {
+
 				/* On invalid number of frames */
 				/* Close the file */
-				f_close(fp);
+				(void) f_close(fp);
 				return WCU_XBEESUBSCRIBE_NOTIFICATIONVALUE_INVALIDFRAMENUM;
+
 			}
+
 		} else {
+
 			/* If failed to read the number of frames */
 			/* Close the file */
-			f_close(fp);
+			(void) f_close(fp);
 			return WCU_XBEESUBSCRIBE_NOTIFICATIONVALUE_FREADFAILED;
+
 		}
 
 		/* Close the file */
 		f_close(fp);
 
 	} else {
+
 		/* If failed to open the file */
 		return WCU_XBEESUBSCRIBE_NOTIFICATIONVALUE_FOPENFAILED;
+
 	}
+
 }
 
 /* USER CODE END 4 */
@@ -1113,17 +1185,18 @@ void StartIwdgGatekeeperTask(void const * argument)
 	vTaskDelay(WCU_IWDGGATEEKEEPER_INIT_DELAY);
 
 	/* Initialize the watchdog */
-	HAL_IWDG_Init(&hiwdg);
+	(void) HAL_IWDG_Init(&hiwdg);
 
 	/* Infinite loop */
 	for (;;) {
-		osDelay(WCU_DEFAULT_TASK_DELAY);
+		vTaskDelay(WCU_DEFAULT_TASK_DELAY);
 
 		/* Wait for notification */
 		if (pdTRUE
 				== xTaskNotifyWait(0x00000000UL, 0x00000000UL,
 						&notificationValue,
 						WCU_IWDGGATEKEEPER_XTASKNOTIFYWAIT_TIMEOUT)) {
+
 			/* If all tasks checked in */
 			if (notificationValue
 					== (WCU_IWDGHANDLER_NOTIFICATIONVALUE_BTRECEIVE
@@ -1131,13 +1204,17 @@ void StartIwdgGatekeeperTask(void const * argument)
 							| WCU_IWDGHANDLER_NOTIFICATIONVALUE_GNSSRECEIVE |
 							WCU_IWDGHANDLER_NOTIFICATIONVALUE_RFRECEIVE
 							| WCU_IWDGHANDLER_NOTIFICATIONVALUE_CANGATEKEEPER)) {
+
 				/* Refresh the counter */
-				HAL_IWDG_Refresh(&hiwdg);
+				(void) HAL_IWDG_Refresh(&hiwdg);
 				/* Clear the notification value */
 				(void) xTaskNotifyWait(0xFFFFFFFFUL, 0xFFFFFFFFUL,
 						&notificationValue, 0);
+
 			}
+
 		}
+
 	}
   /* USER CODE END 5 */
 }
@@ -1159,19 +1236,23 @@ void StartBtReceiveTask(void const * argument)
 
 	/* Infinite loop */
 	for (;;) {
-		osDelay(WCU_DEFAULT_TASK_DELAY);
+
+		vTaskDelay(WCU_DEFAULT_TASK_DELAY);
 
 		/* Listen for the message */
-		HAL_UART_Receive_DMA(&BT_UART_HANDLE, btUartRxBuff,
+		(void) HAL_UART_Receive_DMA(&BT_UART_HANDLE, btUartRxBuff,
 		R3TP_VER0_FRAME_SIZE);
 
 		/* Wait for notify from ISR/message received callback */
 		if (0UL < ulTaskNotifyTake(pdTRUE,
 		WCU_BTRECEIVE_ULTASKNOTIFYTAKE_TIMEOUT)) {
+
 			/* Validate the VER and RES/SEQ field */
 			if (R3TP_VER0_VER_RES_SEQ_BYTE != btUartRxBuff[0]) {
+
 				LOGERROR("Invalid VER/RES/SEQ in btReceive\r\n");
 				continue;
+
 			}
 
 			/* Validate the END SEQ field */
@@ -1179,8 +1260,10 @@ void StartBtReceiveTask(void const * argument)
 					!= btUartRxBuff[R3TP_VER0_FRAME_SIZE - 2U])
 					|| (R3TP_END_SEQ_HIGH_BYTE
 							!= btUartRxBuff[R3TP_VER0_FRAME_SIZE - 1U])) {
+
 				LOGERROR("Invalid END SEQ in btReceive\r\n");
 				continue;
+
 			}
 
 			/* Read the CHECKSUM field - note that the CRC is transmitted as little endian */
@@ -1192,19 +1275,25 @@ void StartBtReceiveTask(void const * argument)
 
 			/* Calculate the CRC */
 			if (osOK == osMutexWait(crcMutexHandle, WCU_CRCMUTEX_TIMEOUT)) {
+
 				calculatedCrc =
 						TWOLOWBYTES(
 								HAL_CRC_Calculate(&hcrc, (uint32_t* )btUartRxBuff, R3TP_VER0_FRAME_SIZE / 4U));
-				osMutexRelease(crcMutexHandle);
+				(void) osMutexRelease(crcMutexHandle);
+
 			} else {
+
 				LOGERROR("crcMutex timeout in btReceive\r\n");
 				continue;
+
 			}
 
 			/* Validate the CRC */
 			if (readCrc != calculatedCrc) {
+
 				LOGERROR("Invalid CRC in btReceive\r\n");
 				continue;
+
 			}
 
 			/* Read the CAN ID - note that the CAN ID is transmitted as little endian */
@@ -1213,25 +1302,32 @@ void StartBtReceiveTask(void const * argument)
 			/* Read the Data Length Code */
 			canFrame.Header.Tx.DLC = (uint32_t)btUartRxBuff[8];
 			if(CAN_PAYLOAD_SIZE < canFrame.Header.Tx.DLC) {
+
 				LOGERROR("Invalid DLC in btReceive\r\n");
 				continue;
+
 			}
 
 			/* Read the payload */
-			for (uint8_t i = 0U; i < canFrame.Header.Tx.DLC; i += 1U) {
+			for (uint8_t i = 0; i < canFrame.Header.Tx.DLC; i += 1U) {
+
 				canFrame.Payload[i] = btUartRxBuff[9U + i];
+
 			}
 
 			/* Push CAN frame to queue */
 			if (pdTRUE
 					!= xQueueSend(canTransmitQueueHandle, &canFrame,
 							WCU_CANTRANSMITQUEUE_SEND_TIMEOUT)) {
+
 				LOGERROR("btReceive failed to send to canTransmitQueue\r\n");
+
 			}
 		}
 
 		/* Report to watchdog */
 		WATCHDOG_CHECKIN(WCU_IWDGHANDLER_NOTIFICATIONVALUE_BTRECEIVE);
+
 	}
   /* USER CODE END StartBtReceiveTask */
 }
@@ -1256,7 +1352,8 @@ void StartXbeeSendTask(void const * argument)
 
 	/* Infinite loop */
 	for (;;) {
-		osDelay(WCU_DEFAULT_TASK_DELAY);
+
+		vTaskDelay(WCU_DEFAULT_TASK_DELAY);
 
 		if (pdTRUE == xQueueReceive(canReceiveQueueHandle, xbeeUartTxBuff,
 		WCU_CANRECEIVEQUEUE_RECEIVE_TIMEOUT)) {
@@ -1268,7 +1365,7 @@ void StartXbeeSendTask(void const * argument)
 			}
 
 			/* Clear the buffer */
-			memset(xbeeUartTxBuff, 0x00U, R3TP_VER0_FRAME_SIZE);
+			(void) memset(xbeeUartTxBuff, 0x00U, R3TP_VER0_FRAME_SIZE);
 
 			/* Set VER and RES/SEQ field */
 			xbeeUartTxBuff[0] = R3TP_VER0_VER_RES_SEQ_BYTE;
@@ -1301,7 +1398,7 @@ void StartXbeeSendTask(void const * argument)
 				calculatedCrc =
 						TWOLOWBYTES(
 								HAL_CRC_Calculate(&hcrc, (uint32_t*)xbeeUartTxBuff, R3TP_VER0_FRAME_SIZE / 4U));
-				osMutexRelease(crcMutexHandle);
+				(void) osMutexRelease(crcMutexHandle);
 
 				/* Set the CHECKSUM field - note that the CRC is transmitted as little endian */
 				xbeeUartTxBuff[2] = LSB(calculatedCrc);
@@ -1313,7 +1410,7 @@ void StartXbeeSendTask(void const * argument)
 			}
 
 			/* Transmit frame */
-			HAL_UART_Transmit_DMA(&XBEE_UART_HANDLE, xbeeUartTxBuff,
+			(void) HAL_UART_Transmit_DMA(&XBEE_UART_HANDLE, xbeeUartTxBuff,
 			R3TP_VER0_FRAME_SIZE);
 
 			/* Wait for the transmission to end */
@@ -1327,6 +1424,7 @@ void StartXbeeSendTask(void const * argument)
 
 		/* Report to watchdog */
 		WATCHDOG_CHECKIN(WCU_IWDGHANDLER_NOTIFICATIONVALUE_XBEESEND);
+
 	}
   /* USER CODE END StartXbeeSendTask */
 }
@@ -1352,35 +1450,43 @@ void StartXbeeSubscribeTask(void const * argument)
 
 	/* Infinite loop */
 	for (;;) {
-		osDelay(WCU_DEFAULT_TASK_DELAY);
+
+		vTaskDelay(WCU_DEFAULT_TASK_DELAY);
 
 		/* Listen for the subscription frame VER octet */
-		HAL_UART_Receive_DMA(&XBEE_UART_HANDLE, xbeeUartRxBuff, 1);
+		(void) HAL_UART_Receive_DMA(&XBEE_UART_HANDLE, xbeeUartRxBuff, 1);
 
 		/* Wait for notify from ISR/message received callback */
 		if (0UL < ulTaskNotifyTake(pdTRUE,
 		WCU_XBEESUBSCRIBE_ULTASKNOTIFYTAKE_TIMEOUT)) {
+
 			/* Validate the VER and RES/SEQ field */
 			if (R3TP_VER1_VER_RES_SEQ_BYTE != xbeeUartRxBuff[0]) {
+
 				/* Log the error */
 				LOGERROR("Invalid VER/RES/SEQ in xbeeSubscribe\r\n");
 				/* Assert the invalid message won't raise any more interrupts */
 				while (HAL_OK
 						== HAL_UART_Receive(&XBEE_UART_HANDLE, xbeeUartRxBuff,
 								1U, WCU_XBEESUBSCRIBE_UART_CLEANUP_TIMEOUT)) {
+
 					__NOP();
+
 				}
 				continue;
+
 			}
 
 			/* On valid version byte, receive SEQ NUM, CHECKSUM and FRAME NUM */
 			if (HAL_OK
 					!= HAL_UART_Receive(&XBEE_UART_HANDLE, xbeeUartRxBuff + 1U,
 							7, WCU_XBEESUBSCRIBE_UART_TIMEOUT)) {
+
 				/* Log error */
 				LOGERROR(
 						"Failed to receive SEQ NUM, CHECKSUM and FRAME NUM in xbeeSubscribe\r\n");
 				continue;
+
 			}
 
 			/* Read the FRAME NUM field */
@@ -1389,15 +1495,19 @@ void StartXbeeSubscribeTask(void const * argument)
 
 			/* Assert the payload won't overflow the buffer */
 			if (frameNum > R3TP_VER1_MAX_FRAME_NUM) {
+
 				/* Log error */
 				LOGERROR("Invalid FRAME NUM in xbeeSubscribe\r\n");
 				/* Assert the invalid message won't raise any more interrupts */
 				while (HAL_OK
 						== HAL_UART_Receive(&XBEE_UART_HANDLE, xbeeUartRxBuff,
 								1U, WCU_XBEESUBSCRIBE_UART_CLEANUP_TIMEOUT)) {
+
 					__NOP();
+
 				}
 				continue;
+
 			}
 
 			/* Receive the payload */
@@ -1405,9 +1515,11 @@ void StartXbeeSubscribeTask(void const * argument)
 					!= HAL_UART_Receive(&XBEE_UART_HANDLE,
 							R3TP_VER1_PAYLOAD_BEGIN(xbeeUartRxBuff),
 							frameNum * 4U, WCU_XBEESUBSCRIBE_UART_TIMEOUT)) {
+
 				/* Log error */
 				LOGERROR("Failed to receive the payload in xbeeSubscribe\r\n");
 				continue;
+
 			}
 
 			/* Receive the frame align bytes (two) and END SEQ (also two bytes) */
@@ -1415,9 +1527,11 @@ void StartXbeeSubscribeTask(void const * argument)
 					!= HAL_UART_Receive(&XBEE_UART_HANDLE,
 							R3TP_VER1_EPILOGUE_BEGIN(xbeeUartRxBuff, frameNum),
 							4U, WCU_XBEESUBSCRIBE_UART_TIMEOUT)) {
+
 				/* Log error */
 				LOGERROR("Failed to receive END SEQ in xbeeSubscribe\r\n");
 				continue;
+
 			}
 
 			/* Validate the END SEQ field */
@@ -1426,6 +1540,7 @@ void StartXbeeSubscribeTask(void const * argument)
 					|| (R3TP_END_SEQ_HIGH_BYTE
 							!= xbeeUartRxBuff[R3TP_VER1_MESSAGE_LENGTH(frameNum)
 									- 1U])) {
+
 				/* Log error */
 				LOGERROR("Invalid END SEQ in xbeeSubscribe\r\n");
 				/* Assert the invalid message won't raise any more interrupts */
@@ -1435,6 +1550,7 @@ void StartXbeeSubscribeTask(void const * argument)
 					__NOP();
 				}
 				continue;
+
 			}
 
 			/* Read the CHECKSUM field - note that the CRC is transmitted as little endian */
@@ -1446,37 +1562,47 @@ void StartXbeeSubscribeTask(void const * argument)
 
 			/* Calculate the CRC */
 			if (osOK == osMutexWait(crcMutexHandle, WCU_CRCMUTEX_TIMEOUT)) {
+
 				calculatedCrc =
 						TWOLOWBYTES(
 								HAL_CRC_Calculate(&hcrc, (uint32_t* )xbeeUartRxBuff, R3TP_VER1_MESSAGE_LENGTH(frameNum)/4U));
-				osMutexRelease(crcMutexHandle);
+				(void) osMutexRelease(crcMutexHandle);
+
 			} else {
+
 				/* Log error */
 				LOGERROR("crcMutex timeout in xbeeSubscribe\r\n");
 				continue;
+
 			}
 
 			/* Validate the CRC */
 			if (readCrc != calculatedCrc) {
+
 				/* Log error */
 				LOGERROR("Invalid CRC in xbeeSubscribe\r\n");
 				/* Assert the invalid message won't raise any more interrupts */
 				while (HAL_OK
 						== HAL_UART_Receive(&XBEE_UART_HANDLE, xbeeUartRxBuff,
 								1, WCU_XBEESUBSCRIBE_UART_CLEANUP_TIMEOUT)) {
+
 					__NOP();
+
 				}
 				continue;
+
 			}
 
 			/* Read the payload */
 			for (uint32_t i = 0; i < frameNum; i += 1UL) {
+
 				subscription[i] =
 						READ32(
 								*(R3TP_VER1_PAYLOAD_BEGIN_OFFSET(xbeeUartRxBuff, 3U + 4U*i)),
 								*(R3TP_VER1_PAYLOAD_BEGIN_OFFSET(xbeeUartRxBuff, 2U + 4U*i)),
 								*(R3TP_VER1_PAYLOAD_BEGIN_OFFSET(xbeeUartRxBuff, 1U + 4U*i)),
 								*(R3TP_VER1_PAYLOAD_BEGIN_OFFSET(xbeeUartRxBuff, 4U * i)));
+
 			}
 
 			/* Write subscription to sdioSubscriptionQueue */
@@ -1484,31 +1610,39 @@ void StartXbeeSubscribeTask(void const * argument)
 				SUBSCRIPTIONWRITE_OK = 0U, SUBSCRIPTIONWRITE_ERROR
 			} writeStatus = SUBSCRIPTIONWRITE_OK; /* Status flag */
 			for (uint32_t i = 0; i < frameNum; i += 1UL) {
+
 				/* Send the frame to the queue */
 				if (pdTRUE
 						!= xQueueSend(sdioSubscriptionQueueHandle,
 								subscription + i,
 								WCU_SDIOSUBSCRIPTIONQUEUE_SEND_TIMEOUT)) {
+
 					/* Log error */
 					LOGERROR(
 							"xbeeSubscribe failed to send to sdioSubscriptionQueue\r\n");
 					/* Cleanup */
-					xQueueReset(sdioSubscriptionQueueHandle);
+					(void) xQueueReset(sdioSubscriptionQueueHandle);
 					writeStatus = SUBSCRIPTIONWRITE_ERROR;
 					break;
+
 				}
+
 			}
 
 			/* If no error occured while pushing the subscription to sdioSubscriptionQueue */
 			if (SUBSCRIPTIONWRITE_OK == writeStatus) {
+
 				/* Notify sdioGatekeeper */
 				(void) xTaskNotify(sdioGatekeeperHandle, frameNum,
 						eSetValueWithOverwrite);
+
 			}
 
 			/* Set the CAN filters */
 			setCanFilterList(&hcan1, subscription, frameNum);
+
 		}
+
 	}
   /* USER CODE END StartXbeeSubscribeTask */
 }
@@ -1530,49 +1664,57 @@ void StartGnssReceiveTask(void const * argument)
 	gnssReceive_DeviceConfig();
 
 	/* Listen for the message */
-	HAL_UART_Receive_DMA(&GNSS_UART_HANDLE, gnssUartRxBuff,
+	(void) HAL_UART_Receive_DMA(&GNSS_UART_HANDLE, gnssUartRxBuff,
 	WCU_GNSSRECEIVE_UARTRXBUFF_SIZE);
 
 	/* Infinite loop */
 	for (;;) {
-		osDelay(WCU_DEFAULT_TASK_DELAY);
 
+		vTaskDelay(WCU_DEFAULT_TASK_DELAY);
 
 		/* Wait for notify from ISR/message received callback */
 		if (0UL < ulTaskNotifyTake(pdTRUE,
 		WCU_GNSSRECEIVE_ULTASKNOTIFYTAKE_TIMEOUT)) {
+
 			/* Try parsing the message */
 			switch(parseMessage(&dataBuff, (char*)gnssUartRxBuff, WCU_GNSSRECEIVE_UARTRXBUFF_SIZE)) {
+
 			case GNSS_DATA_READY: /* If the data is ready */
+
 				/* Send the data to CAN */
 				gnssReceive_Send_GPS_POS(&dataBuff);
 				gnssReceive_Send_GPS_POS2(&dataBuff);
 				gnssReceive_Send_GPS_STATUS(&dataBuff);
 
 				/* Clear the data buffer */
-				memset(&dataBuff, 0x00, sizeof(dataBuff));
+				(void) memset(&dataBuff, 0x00, sizeof(dataBuff));
 
 				/* Listen for the next message */
-				HAL_UART_Receive_DMA(&GNSS_UART_HANDLE, gnssUartRxBuff,
+				(void) HAL_UART_Receive_DMA(&GNSS_UART_HANDLE, gnssUartRxBuff,
 				WCU_GNSSRECEIVE_UARTRXBUFF_SIZE);
 				break;
 
 			case GNSS_DATA_PENDING: /* If the data is not complete */
+
 				/* Listen for the next message */
-				HAL_UART_Receive_DMA(&GNSS_UART_HANDLE, gnssUartRxBuff,
+				(void) HAL_UART_Receive_DMA(&GNSS_UART_HANDLE, gnssUartRxBuff,
 				WCU_GNSSRECEIVE_UARTRXBUFF_SIZE);
 				break;
 
 			case GNSS_DATA_ERROR: /* If the parser failed */
+
 				LOGERROR("parseMessage failed in gnssReceive\r\n");
 				/* Listen for the next message */
-				HAL_UART_Receive_DMA(&GNSS_UART_HANDLE, gnssUartRxBuff,
+				(void) HAL_UART_Receive_DMA(&GNSS_UART_HANDLE, gnssUartRxBuff,
 				WCU_GNSSRECEIVE_UARTRXBUFF_SIZE);
+
 			}
+
 		}
 
 		/* Report to watchdog */
 		WATCHDOG_CHECKIN(WCU_IWDGHANDLER_NOTIFICATIONVALUE_GNSSRECEIVE);
+
 	}
   /* USER CODE END StartGnssReceiveTask */
 }
@@ -1589,10 +1731,11 @@ void StartRfReceiveTask(void const * argument)
   /* USER CODE BEGIN StartRfReceiveTask */
 	/* Infinite loop */
 	for (;;) {
-		osDelay(WCU_DEFAULT_TASK_DELAY);
+		vTaskDelay(WCU_DEFAULT_TASK_DELAY);
 
 		/* Report to watchdog */
 		WATCHDOG_CHECKIN(WCU_IWDGHANDLER_NOTIFICATIONVALUE_RFRECEIVE);
+
 	}
   /* USER CODE END StartRfReceiveTask */
 }
@@ -1612,7 +1755,7 @@ void StartCanGatekeeperTask(void const * argument)
 
 	/* Infinite loop */
 	for (;;) {
-		osDelay(WCU_DEFAULT_TASK_DELAY);
+		vTaskDelay(WCU_DEFAULT_TASK_DELAY);
 
 		/* Check for outgoing messages */
 		if (pdTRUE == xQueueReceive(canTransmitQueueHandle, &frameBuff,
@@ -1620,7 +1763,7 @@ void StartCanGatekeeperTask(void const * argument)
 			/* Validate the DataDirection member */
 			if (TX == frameBuff.DataDirection) {
 				/* Send the message */
-				HAL_CAN_AddTxMessage(&hcan1, &frameBuff.Header.Tx,
+				(void) HAL_CAN_AddTxMessage(&hcan1, &frameBuff.Header.Tx,
 						frameBuff.Payload, &dummy);
 			} else {
 				/* Log error */
@@ -1631,7 +1774,7 @@ void StartCanGatekeeperTask(void const * argument)
 		/* Check for incoming messages */
 		if (0U < HAL_CAN_GetRxFifoFillLevel(&hcan1, CAN_RX_FIFO0)) {
 			/* Receive the message */
-			HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &frameBuff.Header.Rx,
+			(void) HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &frameBuff.Header.Rx,
 					frameBuff.Payload);
 			/* Set the DataDirection member in the CAN frame struct */
 			frameBuff.DataDirection = RX;
@@ -1681,7 +1824,7 @@ void StartSdioGatekeeperTask(void const * argument)
 
 	/* Infinite loop */
 	for (;;) {
-		osDelay(WCU_DEFAULT_TASK_DELAY);
+		vTaskDelay(WCU_DEFAULT_TASK_DELAY);
 
 		/* Listen on incoming error messages */
 		if (pdTRUE == xQueueReceive(sdioLogErrorQueueHandle, &errorLogBuff,
@@ -1690,6 +1833,7 @@ void StartSdioGatekeeperTask(void const * argument)
 			/* Try opening the file */
 			if (FR_OK == f_open(&errorLogFile, WCU_SDIOGATEKEEPER_ERRLOG_PATH,
 			FA_WRITE | FA_OPEN_APPEND)) {
+
 				UINT bytesWritten; /* Buffer for the number of bytes written */
 				(void) f_write(&errorLogFile, errorLogBuff,
 						strlen(errorLogBuff), &bytesWritten);
@@ -1698,6 +1842,7 @@ void StartSdioGatekeeperTask(void const * argument)
 				/* Free the allocated memory */
 				vPortFree(errorLogBuff);
 				errorLogBuff = NULL;
+
 			}
 
 		}
@@ -1709,6 +1854,7 @@ void StartSdioGatekeeperTask(void const * argument)
 						WCU_SDIOGATEKEEPER_XTASKNOTIFYWAIT_TIMEOUT)) {
 
 			if (notificationValue <= 28UL) {
+
 				/* If notificationValue is less than or equal to 28, it is to be interpreted as the number of frames waiting in the queue */
 				uint32_t frameBuff; /* Buffer for a subscription frame */
 				uint8_t temp[4]; /* Temporary buffer to facilitate transmitting a 32-bit little endian value */
@@ -1728,14 +1874,17 @@ void StartSdioGatekeeperTask(void const * argument)
 
 					/* Print the subscription to the file */
 					for (uint32_t i = 0; i < notificationValue; i += 1UL) {
+
 						if (pdTRUE
 								!= xQueueReceive(sdioSubscriptionQueueHandle,
 										&frameBuff,
 										WCU_SDIOSUBSCRIPTIONQUEUE_RECEIVE_TIMEOUT)) {
+
 							/* Log error */
 							LOGERROR(
 									"sdioGatekeeper failed to receive from sdioSubscriptionQueue\r\n");
 							break;
+
 						}
 
 						/* Print the frame to the SD card */
@@ -1745,24 +1894,30 @@ void StartSdioGatekeeperTask(void const * argument)
 						temp[3] = MSB32(frameBuff);
 						(void) f_write(&subscriptionFile, temp, 4U,
 								&bytesWritten);
+
 					}
 
 					/* Close the file */
-					f_close(&subscriptionFile);
+					(void) f_close(&subscriptionFile);
 
 				} else {
+
 					/* If failed to open the file */
 					/* Log error */
 					LOGERROR(
 							"sdioGatekeeper failed to open the subscription file\r\n");
+
 				}
 
 			} else {
+
 				/* Log error */
 				LOGERROR("Invalid notification value in sdioGatekeeper\r\n");
+
 			}
 
 		}
+
 	}
   /* USER CODE END StartSdioGatekeeperTask */
 }

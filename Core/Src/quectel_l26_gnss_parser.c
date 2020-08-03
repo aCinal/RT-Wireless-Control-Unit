@@ -6,7 +6,6 @@
 
 #include <quectel_l26_gnss_parser.h>
 #include <string.h>
-#include <stdlib.h>
 #include <math.h>
 
 /**
@@ -21,9 +20,9 @@
  */
 bool isDataComplete(GnssDataTypedef *pData) {
 
-	/* Test if all necessary flags are set - ignore NMEA_GLL_RECEIVED and NMEA_TXT_RECEIVED */
+	/* Test if all flags are set */
 	return ((NMEA_RMC_RECEIVED | NMEA_VTG_RECEIVED | NMEA_GGA_RECEIVED
-			| NMEA_GSA_RECEIVED | NMEA_GPGSV_RECEIVED | NMEA_GLGSV_RECEIVED)
+			| NMEA_GSA_RECEIVED | NMEA_GPGSV_RECEIVED | NMEA_GLGSV_RECEIVED | NMEA_GLL_RECEIVED | NMEA_TXT_RECEIVED)
 			== pData->SentencesReceived);
 
 }
@@ -41,10 +40,10 @@ GnssDataStatusTypedef parseMessage(GnssDataTypedef *pDataBuff,
 	static size_t SentenceLength = 0; /* Sentence length */
 
 	/* Go through the entire message */
-	for (size_t i = 0UL; i < length; i += 1UL) {
+	for (size_t i = 0; i < length; i += 1UL) {
 
 		/* Test if the start character has been found */
-		if (0U < SentenceLength) {
+		if (0UL < SentenceLength) {
 
 			/* Increment the length counter */
 			SentenceLength += 1UL;
@@ -62,7 +61,7 @@ GnssDataStatusTypedef parseMessage(GnssDataTypedef *pDataBuff,
 			/* Search for the start character */
 			if ('$' == pMessage[i]) {
 				/* Increment the length counter */
-				SentenceLength += 1;
+				SentenceLength += 1UL;
 				/* Save the start character */
 				MessageBuffer[SentenceLength - 1UL] = pMessage[i];
 			}
@@ -70,7 +69,7 @@ GnssDataStatusTypedef parseMessage(GnssDataTypedef *pDataBuff,
 		}
 
 		/* If the length exceeds the minimum sentence length */
-		if (NMEA_SENTENCE_MINIMUM_LENGTH >= SentenceLength) {
+		if (NMEA_SENTENCE_MINIMUM_LENGTH <= SentenceLength) {
 
 			/* Test if end sequence has been found */
 			if (('\r' == MessageBuffer[SentenceLength - 2UL])
@@ -111,7 +110,7 @@ NmeaParserStatusTypedef parseNmeaSentence(GnssDataTypedef *pDataBuff,
 
 	/* Retrieve the message ID */
 	char messageId[6];
-	strncpy(messageId, pSentence + 1U, 5UL);
+	strncpy(messageId, pSentence + 1U, 5);
 	messageId[5] = '\0';
 
 	/* Read the checksum */
@@ -120,8 +119,8 @@ NmeaParserStatusTypedef parseNmeaSentence(GnssDataTypedef *pDataBuff,
 	uint8_t readChecksum = (uint8_t) strtoul(checksumString, NULL, 16);
 
 	/* Calculate the checksum - note that the checksum is calculated by exclusive OR of all characters between '$' and '*' */
-	uint8_t calculatedChecksum = pSentence[1];
-	for (size_t i = 2UL; i < (length - 5UL); i += 1UL) {
+	uint8_t calculatedChecksum = 0;
+	for (size_t i = 1; i < (length - 5UL); i += 1UL) {
 
 		calculatedChecksum ^= pSentence[i];
 
@@ -315,7 +314,8 @@ NmeaParserStatusTypedef _NmeaParseRmcPayload(GnssDataTypedef *pDataBuff,
 			}
 
 			/* Clear the buffer */
-			(void) memset(dataFieldBuffer, 0x00, NMEA_PARSER_DATAFIELD_BUFFER_SIZE);
+			(void) memset(dataFieldBuffer, 0x00,
+					NMEA_PARSER_DATAFIELD_BUFFER_SIZE);
 			/* Reset the index counter */
 			bufferIndex = 0;
 			/* Increment the number of the data field */
@@ -383,7 +383,7 @@ NmeaParserStatusTypedef _NmeaParseVtgPayload(GnssDataTypedef *pDataBuff,
 
 			/* Clear the buffer */
 			(void) memset(dataFieldBuffer, 0x00,
-					NMEA_PARSER_DATAFIELD_BUFFER_SIZE);
+			NMEA_PARSER_DATAFIELD_BUFFER_SIZE);
 			/* Reset the index counter */
 			bufferIndex = 0;
 			/* Increment the number of the data field */
@@ -437,7 +437,8 @@ NmeaParserStatusTypedef _NmeaParseGgaPayload(GnssDataTypedef *pDataBuff,
 
 			case 6: /* Number of satellites being used (0-12) */
 
-				pDataBuff->SatellitesInUse = strtol(dataFieldBuffer, NULL, 10);
+				pDataBuff->SatellitesInUse = (uint8_t) strtol(dataFieldBuffer,
+						NULL, 10);
 				break;
 
 			case 8: /* Altitude in meters according to WGS84 ellipsoid */
@@ -453,7 +454,7 @@ NmeaParserStatusTypedef _NmeaParseGgaPayload(GnssDataTypedef *pDataBuff,
 
 			/* Clear the buffer */
 			(void) memset(dataFieldBuffer, 0x00,
-					NMEA_PARSER_DATAFIELD_BUFFER_SIZE);
+			NMEA_PARSER_DATAFIELD_BUFFER_SIZE);
 			/* Reset the index counter */
 			bufferIndex = 0;
 			/* Increment the number of the data field */
@@ -509,17 +510,17 @@ NmeaParserStatusTypedef _NmeaParseGsaPayload(GnssDataTypedef *pDataBuff,
 
 				switch (dataFieldBuffer[0]) {
 
-				case 1:
+				case '1':
 
 					pDataBuff->FixStatus = GNSS_FixStatus_NoFix;
 					break;
 
-				case 2:
+				case '2':
 
 					pDataBuff->FixStatus = GNSS_FixStatus_2DFix;
 					break;
 
-				case 3:
+				case '3':
 
 					pDataBuff->FixStatus = GNSS_FixStatus_3DFix;
 					break;
@@ -598,14 +599,16 @@ NmeaParserStatusTypedef _NmeaParseGsvPayload(GnssDataTypedef *pDataBuff,
 
 				case GSV_TALKER_ID_GL:
 
-					pDataBuff->SatellitesInViewGLONASS = strtol(dataFieldBuffer,
-					NULL, 10);
+					pDataBuff->SatellitesInViewGLONASS = (uint8_t) strtol(
+							dataFieldBuffer,
+							NULL, 10);
 					break;
 
 				case GSV_TALKER_ID_GP:
 
-					pDataBuff->SatellitesInViewGPS = strtol(dataFieldBuffer,
-					NULL, 10);
+					pDataBuff->SatellitesInViewGPS = (uint8_t) strtol(
+							dataFieldBuffer,
+							NULL, 10);
 					break;
 
 				default:
