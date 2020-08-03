@@ -976,7 +976,7 @@ void gnssReceive_Send_GPS_STATUS(GnssDataTypedef *pData) {
 	canFrame.Header.Tx.StdId = WCU_CANID_GPS_STATUS;
 
 	/* Write the satellites visible count to the frame payload */
-	canFrame.Payload[0] = pData->SatellitesInView;
+	canFrame.Payload[0] = pData->SatellitesInViewGLONASS + pData->SatellitesInViewGPS;
 	/* Clear two most significant bits */
 	canFrame.Payload[0] &= 0b00111111;
 	/* Use two most significant bits of the first byte to store fix status flags */

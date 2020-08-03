@@ -19,9 +19,10 @@
 #define NMEA_VTG_RECEIVED					0x02U			/* GPVTG NMEA sentence received flag */
 #define NMEA_GGA_RECEIVED					0x04U			/* GPGGA NMEA sentence received flag */
 #define NMEA_GSA_RECEIVED					0x08U			/* --GSA NMEA sentence received flag */
-#define NMEA_GSV_RECEIVED					0x10U			/* --GSV NMEA sentence received flag */
-#define NMEA_GLL_RECEIVED					0x20U			/* --GLL NMEA sentence received flag */
-#define NMEA_TXT_RECEIVED					0x40U			/* GPTXT NMEA sentence received flag */
+#define NMEA_GPGSV_RECEIVED					0x10U			/* GPGSV NMEA sentence received flag */
+#define NMEA_GLGSV_RECEIVED					0x20U			/* GLGSV NMEA sentence received flag */
+#define NMEA_GLL_RECEIVED					0x40U			/* --GLL NMEA sentence received flag */
+#define NMEA_TXT_RECEIVED					0x80U			/* GPTXT NMEA sentence received flag */
 
 /* Exported macros ------------------------------------------------------------*/
 /**
@@ -62,7 +63,8 @@ typedef struct {
 	float64_t Time; /* Time formatted as hhmmss.sss */
 
 	uint8_t SatellitesInUse; /* Number of satellites in use */
-	uint8_t SatellitesInView; /* Number of satellites in view */
+	uint8_t SatellitesInViewGLONASS; /* Number of GLONASS satellites in view */
+	uint8_t SatellitesInViewGPS; /* Number of GPS satellites in view */
 	enum {
 		GNSS_FixStatus_NoFix = 1U, GNSS_FixStatus_2DFix, GNSS_FixStatus_3DFix
 	} FixStatus; /* --GSA sentence fix status */
@@ -88,7 +90,15 @@ typedef enum {
  */
 typedef enum {
 	GNSS_DATA_READY = 0U, GNSS_DATA_PENDING, GNSS_DATA_ERROR
-} GnssDataStatusTypedef;
+} GnssDataStatusTypedef;\
+
+/**
+ * @brief --GSV sentence talker ID typedef
+ */
+typedef enum {
+	GSV_TALKER_ID_GP = 0U,
+	GSV_TALKER_ID_GL
+} GsvTalkerIdTypedef;
 
 /* Exported function prototypes -----------------------------------------------*/
 
@@ -159,9 +169,10 @@ NmeaParserStatusTypedef _NmeaParseGsaPayload(GnssDataTypedef *pDataBuff, const c
  * @param[out] pDataBuff Pointer to the GNSS data structure where the parsed data will be stored
  * @param[in] pPayload Pointer to the sentence payload
  * @param[in] length Length of the payload
+ * @param[in] talkerId The --GSV sentence talker ID
  * @retval NmeaParserStatusTypedef Error code
  */
-NmeaParserStatusTypedef _NmeaParseGsvPayload(GnssDataTypedef *pDataBuff, const char *pPayload, size_t length);
+NmeaParserStatusTypedef _NmeaParseGsvPayload(GnssDataTypedef *pDataBuff, const char *pPayload, size_t length, GsvTalkerIdTypedef talkerId);
 
 /**
  * @brief Parses the payload of an NMEA --GLL sentence
