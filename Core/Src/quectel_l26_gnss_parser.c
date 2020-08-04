@@ -11,7 +11,7 @@
 /**
  * @brief Tell the compiler that a variable is purposefully ignored, i.e. not used
  */
-#define NOTUSED(x) ((void)x)
+#define UNUSED(x) ((void)x)
 
 /**
  * @brief Tests if all NMEA sentences were received
@@ -36,7 +36,7 @@ bool isDataComplete(GnssDataTypedef *pData) {
 GnssDataStatusTypedef parseMessage(GnssDataTypedef *pDataBuff,
 		const char *pMessage, size_t length) {
 
-	static char MessageBuffer[NMEA_PARSER_MESSAGE_BUFFER_SIZE]; /* Message buffer */
+	static char SentenceBuffer[NMEA_PARSER_SENTENCE_BUFFER_SIZE]; /* Sentence buffer */
 	static size_t SentenceLength = 0; /* Sentence length */
 
 	/* Go through the entire message */
@@ -48,9 +48,9 @@ GnssDataStatusTypedef parseMessage(GnssDataTypedef *pDataBuff,
 			/* Increment the length counter */
 			SentenceLength += 1UL;
 			/* Save the next character of the message */
-			MessageBuffer[SentenceLength - 1UL] = pMessage[i];
+			SentenceBuffer[SentenceLength - 1UL] = pMessage[i];
 			/* Test for buffer overflow */
-			if (NMEA_PARSER_MESSAGE_BUFFER_SIZE <= SentenceLength) {
+			if (NMEA_PARSER_SENTENCE_BUFFER_SIZE <= SentenceLength) {
 				/* Reset the counter */
 				SentenceLength = 0;
 				return GNSS_DATA_ERROR;
@@ -63,7 +63,7 @@ GnssDataStatusTypedef parseMessage(GnssDataTypedef *pDataBuff,
 				/* Increment the length counter */
 				SentenceLength += 1UL;
 				/* Save the start character */
-				MessageBuffer[SentenceLength - 1UL] = pMessage[i];
+				SentenceBuffer[SentenceLength - 1UL] = pMessage[i];
 			}
 
 		}
@@ -72,13 +72,13 @@ GnssDataStatusTypedef parseMessage(GnssDataTypedef *pDataBuff,
 		if (NMEA_SENTENCE_MINIMUM_LENGTH <= SentenceLength) {
 
 			/* Test if end sequence has been found */
-			if (('\r' == MessageBuffer[SentenceLength - 2UL])
-					&& ('\n' == MessageBuffer[SentenceLength - 1UL])
-					&& ('*' == MessageBuffer[SentenceLength - 5UL])) {
+			if (('\r' == SentenceBuffer[SentenceLength - 2UL])
+					&& ('\n' == SentenceBuffer[SentenceLength - 1UL])
+					&& ('*' == SentenceBuffer[SentenceLength - 5UL])) {
 
 				/* Parse the received sentence */
 				if (NMEA_ERROR_NONE
-						!= parseNmeaSentence(pDataBuff, MessageBuffer,
+						!= parseNmeaSentence(pDataBuff, SentenceBuffer,
 								SentenceLength)) {
 
 					/* Reset the counter */
@@ -670,9 +670,9 @@ NmeaParserStatusTypedef _NmeaParseGllPayload(GnssDataTypedef *pDataBuff,
 		const char *pPayload, size_t length) {
 
 	/* Message not used */
-	NOTUSED(pDataBuff);
-	NOTUSED(pPayload);
-	NOTUSED(length);
+	UNUSED(pDataBuff);
+	UNUSED(pPayload);
+	UNUSED(length);
 
 	/* Set the flag */
 	pDataBuff->SentencesReceived |= NMEA_GLL_RECEIVED;
@@ -691,9 +691,9 @@ NmeaParserStatusTypedef _NmeaParseTxtPayload(GnssDataTypedef *pDataBuff,
 		const char *pPayload, size_t length) {
 
 	/* Message not used */
-	NOTUSED(pDataBuff);
-	NOTUSED(pPayload);
-	NOTUSED(length);
+	UNUSED(pDataBuff);
+	UNUSED(pPayload);
+	UNUSED(length);
 
 	/* Set the flag */
 	pDataBuff->SentencesReceived |= NMEA_TXT_RECEIVED;

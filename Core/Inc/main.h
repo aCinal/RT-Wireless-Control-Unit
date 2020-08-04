@@ -68,8 +68,8 @@ void Error_Handler(void);
 #define XBEE_UART3_TX_GPIO_Port GPIOA
 #define XBEE_UART3_RX_Pin GPIO_PIN_1
 #define XBEE_UART3_RX_GPIO_Port GPIOA
-#define RF_SPI1_CSN_Pin GPIO_PIN_4
-#define RF_SPI1_CSN_GPIO_Port GPIOA
+#define RF_SP1_CSN_Pin GPIO_PIN_4
+#define RF_SP1_CSN_GPIO_Port GPIOA
 #define RF_SP1_SCK_Pin GPIO_PIN_5
 #define RF_SP1_SCK_GPIO_Port GPIOA
 #define RF_SPI1_MISO_Pin GPIO_PIN_6
@@ -139,17 +139,19 @@ void Error_Handler(void);
 #define WCU_GNSSRECEIVE_ULTASKNOTIFYTAKE_TIMEOUT				WCU_DEFAULT_TIMEOUT			/* gnssReceive ulTaskNotifyTake timeout */
 #define WCU_GNSSRECEIVE_DEVICECONFIG_UART_TIMEOUT				WCU_DEFAULT_TIMEOUT			/* gnssReceive_DeviceConfig UART Tx timeout */
 #define WCU_GNSSRECEIVE_DEVICECONFIG_SETUP_DELAY				1000U						/* gnssReceive_DeviceConfig device setup delay */
+#define WCU_RFRECEIVE_ULTASKNOTIFYTAKE_TIMEOUT					WCU_DEFAULT_TIMEOUT			/* rfReceive ulTaskNotifyTake timeout */
 #define WCU_IWDGGATEEKEEPER_INIT_DELAY							1000U						/* iwdgGatekeeper IWDG init delay */
 
 #define WCU_ERROR_LOG_TIMESTAMP_SIZE							11U							/* Length of the error log timestamp */
-#define WCU_GNSSRECEIVE_UARTRXBUFF_SIZE							50U							/* Length of the UART Rx buffer */
+#define WCU_GNSSRECEIVE_UARTRXBUFF_SIZE							100U						/* Length of the UART Rx buffer */
+#define WCU_RFRECEIVE_SPIRXBUFF_SIZE							20U/* TODO */				/* Length of the SPI Rx buffer */
 
 #define WCU_SDIOGATEKEEPER_ERRLOG_PATH							"ERRLOG.TXT"				/* Error log file path */
 #define WCU_SDIOGATEEKEPER_SUBSCR_PATH							"SUBSCR"					/* Subscription file path */
 
-#define WCU_CANID_GPS_POS										0x700UL						/* CAN ID: _700_GPS_POS */
-#define WCU_CANID_GPS_POS2										0x701UL						/* CAN ID: _701_GPS_POS2 */
-#define WCU_CANID_GPS_STATUS									0x702UL						/* CAN ID: _702_GPS_STATUS */
+#define WCU_CANID_GPS_POS										0x500UL						/* CAN ID: _500_GPS_POS */
+#define WCU_CANID_GPS_POS2										0x501UL						/* CAN ID: _501_GPS_POS2 */
+#define WCU_CANID_GPS_STATUS									0x502UL						/* CAN ID: _502_GPS_STATUS */
 
 /* USER CODE END Private defines */
 

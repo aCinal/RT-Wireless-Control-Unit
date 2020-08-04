@@ -41,15 +41,17 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 
-/* Intuitive names for UART instances */
+/* Intuitive names for peripheral instances */
 #define BT_UART_INSTANCE	USART1
 #define GNSS_UART_INSTANCE	USART3
 #define XBEE_UART_INSTANCE	UART4
+#define RF_SPI_INSTANCE		SPI1
 
-/* Intuitive names for UART handles */
+/* Intuitive names for peripheral handles */
 #define BT_UART_HANDLE		huart1
 #define GNSS_UART_HANDLE	huart3
 #define XBEE_UART_HANDLE	huart4
+#define RF_SPI_HANDLE		hspi1
 
 /* USER CODE END PD */
 
@@ -95,6 +97,7 @@ DMA_HandleTypeDef hdma_sdio_rx;
 DMA_HandleTypeDef hdma_sdio_tx;
 
 SPI_HandleTypeDef hspi1;
+DMA_HandleTypeDef hdma_spi1_rx;
 
 UART_HandleTypeDef huart4;
 UART_HandleTypeDef huart1;
@@ -511,7 +514,7 @@ static void MX_SPI1_Init(void)
   hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
   hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
-  hspi1.Init.NSS = SPI_NSS_SOFT;
+  hspi1.Init.NSS = SPI_NSS_HARD_OUTPUT;
   hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
   hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
@@ -676,6 +679,9 @@ static void MX_DMA_Init(void)
   /* DMA1_Stream2_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Stream2_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA1_Stream2_IRQn);
+  /* DMA2_Stream0_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA2_Stream0_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA2_Stream0_IRQn);
   /* DMA2_Stream2_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA2_Stream2_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA2_Stream2_IRQn);
@@ -707,9 +713,6 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(XBEE_RESET_GPIO_Port, XBEE_RESET_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(RF_SPI1_CSN_GPIO_Port, RF_SPI1_CSN_Pin, GPIO_PIN_RESET);
-
-  /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, RF_PWR_UP_Pin|RF_TRX_CE_Pin|RF_TX_EN_Pin|GNSS_FORCE_ON_Pin
                           |GNSS_RESET_Pin, GPIO_PIN_RESET);
 
@@ -725,13 +728,6 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(XBEE_RESET_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : RF_SPI1_CSN_Pin */
-  GPIO_InitStruct.Pin = RF_SPI1_CSN_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(RF_SPI1_CSN_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : RF_CD_Pin RF_uPCLK_Pin GNSS_1PPS_Pin */
   GPIO_InitStruct.Pin = RF_CD_Pin|RF_uPCLK_Pin|GNSS_1PPS_Pin;
@@ -781,21 +777,39 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 
 	case (uint32_t) BT_UART_INSTANCE:
 
-		/* Notify btReceive task */
+		/* Notify the btReceive task */
 		vTaskNotifyGiveFromISR(btReceiveHandle, NULL);
 		break;
 
 	case (uint32_t) GNSS_UART_INSTANCE:
 
-		/* Notify gnssReceive task */
+		/* Notify the gnssReceive task */
 		vTaskNotifyGiveFromISR(gnssReceiveHandle, NULL);
 		break;
 
 	case (uint32_t) XBEE_UART_INSTANCE:
 
-		/* Notify xbeeSubscribe task */
+		/* Notify the xbeeSubscribe task */
 		vTaskNotifyGiveFromISR(xbeeSubscribeHandle, NULL);
 		break;
+
+	}
+
+}
+
+/**
+  * @brief  Rx Transfer completed callback.
+  * @param  hspi pointer to a SPI_HandleTypeDef structure that contains
+  *               the configuration information for SPI module.
+  * @retval None
+  */
+void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi)
+{
+
+	if(RF_SPI_INSTANCE == hspi->Instance) {
+
+		/* Resume the rfReceive task */
+		vTaskNotifyGiveFromISR(rfReceiveHandle, NULL);
 
 	}
 
@@ -1359,9 +1373,11 @@ void StartXbeeSendTask(void const * argument)
 		WCU_CANRECEIVEQUEUE_RECEIVE_TIMEOUT)) {
 			/* Assert valid data direction */
 			if (RX != frameBuff.DataDirection) {
+
 				/* Log error */
 				LOGERROR("Invalid DataDirection in xbeeSend\r\n");
 				continue;
+
 			}
 
 			/* Clear the buffer */
@@ -1390,11 +1406,14 @@ void StartXbeeSendTask(void const * argument)
 
 			/* Set the DATA field */
 			for (uint8_t i = 0; i < frameBuff.Header.Rx.DLC; i += 1U) {
+
 				xbeeUartTxBuff[9U + i] = frameBuff.Payload[i];
+
 			}
 
 			/* Calculate the CRC */
 			if (osOK == osMutexWait(crcMutexHandle, WCU_CRCMUTEX_TIMEOUT)) {
+
 				calculatedCrc =
 						TWOLOWBYTES(
 								HAL_CRC_Calculate(&hcrc, (uint32_t*)xbeeUartTxBuff, R3TP_VER0_FRAME_SIZE / 4U));
@@ -1403,10 +1422,13 @@ void StartXbeeSendTask(void const * argument)
 				/* Set the CHECKSUM field - note that the CRC is transmitted as little endian */
 				xbeeUartTxBuff[2] = LSB(calculatedCrc);
 				xbeeUartTxBuff[3] = MSB16(calculatedCrc);
+
 			} else {
+
 				/* Log error */
 				LOGERROR("crcMutex timeout in xbeeSend\r\n");
 				continue;
+
 			}
 
 			/* Transmit frame */
@@ -1416,9 +1438,11 @@ void StartXbeeSendTask(void const * argument)
 			/* Wait for the transmission to end */
 			if (0UL < ulTaskNotifyTake(pdTRUE,
 			WCU_XBEESEND_ULTASKNOTIFYTAKE_TIMEOUT)) {
+
 				/* Log error */
 				LOGERROR(
 						"xbeeSend failed to receive notification from TxCpltCallback\r\n");
+
 			}
 		}
 
@@ -1729,9 +1753,24 @@ void StartGnssReceiveTask(void const * argument)
 void StartRfReceiveTask(void const * argument)
 {
   /* USER CODE BEGIN StartRfReceiveTask */
+	uint8_t rfSpiRxBuff[WCU_RFRECEIVE_SPIRXBUFF_SIZE]; /* SPI Rx buffer */
+
 	/* Infinite loop */
 	for (;;) {
+
 		vTaskDelay(WCU_DEFAULT_TASK_DELAY);
+
+		(void) HAL_SPI_Receive_DMA(&RF_SPI_HANDLE, rfSpiRxBuff, WCU_RFRECEIVE_SPIRXBUFF_SIZE);
+
+		/* Wait for notify from ISR/message received callback */
+		if (0UL < ulTaskNotifyTake(pdTRUE,
+		WCU_RFRECEIVE_ULTASKNOTIFYTAKE_TIMEOUT)) {
+
+			/*
+			 * TODO: Decode the message
+			 */
+
+		}
 
 		/* Report to watchdog */
 		WATCHDOG_CHECKIN(WCU_IWDGHANDLER_NOTIFICATIONVALUE_RFRECEIVE);
