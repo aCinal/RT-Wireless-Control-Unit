@@ -96,6 +96,7 @@ GnssDataStatusTypedef parseMessage(GnssDataTypedef *pDataBuff,
 	}
 
 	return (isDataComplete(pDataBuff) ? GNSS_DATA_READY : GNSS_DATA_PENDING);
+
 }
 
 /**

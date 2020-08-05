@@ -69,9 +69,9 @@
 	/* Assert successful memory allocation */ \
 	if(errMsg != NULL) { \
 		/* Write the timestamp to the memory block */ \
-		sprintf(errMsg, "%010lu ", HAL_GetTick()); \
+		(void) sprintf(errMsg, "%010lu ", HAL_GetTick()); \
 		/* Write the message to the memory block */ \
-		sprintf(errMsg + WCU_ERROR_LOG_TIMESTAMP_SIZE, message); \
+		(void) sprintf(errMsg + WCU_ERROR_LOG_TIMESTAMP_SIZE, message); \
 		/* Push the pointer to the message to the logErrorQueue */ \
 		if(pdPASS != xQueueSend(sdioLogErrorQueueHandle, &errMsg, WCU_SDIOLOGERRORQUEUE_SEND_TIMEOUT)) { \
 			/* Cleanup on failure to push to queue */ \
@@ -120,7 +120,7 @@ osThreadId gnssReceiveHandle;
 osThreadId rfReceiveHandle;
 osThreadId canGatekeeperHandle;
 osThreadId sdioGatekeeperHandle;
-osThreadId selfDiagnosticHandle;
+osThreadId diagnosticsHandle;
 osMessageQId canTransmitQueueHandle;
 osMessageQId canReceiveQueueHandle;
 osMessageQId sdioLogErrorQueueHandle;
@@ -152,7 +152,7 @@ void StartGnssReceiveTask(void const * argument);
 void StartRfReceiveTask(void const * argument);
 void StartCanGatekeeperTask(void const * argument);
 void StartSdioGatekeeperTask(void const * argument);
-void StartSelfDiagnosticTask(void const * argument);
+void StartDiagnosticsTask(void const * argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -246,6 +246,9 @@ int main(void)
   MX_ADC1_Init();
   /* USER CODE BEGIN 2 */
 
+  /* Start the CAN module */
+  HAL_CAN_Start(&hcan1);
+
   /* USER CODE END 2 */
 
   /* Create the mutex(es) */
@@ -319,9 +322,9 @@ int main(void)
   osThreadDef(sdioGatekeeper, StartSdioGatekeeperTask, osPriorityNormal, 0, 1024);
   sdioGatekeeperHandle = osThreadCreate(osThread(sdioGatekeeper), NULL);
 
-  /* definition and creation of selfDiagnostic */
-  osThreadDef(selfDiagnostic, StartSelfDiagnosticTask, osPriorityBelowNormal, 0, 128);
-  selfDiagnosticHandle = osThreadCreate(osThread(selfDiagnostic), NULL);
+  /* definition and creation of diagnostics */
+  osThreadDef(diagnostics, StartDiagnosticsTask, osPriorityBelowNormal, 0, 128);
+  diagnosticsHandle = osThreadCreate(osThread(diagnostics), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
 	/* add threads, ... */
@@ -825,7 +828,7 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 	if(TEMPSENSOR_ADC_INSTANCE == hadc->Instance) {
 
 		/* Resume the selfDiagnostic task */
-		vTaskNotifyGiveFromISR(selfDiagnosticHandle, NULL);
+		vTaskNotifyGiveFromISR(diagnosticsHandle, NULL);
 
 	}
 }
@@ -1885,24 +1888,32 @@ void StartCanGatekeeperTask(void const * argument)
 
 	/* Infinite loop */
 	for (;;) {
+
 		vTaskDelay(WCU_DEFAULT_TASK_DELAY);
 
 		/* Check for outgoing messages */
 		if (pdTRUE == xQueueReceive(canTransmitQueueHandle, &frameBuff,
 		WCU_CANTRANSMITQUEUE_RECEIVE_TIMEOUT)) {
+
 			/* Validate the DataDirection member */
 			if (TX == frameBuff.DataDirection) {
+
 				/* Send the message */
 				(void) HAL_CAN_AddTxMessage(&hcan1, &frameBuff.Header.Tx,
 						frameBuff.Payload, &dummy);
+
 			} else {
+
 				/* Log error */
 				LOGERROR("Invalid DataDirection in canGatekeeper\r\n");
+
 			}
+
 		}
 
 		/* Check for incoming messages */
 		if (0U < HAL_CAN_GetRxFifoFillLevel(&hcan1, CAN_RX_FIFO0)) {
+
 			/* Receive the message */
 			(void) HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0,
 					&frameBuff.Header.Rx, frameBuff.Payload);
@@ -1912,13 +1923,17 @@ void StartCanGatekeeperTask(void const * argument)
 			if (pdTRUE
 					!= xQueueSend(canReceiveQueueHandle, &frameBuff,
 							WCU_CANRECEIVEQUEUE_SEND_TIMEOUT)) {
+
 				/* Log error */
 				LOGERROR("canGatekeeper failed to send to canReceiveQueue\r\n");
+
 			}
+
 		}
 
 		/* Report to watchdog */
 		WATCHDOG_CHECKIN(WCU_IWDGHANDLER_NOTIFICATIONVALUE_CANGATEKEEPER);
+
 	}
   /* USER CODE END StartCanGatekeeperTask */
 }
@@ -1941,8 +1956,10 @@ void StartSdioGatekeeperTask(void const * argument)
 
 	/* Try mounting the logical drive */
 	if (FR_OK != f_mount(&fatFs, SDPath, 1)) {
+
 		/* On f_mount failure, suspend the task */
 		vTaskSuspend(NULL);
+
 	}
 
 	/* Try loading the telemetry subscription from the SD card */
@@ -1954,6 +1971,7 @@ void StartSdioGatekeeperTask(void const * argument)
 
 	/* Infinite loop */
 	for (;;) {
+
 		vTaskDelay(WCU_DEFAULT_TASK_DELAY);
 
 		/* Listen on incoming error messages */
@@ -2052,16 +2070,16 @@ void StartSdioGatekeeperTask(void const * argument)
   /* USER CODE END StartSdioGatekeeperTask */
 }
 
-/* USER CODE BEGIN Header_StartSelfDiagnosticTask */
+/* USER CODE BEGIN Header_StartDiagnosticsTask */
 /**
- * @brief Function implementing the selfDiagnostic thread.
- * @param argument: Not used
- * @retval None
- */
-/* USER CODE END Header_StartSelfDiagnosticTask */
-void StartSelfDiagnosticTask(void const * argument)
+* @brief Function implementing the diagnostics thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartDiagnosticsTask */
+void StartDiagnosticsTask(void const * argument)
 {
-  /* USER CODE BEGIN StartSelfDiagnosticTask */
+  /* USER CODE BEGIN StartDiagnosticsTask */
 	typedef float float32_t; /* 32-bit floating-point type typedef */
 	static uint16_t temperatureSensorAdcBuff; /* Buffer for the result of the temperature sensor ADC conversion */
 	static int16_t mcuTemperature; /* Buffer for the MCU temperature in degrees Celsius times 10 */
@@ -2084,7 +2102,7 @@ void StartSelfDiagnosticTask(void const * argument)
 	/* Infinite loop */
 	for (;;) {
 
-		vTaskDelay(WCU_SELFDIAGNOSTIC_TASK_DELAY);
+		vTaskDelay(WCU_DIAGNOSTICS_TASK_DELAY);
 
 		/* Start the ADC */
 		(void) HAL_ADC_Start_DMA(&hadc1, (uint32_t*) &temperatureSensorAdcBuff,
@@ -2092,7 +2110,7 @@ void StartSelfDiagnosticTask(void const * argument)
 
 		if (0UL
 				< ulTaskNotifyTake(pdTRUE,
-						WCU_SELFDIAGNOSTIC_ULTASKNOTIFYTAKE_TIMEOUT)) {
+						WCU_DIAGNOSTICS_ULTASKNOTIFYTAKE_TIMEOUT)) {
 
 			/* Calculate the sensed voltage */
 			float32_t Vsense = temperatureSensorAdcBuff / 4095.0 * VDD;
@@ -2120,13 +2138,13 @@ void StartSelfDiagnosticTask(void const * argument)
 							WCU_CANTRANSMITQUEUE_SEND_TIMEOUT)) {
 
 				LOGERROR(
-						"selfDiagnostic failed to send to canTransmitQueue\r\n");
+						"diagnostics failed to send to canTransmitQueue\r\n");
 
 			}
 
 		}
 	}
-  /* USER CODE END StartSelfDiagnosticTask */
+  /* USER CODE END StartDiagnosticsTask */
 }
 
 /**
