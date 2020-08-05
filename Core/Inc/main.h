@@ -119,6 +119,7 @@ void Error_Handler(void);
 
 #define WCU_DEFAULT_TASK_DELAY									1U							/* Default task delay */
 #define WCU_DEFAULT_TIMEOUT										portMAX_DELAY				/* Default timeout */
+#define WCU_SELFDIAGNOSTIC_TASK_DELAY							pdMS_TO_TICKS(1000)			/* selfDiagnostic task delay */
 #define WCU_IWDGGATEKEEPER_XTASKNOTIFYWAIT_TIMEOUT				WCU_DEFAULT_TIMEOUT			/* iwdgGatekeeper xTaskNotifyWait timeout */
 #define WCU_CANTRANSMITQUEUE_SEND_TIMEOUT						WCU_DEFAULT_TIMEOUT			/* canTransmitQueue send timeout */
 #define WCU_CANTRANSMITQUEUE_RECEIVE_TIMEOUT					0U							/* canTransmitQueue receive timeout */
@@ -141,6 +142,7 @@ void Error_Handler(void);
 #define WCU_GNSSRECEIVE_DEVICECONFIG_SETUP_DELAY				1000U						/* gnssReceive_DeviceConfig device setup delay */
 #define WCU_RFRECEIVE_ULTASKNOTIFYTAKE_TIMEOUT					WCU_DEFAULT_TIMEOUT			/* rfReceive ulTaskNotifyTake timeout */
 #define WCU_IWDGGATEEKEEPER_INIT_DELAY							1000U						/* iwdgGatekeeper IWDG init delay */
+#define WCU_SELFDIAGNOSTIC_ULTASKNOTIFYTAKE_TIMEOUT				WCU_DEFAULT_TIMEOUT			/* selfDiagnostic ulTaskNotifyTake timeout */
 
 #define WCU_ERROR_LOG_TIMESTAMP_SIZE							11U							/* Length of the error log timestamp */
 #define WCU_GNSSRECEIVE_UARTRXBUFF_SIZE							100U						/* Length of the UART Rx buffer */
@@ -152,6 +154,7 @@ void Error_Handler(void);
 #define WCU_CANID_GPS_POS										0x500UL						/* CAN ID: _500_GPS_POS */
 #define WCU_CANID_GPS_POS2										0x501UL						/* CAN ID: _501_GPS_POS2 */
 #define WCU_CANID_GPS_STATUS									0x502UL						/* CAN ID: _502_GPS_STATUS */
+#define WCU_CANID_WCU_DIAG										0x733UL						/* CAN ID: _733_WCU_DIAG */
 
 /* USER CODE END Private defines */
 

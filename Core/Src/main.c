@@ -30,6 +30,7 @@
 #include <quectel_l26_gnss_parser.h>
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 
 /* USER CODE END Includes */
 
@@ -42,16 +43,17 @@
 /* USER CODE BEGIN PD */
 
 /* Intuitive names for peripheral instances */
-#define BT_UART_INSTANCE	USART1
-#define GNSS_UART_INSTANCE	USART3
-#define XBEE_UART_INSTANCE	UART4
-#define RF_SPI_INSTANCE		SPI1
+#define BT_UART_INSTANCE		USART1
+#define GNSS_UART_INSTANCE		USART3
+#define XBEE_UART_INSTANCE		UART4
+#define RF_SPI_INSTANCE			SPI1
+#define TEMPSENSOR_ADC_INSTANCE	ADC1
 
 /* Intuitive names for peripheral handles */
-#define BT_UART_HANDLE		huart1
-#define GNSS_UART_HANDLE	huart3
-#define XBEE_UART_HANDLE	huart4
-#define RF_SPI_HANDLE		hspi1
+#define BT_UART_HANDLE			huart1
+#define GNSS_UART_HANDLE		huart3
+#define XBEE_UART_HANDLE		huart4
+#define RF_SPI_HANDLE			hspi1
 
 /* USER CODE END PD */
 
@@ -86,6 +88,9 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+ADC_HandleTypeDef hadc1;
+DMA_HandleTypeDef hdma_adc1;
+
 CAN_HandleTypeDef hcan1;
 
 CRC_HandleTypeDef hcrc;
@@ -115,6 +120,7 @@ osThreadId gnssReceiveHandle;
 osThreadId rfReceiveHandle;
 osThreadId canGatekeeperHandle;
 osThreadId sdioGatekeeperHandle;
+osThreadId selfDiagnosticHandle;
 osMessageQId canTransmitQueueHandle;
 osMessageQId canReceiveQueueHandle;
 osMessageQId sdioLogErrorQueueHandle;
@@ -137,6 +143,7 @@ static void MX_UART4_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_USART3_UART_Init(void);
+static void MX_ADC1_Init(void);
 void StartIwdgGatekeeperTask(void const * argument);
 void StartBtReceiveTask(void const * argument);
 void StartXbeeSendTask(void const * argument);
@@ -145,6 +152,7 @@ void StartGnssReceiveTask(void const * argument);
 void StartRfReceiveTask(void const * argument);
 void StartCanGatekeeperTask(void const * argument);
 void StartSdioGatekeeperTask(void const * argument);
+void StartSelfDiagnosticTask(void const * argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -235,6 +243,7 @@ int main(void)
   MX_USART2_UART_Init();
   MX_USART3_UART_Init();
   MX_FATFS_Init();
+  MX_ADC1_Init();
   /* USER CODE BEGIN 2 */
 
   /* USER CODE END 2 */
@@ -310,6 +319,10 @@ int main(void)
   osThreadDef(sdioGatekeeper, StartSdioGatekeeperTask, osPriorityNormal, 0, 1024);
   sdioGatekeeperHandle = osThreadCreate(osThread(sdioGatekeeper), NULL);
 
+  /* definition and creation of selfDiagnostic */
+  osThreadDef(selfDiagnostic, StartSelfDiagnosticTask, osPriorityBelowNormal, 0, 128);
+  selfDiagnosticHandle = osThreadCreate(osThread(selfDiagnostic), NULL);
+
   /* USER CODE BEGIN RTOS_THREADS */
 	/* add threads, ... */
   /* USER CODE END RTOS_THREADS */
@@ -371,6 +384,56 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+}
+
+/**
+  * @brief ADC1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_ADC1_Init(void)
+{
+
+  /* USER CODE BEGIN ADC1_Init 0 */
+
+  /* USER CODE END ADC1_Init 0 */
+
+  ADC_ChannelConfTypeDef sConfig = {0};
+
+  /* USER CODE BEGIN ADC1_Init 1 */
+
+  /* USER CODE END ADC1_Init 1 */
+  /** Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
+  */
+  hadc1.Instance = ADC1;
+  hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV2;
+  hadc1.Init.Resolution = ADC_RESOLUTION_12B;
+  hadc1.Init.ScanConvMode = DISABLE;
+  hadc1.Init.ContinuousConvMode = DISABLE;
+  hadc1.Init.DiscontinuousConvMode = DISABLE;
+  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
+  hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+  hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+  hadc1.Init.NbrOfConversion = 1;
+  hadc1.Init.DMAContinuousRequests = ENABLE;
+  hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+  if (HAL_ADC_Init(&hadc1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+  */
+  sConfig.Channel = ADC_CHANNEL_TEMPSENSOR;
+  sConfig.Rank = 1;
+  sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN ADC1_Init 2 */
+
+  /* USER CODE END ADC1_Init 2 */
+
 }
 
 /**
@@ -688,6 +751,9 @@ static void MX_DMA_Init(void)
   /* DMA2_Stream3_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA2_Stream3_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA2_Stream3_IRQn);
+  /* DMA2_Stream4_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA2_Stream4_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA2_Stream4_IRQn);
   /* DMA2_Stream6_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA2_Stream6_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA2_Stream6_IRQn);
@@ -749,6 +815,39 @@ static void MX_GPIO_Init(void)
 /* USER CODE BEGIN 4 */
 
 /**
+  * @brief  Regular conversion complete callback in non blocking mode
+  * @param  hadc pointer to a ADC_HandleTypeDef structure that contains
+  *         the configuration information for the specified ADC.
+  * @retval None
+  */
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
+{
+	if(TEMPSENSOR_ADC_INSTANCE == hadc->Instance) {
+
+		/* Resume the selfDiagnostic task */
+		vTaskNotifyGiveFromISR(selfDiagnosticHandle, NULL);
+
+	}
+}
+
+/**
+ * @brief  Rx Transfer completed callback.
+ * @param  hspi pointer to a SPI_HandleTypeDef structure that contains
+ *               the configuration information for SPI module.
+ * @retval None
+ */
+void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi) {
+
+	if (RF_SPI_INSTANCE == hspi->Instance) {
+
+		/* Resume the rfReceive task */
+		vTaskNotifyGiveFromISR(rfReceiveHandle, NULL);
+
+	}
+
+}
+
+/**
  * @brief  Tx Transfer completed callbacks.
  * @param  huart  Pointer to a UART_HandleTypeDef structure that contains
  *                the configuration information for the specified UART module.
@@ -792,24 +891,6 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 		/* Notify the xbeeSubscribe task */
 		vTaskNotifyGiveFromISR(xbeeSubscribeHandle, NULL);
 		break;
-
-	}
-
-}
-
-/**
-  * @brief  Rx Transfer completed callback.
-  * @param  hspi pointer to a SPI_HandleTypeDef structure that contains
-  *               the configuration information for SPI module.
-  * @retval None
-  */
-void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi)
-{
-
-	if(RF_SPI_INSTANCE == hspi->Instance) {
-
-		/* Resume the rfReceive task */
-		vTaskNotifyGiveFromISR(rfReceiveHandle, NULL);
 
 	}
 
@@ -953,6 +1034,7 @@ void gnssReceive_Send_GPS_POS(GnssDataTypedef *pData) {
 	canFrame.Header.Tx.IDE = CAN_ID_STD;
 	canFrame.Header.Tx.RTR = CAN_RTR_DATA;
 	canFrame.Header.Tx.StdId = WCU_CANID_GPS_POS;
+	canFrame.Header.Tx.TransmitGlobalTime = DISABLE;
 
 	/* Write the longitude to the frame payload */
 	int32_t longitude = normalizeCoordinate(pData->Longitude, pData->LonDir);
@@ -994,6 +1076,7 @@ void gnssReceive_Send_GPS_POS2(GnssDataTypedef *pData) {
 	canFrame.Header.Tx.IDE = CAN_ID_STD;
 	canFrame.Header.Tx.RTR = CAN_RTR_DATA;
 	canFrame.Header.Tx.StdId = WCU_CANID_GPS_POS2;
+	canFrame.Header.Tx.TransmitGlobalTime = DISABLE;
 
 	/* Write the speed to the frame payload */
 	uint16_t speed = normalizeSpeed(pData->Speed);
@@ -1036,9 +1119,11 @@ void gnssReceive_Send_GPS_STATUS(GnssDataTypedef *pData) {
 	canFrame.Header.Tx.IDE = CAN_ID_STD;
 	canFrame.Header.Tx.RTR = CAN_RTR_DATA;
 	canFrame.Header.Tx.StdId = WCU_CANID_GPS_STATUS;
+	canFrame.Header.Tx.TransmitGlobalTime = DISABLE;
 
 	/* Write the satellites visible count to the frame payload */
-	canFrame.Payload[0] = pData->SatellitesInViewGLONASS + pData->SatellitesInViewGPS;
+	canFrame.Payload[0] = pData->SatellitesInViewGLONASS
+			+ pData->SatellitesInViewGPS;
 	/* Clear two most significant bits */
 	canFrame.Payload[0] &= 0b00111111;
 	/* Use two most significant bits of the first byte to store fix status flags */
@@ -1248,6 +1333,10 @@ void StartBtReceiveTask(void const * argument)
 	static uint16_t readCrc; /* Buffer for the transmitted CRC */
 	static uint16_t calculatedCrc; /* Buffer for the calculated CRC */
 
+	/* Configure the CAN Tx header */
+	canFrame.Header.Tx.RTR = CAN_RTR_DATA;
+	canFrame.Header.Tx.TransmitGlobalTime = DISABLE;
+
 	/* Infinite loop */
 	for (;;) {
 
@@ -1314,8 +1403,8 @@ void StartBtReceiveTask(void const * argument)
 			canFrame.Header.Tx.StdId = READ32(btUartRxBuff[7], btUartRxBuff[6],
 					btUartRxBuff[5], btUartRxBuff[4]);
 			/* Read the Data Length Code */
-			canFrame.Header.Tx.DLC = (uint32_t)btUartRxBuff[8];
-			if(CAN_PAYLOAD_SIZE < canFrame.Header.Tx.DLC) {
+			canFrame.Header.Tx.DLC = (uint32_t) btUartRxBuff[8];
+			if (CAN_PAYLOAD_SIZE < canFrame.Header.Tx.DLC) {
 
 				LOGERROR("Invalid DLC in btReceive\r\n");
 				continue;
@@ -1701,7 +1790,8 @@ void StartGnssReceiveTask(void const * argument)
 		WCU_GNSSRECEIVE_ULTASKNOTIFYTAKE_TIMEOUT)) {
 
 			/* Try parsing the message */
-			switch(parseMessage(&dataBuff, (char*)gnssUartRxBuff, WCU_GNSSRECEIVE_UARTRXBUFF_SIZE)) {
+			switch (parseMessage(&dataBuff, (char*) gnssUartRxBuff,
+			WCU_GNSSRECEIVE_UARTRXBUFF_SIZE)) {
 
 			case GNSS_DATA_READY: /* If the data is ready */
 
@@ -1760,7 +1850,8 @@ void StartRfReceiveTask(void const * argument)
 
 		vTaskDelay(WCU_DEFAULT_TASK_DELAY);
 
-		(void) HAL_SPI_Receive_DMA(&RF_SPI_HANDLE, rfSpiRxBuff, WCU_RFRECEIVE_SPIRXBUFF_SIZE);
+		(void) HAL_SPI_Receive_DMA(&RF_SPI_HANDLE, rfSpiRxBuff,
+		WCU_RFRECEIVE_SPIRXBUFF_SIZE);
 
 		/* Wait for notify from ISR/message received callback */
 		if (0UL < ulTaskNotifyTake(pdTRUE,
@@ -1813,8 +1904,8 @@ void StartCanGatekeeperTask(void const * argument)
 		/* Check for incoming messages */
 		if (0U < HAL_CAN_GetRxFifoFillLevel(&hcan1, CAN_RX_FIFO0)) {
 			/* Receive the message */
-			(void) HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &frameBuff.Header.Rx,
-					frameBuff.Payload);
+			(void) HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0,
+					&frameBuff.Header.Rx, frameBuff.Payload);
 			/* Set the DataDirection member in the CAN frame struct */
 			frameBuff.DataDirection = RX;
 			/* Send the frame to the telemetry queue */
@@ -1959,6 +2050,83 @@ void StartSdioGatekeeperTask(void const * argument)
 
 	}
   /* USER CODE END StartSdioGatekeeperTask */
+}
+
+/* USER CODE BEGIN Header_StartSelfDiagnosticTask */
+/**
+ * @brief Function implementing the selfDiagnostic thread.
+ * @param argument: Not used
+ * @retval None
+ */
+/* USER CODE END Header_StartSelfDiagnosticTask */
+void StartSelfDiagnosticTask(void const * argument)
+{
+  /* USER CODE BEGIN StartSelfDiagnosticTask */
+	typedef float float32_t; /* 32-bit floating-point type typedef */
+	static uint16_t temperatureSensorAdcBuff; /* Buffer for the result of the temperature sensor ADC conversion */
+	static int16_t mcuTemperature; /* Buffer for the MCU temperature in degrees Celsius times 10 */
+	static uint16_t mcuUptime; /* Buffer for the MCU uptime in seconds */
+
+	/* Temperature sensor characteristics */
+	static const float32_t VDD = 3.3; /* Supply voltage */
+	static const float32_t V25 = 0.76; /* Voltage at 25 degreeC */
+	static const float32_t Avg_Slope = 2.5 / 1000.0; /* Average slope (2.5 mV/degreeC) */
+
+	static CanFrameTypedef canFrame = { .DataDirection = TX }; /* CAN frame structure */
+
+	/* Configure the CAN Tx header */
+	canFrame.Header.Tx.DLC = 4;
+	canFrame.Header.Tx.IDE = CAN_ID_STD;
+	canFrame.Header.Tx.RTR = CAN_RTR_DATA;
+	canFrame.Header.Tx.StdId = WCU_CANID_WCU_DIAG;
+	canFrame.Header.Tx.TransmitGlobalTime = DISABLE;
+
+	/* Infinite loop */
+	for (;;) {
+
+		vTaskDelay(WCU_SELFDIAGNOSTIC_TASK_DELAY);
+
+		/* Start the ADC */
+		(void) HAL_ADC_Start_DMA(&hadc1, (uint32_t*) &temperatureSensorAdcBuff,
+				1);
+
+		if (0UL
+				< ulTaskNotifyTake(pdTRUE,
+						WCU_SELFDIAGNOSTIC_ULTASKNOTIFYTAKE_TIMEOUT)) {
+
+			/* Calculate the sensed voltage */
+			float32_t Vsense = temperatureSensorAdcBuff / 4095.0 * VDD;
+
+			/* Calculate the MCU temperature based on the sensed voltage */
+			float32_t floatTemperature = ((Vsense - V25) / Avg_Slope) + 25.0;
+
+			/* Normalize the temperature to fit it in the CAN frame */
+			mcuTemperature = (int16_t) lround(floatTemperature * 10.0);
+
+			/* Calculate the MCU uptime in seconds */
+			mcuUptime = (uint16_t) (HAL_GetTick() / 1000UL);
+
+			/* Write the MCU temperature to the frame payload */
+			canFrame.Payload[0] = MSB16(mcuTemperature);
+			canFrame.Payload[1] = LSB(mcuTemperature);
+
+			/* Write the MCU uptime to the frame payload */
+			canFrame.Payload[2] = MSB16(mcuUptime);
+			canFrame.Payload[3] = LSB(mcuUptime);
+
+			/* Push CAN frame to queue */
+			if (pdTRUE
+					!= xQueueSend(canTransmitQueueHandle, &canFrame,
+							WCU_CANTRANSMITQUEUE_SEND_TIMEOUT)) {
+
+				LOGERROR(
+						"selfDiagnostic failed to send to canTransmitQueue\r\n");
+
+			}
+
+		}
+	}
+  /* USER CODE END StartSelfDiagnosticTask */
 }
 
 /**
