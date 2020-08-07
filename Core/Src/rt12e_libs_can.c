@@ -13,7 +13,7 @@
  * @param ids Pointer to an array of 32-bit CAN IDs to filter for
  * @param count Length of the ids array
  */
-void setCanFilterList(CAN_HandleTypeDef *hcan, uint32_t *ids, uint32_t count) {
+void setCanFilterList(CAN_HandleTypeDef *hcan, uint32_t ids[], uint32_t count) {
 	/* Assert valid ids array length */
 	if (count <= CAN_FILTERBANKS_COUNT * 4U) {
 		/* Prepare the filter configuration structure */

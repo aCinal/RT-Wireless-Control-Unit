@@ -53,7 +53,7 @@ typedef struct {
  * @param ids Pointer to an array of 32-bit CAN IDs to filter for
  * @param count Length of the ids array
  */
-void setCanFilterList(CAN_HandleTypeDef *hcan, uint32_t* ids, uint32_t count);
+void setCanFilterList(CAN_HandleTypeDef *hcan, uint32_t ids[], uint32_t count);
 
 /**
  * @brief Configures the CAN filters to block all incoming messages
