@@ -192,13 +192,10 @@ void xbeeRx_UartReceiveSubscription(uint8_t buff[]);
 
 /**
  * @brief Receives the warning for the driver via UART
- * @param [in]buff UART Rx buffer of size R3TP_VER2_FRAME_SIZE
- * @param [out]pWarningType Buffer for the type of the warning for the driver (R3TP_GREEN_WARNING or R3TP_RED_WARNING)
- * @param [out]pWarningTime Buffer for the time the warning is to be displayed to the driver
+ * @param buff UART Rx buffer of size R3TP_VER2_FRAME_SIZE
  * @retval None
  */
-void xbeeRx_UartReceiveWarning(uint8_t buff[], uint8_t *pWarningType,
-		uint8_t *pWarningTime);
+void xbeeRx_UartReceiveWarning(uint8_t buff[]);
 
 /**
  * @brief Forwards the telemetry subscription to the SDIO gatekeeper to be stored on the SD card
@@ -1164,16 +1161,10 @@ void xbeeRx_UartReceiveSubscription(uint8_t buff[]) {
 
 /**
  * @brief Receives the warning for the driver via UART
- * @param [in]buff UART Rx buffer of size R3TP_VER2_FRAME_SIZE
- * @param [out]pWarningType Buffer for the type of the warning for the driver (R3TP_GREEN_WARNING or R3TP_RED_WARNING)
- * @param [out]pWarningTime Buffer for the time the warning is to be displayed to the driver
+ * @param buff UART Rx buffer of size R3TP_VER2_FRAME_SIZE
  * @retval None
  */
-void xbeeRx_UartReceiveWarning(uint8_t buff[], uint8_t *pWarningType,
-		uint8_t *pWarningTime) {
-
-	/* Set the warning time to zero in case of error */
-	*pWarningTime = 0;
+void xbeeRx_UartReceiveWarning(uint8_t buff[]) {
 
 	/* Validate the END SEQ */
 	if ((R3TP_END_SEQ_LOW_BYTE != buff[R3TP_VER2_FRAME_SIZE - 2U])
@@ -1214,10 +1205,8 @@ void xbeeRx_UartReceiveWarning(uint8_t buff[], uint8_t *pWarningType,
 
 	}
 
-	/* Read the warning type */
-	*pWarningType = buff[4];
-	/* Read the warning time */
-	*pWarningTime = buff[5];
+	/* Notify xbeeDiag */
+	(void) xTaskNotify(xbeeDiagHandle, READ32(0x00, 0x00, buff[5], buff[4]), eSetValueWithOverwrite);
 	return;
 
 }
@@ -1828,9 +1817,6 @@ void StartXbeeRxTask(void const *argument) {
 	/* Wait for SDIO gatekeeper to test if there is a valid subscription stored on the SD card */
 	xbeeRx_WaitSubscriptionFromSdioGtkp();
 
-	static uint8_t warningType; /* Type of the warning for the driver (R3TP_VER2_GREEN_WARNING or R3TP_VER2_RED_WARNING) */
-	static uint8_t warningTime; /* Time the warning is to be displayed to the driver */
-
 	/* Infinite loop */
 	for (;;) {
 
@@ -1862,8 +1848,8 @@ void StartXbeeRxTask(void const *argument) {
 				/* Write the VER octet to the buffer to properly calculate the CRC */
 				r3tpVer2Buff[0] = verByteBuff;
 				/* Receive the rest of the message */
-				xbeeRx_UartReceiveWarning(r3tpVer2Buff, &warningType,
-						&warningTime);
+				xbeeRx_UartReceiveWarning(r3tpVer2Buff);
+				break;
 
 			default:
 
@@ -2295,7 +2281,7 @@ void StartDiagnosticTask(void const *argument) {
 			canFrame.Payload[2] = MSB16(mcuUptime);
 			canFrame.Payload[3] = LSB(mcuUptime);
 
-			/* Push CAN frame to queue */
+			/* Transmit the frame */
 			ADDTOCANTXQUEUE(&canFrame,
 					"diagnostic failed to send to canTxQueue\r\n");
 
@@ -2324,6 +2310,8 @@ void StartXbeeDiagTask(void const *argument) {
 	canFrame.Header.Tx.StdId = WCU_CAN_ID_TELEMETRY_DIAG;
 	canFrame.Header.Tx.TransmitGlobalTime = DISABLE;
 
+	static uint8_t warningsRemaining; /* Number of times the warning message will be transmitted */
+
 	/* Infinite loop */
 	for (;;) {
 
@@ -2339,7 +2327,7 @@ void StartXbeeDiagTask(void const *argument) {
 
 		static uint32_t notificationValue; /* Buffer to pass the notification value out of the xTaskNotifyWait function */
 		/* Wait for notification */
-		if(pdTRUE == xTaskNotifyWait(0x00000000UL, 0xFFFFFFFF, &notificationValue, WCU_XBEEDIAG_XTASKNOTIFYWAIT_TIMEOUT)) {
+		if(pdTRUE == xTaskNotifyWait(0x00000000UL, 0xFFFFFFFFUL, &notificationValue, WCU_XBEEDIAG_XTASKNOTIFYWAIT_TIMEOUT)) {
 			/* The LSB of the notification value is to be interpreted as the warning type */
 			switch(LSB(notificationValue)) {
 			case R3TP_GREEN_WARNING:
@@ -2362,9 +2350,27 @@ void StartXbeeDiagTask(void const *argument) {
 
 			}
 
+			/* Update the number of warnings remaining - the notification value's second least significant byte is the warning time */
+			warningsRemaining = MSB16(notificationValue);
+
 		}
 
+		/* Transmit the frame */
 		ADDTOCANTXQUEUE(&canFrame, "xbeeDiag failed to send to canTxQueue\r\n");
+		if(0U < warningsRemaining) {
+
+			warningsRemaining -= 1U;
+
+			if(0U == warningsRemaining) {
+
+				/* Clear the Telemetry_Pit flag */
+				CLEAR_BIT(canFrame.Payload[1], 5);
+				/* Clear the Telemetry_Warn flag */
+				CLEAR_BIT(canFrame.Payload[1], 6);
+
+			}
+
+		}
 	}
 	/* USER CODE END StartXbeeDiagTask */
 }
