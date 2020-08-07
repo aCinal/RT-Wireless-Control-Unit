@@ -4,7 +4,7 @@
  * @brief Source file defining functions for parsing a Quectel L26 NMEA message
  */
 
-#include <quectel_l26_gnss_parser.h>
+#include "quectel_l26_gnss_parser.h"
 #include <string.h>
 #include <math.h>
 

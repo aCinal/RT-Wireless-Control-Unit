@@ -50,6 +50,45 @@ extern "C" {
 /* Exported macro ------------------------------------------------------------*/
 /* USER CODE BEGIN EM */
 
+/**
+ * @brief Logs an error message to the SD card
+ */
+#define LOGERROR(message) do { \
+	\
+	/* Allocate the memory for the error message */ \
+	char* errMsg = pvPortMalloc(WCU_LOGGER_TIMESTAMP_SIZE + strlen(message) + 1U); \
+	/* Assert successful memory allocation */ \
+	if(errMsg != NULL) { \
+		\
+		/* Write the timestamp to the memory block */ \
+		(void) sprintf(errMsg, "%010lu ", HAL_GetTick()); \
+		/* Write the message to the memory block */ \
+		(void) sprintf(errMsg + WCU_LOGGER_TIMESTAMP_SIZE, message); \
+		/* Push the pointer to the message to the logErrorQueue */ \
+		if(pdPASS != xQueueSend(sdioLogQueueHandle, &errMsg, WCU_SDIOLOGQUEUE_XQUEUESEND_TIMEOUT)) { \
+			/* Cleanup on failure to push to queue */ \
+			vPortFree(errMsg);\
+		} \
+		\
+	} \
+	\
+} while(0)
+
+/**
+ * @brief Pushes a CAN frame to the canTxQueue
+ */
+#define ADDTOCANTXQUEUE(pCanFrame, errMsg) do { \
+	\
+	/* Push the frame to the queue */ \
+	if (pdPASS != xQueueSend(canTxQueueHandle, pCanFrame, WCU_CANTXQUEUE_XQUEUESEND_TIMEOUT)) { \
+		\
+		/* Log the error */ \
+		LOGERROR(errMsg); \
+		\
+	} \
+	\
+} while(0)
+
 /* USER CODE END EM */
 
 /* Exported functions prototypes ---------------------------------------------*/
@@ -68,8 +107,8 @@ void Error_Handler(void);
 #define XBEE_UART3_TX_GPIO_Port GPIOA
 #define XBEE_UART3_RX_Pin GPIO_PIN_1
 #define XBEE_UART3_RX_GPIO_Port GPIOA
-#define RF_SP1_CSN_Pin GPIO_PIN_4
-#define RF_SP1_CSN_GPIO_Port GPIOA
+#define RF_SPI1_CSN_Pin GPIO_PIN_4
+#define RF_SPI1_CSN_GPIO_Port GPIOA
 #define RF_SP1_SCK_Pin GPIO_PIN_5
 #define RF_SP1_SCK_GPIO_Port GPIOA
 #define RF_SPI1_MISO_Pin GPIO_PIN_6
@@ -78,6 +117,7 @@ void Error_Handler(void);
 #define RF_SPI1_MOSI_GPIO_Port GPIOA
 #define RF_DR_Pin GPIO_PIN_4
 #define RF_DR_GPIO_Port GPIOC
+#define RF_DR_EXTI_IRQn EXTI4_IRQn
 #define RF_AM_Pin GPIO_PIN_5
 #define RF_AM_GPIO_Port GPIOC
 #define RF_CD_Pin GPIO_PIN_0
@@ -117,9 +157,12 @@ void Error_Handler(void);
 #define WCU_XBEERX_NV_INVALIDFRAMENUM				31UL					/* Value to notify xbeeRx that the frame count was invalid */
 #define WCU_XBEERX_NV_XQUEUESENDFAILED				32UL					/* Value to notify xbeeRx that xQueueSend failed */
 
+#define WCU_RFRX_NV_DR_HIGH							0x00000001UL			/* Value to notify rfRx that the DR pin on nRF905 was set high */
+#define WCU_RFRX_NV_SPI_RX_CPLT						0x00000002UL			/* Value to notify rfRx that the SPI transmission was received */
+
 #define WCU_DEFAULT_TASK_DELAY						1U						/* Default task delay */
 #define WCU_DEFAULT_TIMEOUT							portMAX_DELAY			/* Default timeout */
-#define WCU_DIAG_TASK_DELAY							pdMS_TO_TICKS(1000)		/* diag task delay */
+#define WCU_DIAGNOSTIC_TASK_DELAY					pdMS_TO_TICKS(1000)		/* diagnostic task delay */
 #define WCU_IWDGGTKP_XTASKNOTIFYWAIT_TIMEOUT		WCU_DEFAULT_TIMEOUT		/* iwdgGtkp xTaskNotifyWait timeout */
 #define WCU_CANTXQUEUE_XQUEUESEND_TIMEOUT			WCU_DEFAULT_TIMEOUT		/* canTxQueue xQueueSend timeout */
 #define WCU_CANTXQUEUE_XQUEUERECEIVE_TIMEOUT		0U						/* canTxQueue xQueueReceive timeout */
@@ -141,20 +184,23 @@ void Error_Handler(void);
 #define WCU_GNSSRX_DEVICECONFIG_UART_TIMEOUT		WCU_DEFAULT_TIMEOUT		/* gnssRx_DeviceConfig UART Tx timeout */
 #define WCU_GNSSRX_DEVICECONFIG_SETUP_DELAY			1000U					/* gnssRx_DeviceConfig device setup delay */
 #define WCU_RFRX_ULTASKNOTIFYTAKE_TIMEOUT			WCU_DEFAULT_TIMEOUT		/* rfRx ulTaskNotifyTake timeout */
+#define WCU_RFRX_SPI_TX_TIMEOUT						50U						/* rfRx SPI Tx timeout */
+#define WCU_RFRX_SPI_RX_TIMEOUT						1000U					/* rfRx SPI Rx timeout */
 #define WCU_IWDGGTKP_INIT_DELAY						1000U					/* iwdgGtkp IWDG init delay */
-#define WCU_DIAG_ULTASKNOTIFYTAKE_TIMEOUT			WCU_DEFAULT_TIMEOUT		/* diag ulTaskNotifyTake timeout */
+#define WCU_DIAGNOSTIC_ULTASKNOTIFYTAKE_TIMEOUT		WCU_DEFAULT_TIMEOUT		/* diagnostic ulTaskNotifyTake timeout */
 
 #define WCU_LOGGER_TIMESTAMP_SIZE					11U						/* Length of the error log timestamp */
-#define WCU_GNSSRX_UARTRXBUFF_SIZE					100U
-#define WCU_RFRX_SPIRXBUFF_SIZE						20U/* TODO */
+#define WCU_GNSSRX_UART_RX_BUFF_SIZE				100U					/* Size in bytes of the gnssRx UART Rx buffer */
+#define WCU_RFRX_SPI_RX_BUFF_SIZE					32U						/* Size in bytes of the rfRx SPI Rx buffer */
 
 #define WCU_SDIOGTKP_LOGFILE_PATH					"ERRLOG.TXT"				/* Error log file path */
 #define WCU_SDIOGTKP_SUBFILE_PATH					"SUBSCR"					/* Subscription file path */
 
-#define WCU_CANID_GPS_POS							0x500UL						/* CAN ID: _500_GPS_POS */
-#define WCU_CANID_GPS_POS2							0x501UL						/* CAN ID: _501_GPS_POS2 */
-#define WCU_CANID_GPS_STATUS						0x502UL						/* CAN ID: _502_GPS_STATUS */
-#define WCU_CANID_WCU_DIAG							0x733UL						/* CAN ID: _733_WCU_DIAG */
+#define WCU_CAN_ID_GPS_POS							0x500UL						/* CAN ID: _500_GPS_POS */
+#define WCU_CAN_ID_GPS_POS2							0x501UL						/* CAN ID: _501_GPS_POS2 */
+#define WCU_CAN_ID_GPS_STATUS						0x502UL						/* CAN ID: _502_GPS_STATUS */
+#define WCU_CAN_ID_WCU_DIAG							0x733UL						/* CAN ID: _733_WCU_DIAG */
+#define WCU_CAN_ID_TELEMETRY_DIAG					0x712UL						/* CAN ID: _712_TELEMETRY_DIAG */
 
 /* USER CODE END Private defines */
 

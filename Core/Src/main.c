@@ -25,9 +25,9 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
-#include <rt12e_libs_generic.h>
-#include <rt12e_libs_can.h>
-#include <quectel_l26_gnss_parser.h>
+#include "rt12e_libs_generic.h"
+#include "rt12e_libs_can.h"
+#include "quectel_l26_gnss_parser.h"
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
@@ -122,7 +122,6 @@ DMA_HandleTypeDef hdma_sdio_rx;
 DMA_HandleTypeDef hdma_sdio_tx;
 
 SPI_HandleTypeDef hspi1;
-DMA_HandleTypeDef hdma_spi1_rx;
 
 UART_HandleTypeDef huart4;
 UART_HandleTypeDef huart1;
@@ -140,7 +139,7 @@ osThreadId gnssRxHandle;
 osThreadId rfRxHandle;
 osThreadId canGtkpHandle;
 osThreadId sdioGtkpHandle;
-osThreadId diagHandle;
+osThreadId diagnosticHandle;
 osMessageQId canTxQueueHandle;
 osMessageQId canRxQueueHandle;
 osMessageQId sdioLogQueueHandle;
@@ -164,15 +163,15 @@ static void MX_USART1_UART_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_USART3_UART_Init(void);
 static void MX_ADC1_Init(void);
-void StartIwdgGtkpTask(void const * argument);
-void StartBtRxTask(void const * argument);
-void StartXbeeTxTask(void const * argument);
-void StartXbeeRxTask(void const * argument);
-void StartGnssRxTask(void const * argument);
-void StartRfRxTask(void const * argument);
-void StartCanGtkpTask(void const * argument);
-void StartSdioGtkpTask(void const * argument);
-void StartDiagTask(void const * argument);
+void StartIwdgGtkpTask(void const *argument);
+void StartBtRxTask(void const *argument);
+void StartXbeeTxTask(void const *argument);
+void StartXbeeRxTask(void const *argument);
+void StartGnssRxTask(void const *argument);
+void StartRfRxTask(void const *argument);
+void StartCanGtkpTask(void const *argument);
+void StartSdioGtkpTask(void const *argument);
+void StartDiagnosticTask(void const *argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -188,6 +187,16 @@ void xbeeRx_WaitSubscriptionFromSdioGtkp(void);
  * @retval None
  */
 void xbeeRx_UartReceiveSubscription(uint8_t buff[]);
+
+/**
+ * @brief Receives the warning for the driver via UART
+ * @param [in]buff UART Rx buffer of size R3TP_VER2_FRAME_SIZE
+ * @param [out]pWarningType Buffer for the type of the warning for the driver (R3TP_GREEN_WARNING or R3TP_RED_WARNING)
+ * @param [out]pWarningTime Buffer for the time the warning is to be displayed to the driver
+ * @retval None
+ */
+void xbeeRx_UartReceiveWarning(uint8_t buff[], uint8_t *pWarningType,
+		uint8_t *pWarningTime);
 
 /**
  * @brief Forwards the telemetry subscription to the SDIO gatekeeper to be stored on the SD card
@@ -246,617 +255,625 @@ uint32_t sdioGtkp_LoadTelemetrySubscription(FIL *fp, const TCHAR *path);
 /* USER CODE END 0 */
 
 /**
-  * @brief  The application entry point.
-  * @retval int
-  */
-int main(void)
-{
-  /* USER CODE BEGIN 1 */
+ * @brief  The application entry point.
+ * @retval int
+ */
+int main(void) {
+	/* USER CODE BEGIN 1 */
 
-  /* USER CODE END 1 */
+	/* USER CODE END 1 */
 
-  /* MCU Configuration--------------------------------------------------------*/
+	/* MCU Configuration--------------------------------------------------------*/
 
-  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-  HAL_Init();
+	/* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+	HAL_Init();
 
-  /* USER CODE BEGIN Init */
+	/* USER CODE BEGIN Init */
 
-  /* USER CODE END Init */
+	/* USER CODE END Init */
 
-  /* Configure the system clock */
-  SystemClock_Config();
+	/* Configure the system clock */
+	SystemClock_Config();
 
-  /* USER CODE BEGIN SysInit */
+	/* USER CODE BEGIN SysInit */
 
-  /* USER CODE END SysInit */
+	/* USER CODE END SysInit */
 
-  /* Initialize all configured peripherals */
-  MX_GPIO_Init();
-  MX_DMA_Init();
-  MX_CAN1_Init();
-  MX_CRC_Init();
-  MX_IWDG_Init();
-  MX_SDIO_SD_Init();
-  MX_SPI1_Init();
-  MX_UART4_Init();
-  MX_USART1_UART_Init();
-  MX_USART2_UART_Init();
-  MX_USART3_UART_Init();
-  MX_FATFS_Init();
-  MX_ADC1_Init();
-  /* USER CODE BEGIN 2 */
+	/* Initialize all configured peripherals */
+	MX_GPIO_Init();
+	MX_DMA_Init();
+	MX_CAN1_Init();
+	MX_CRC_Init();
+	MX_IWDG_Init();
+	MX_SDIO_SD_Init();
+	MX_SPI1_Init();
+	MX_UART4_Init();
+	MX_USART1_UART_Init();
+	MX_USART2_UART_Init();
+	MX_USART3_UART_Init();
+	MX_FATFS_Init();
+	MX_ADC1_Init();
+	/* USER CODE BEGIN 2 */
 
 	/* Start the CAN module */
 	HAL_CAN_Start(&hcan1);
 
-  /* USER CODE END 2 */
+	/* USER CODE END 2 */
 
-  /* Create the mutex(es) */
-  /* definition and creation of crcMutex */
-  osMutexDef(crcMutex);
-  crcMutexHandle = osMutexCreate(osMutex(crcMutex));
+	/* Create the mutex(es) */
+	/* definition and creation of crcMutex */
+	osMutexDef(crcMutex);
+	crcMutexHandle = osMutexCreate(osMutex(crcMutex));
 
-  /* USER CODE BEGIN RTOS_MUTEX */
+	/* USER CODE BEGIN RTOS_MUTEX */
 	/* add mutexes, ... */
-  /* USER CODE END RTOS_MUTEX */
+	/* USER CODE END RTOS_MUTEX */
 
-  /* USER CODE BEGIN RTOS_SEMAPHORES */
+	/* USER CODE BEGIN RTOS_SEMAPHORES */
 	/* add semaphores, ... */
-  /* USER CODE END RTOS_SEMAPHORES */
+	/* USER CODE END RTOS_SEMAPHORES */
 
-  /* USER CODE BEGIN RTOS_TIMERS */
+	/* USER CODE BEGIN RTOS_TIMERS */
 	/* start timers, add new ones, ... */
-  /* USER CODE END RTOS_TIMERS */
+	/* USER CODE END RTOS_TIMERS */
 
-  /* Create the queue(s) */
-  /* definition and creation of canTxQueue */
-  osMessageQDef(canTxQueue, 32, CanFrameTypedef);
-  canTxQueueHandle = osMessageCreate(osMessageQ(canTxQueue), NULL);
+	/* Create the queue(s) */
+	/* definition and creation of canTxQueue */
+	osMessageQDef(canTxQueue, 32, CanFrameTypedef);
+	canTxQueueHandle = osMessageCreate(osMessageQ(canTxQueue), NULL);
 
-  /* definition and creation of canRxQueue */
-  osMessageQDef(canRxQueue, 16, CanFrameTypedef);
-  canRxQueueHandle = osMessageCreate(osMessageQ(canRxQueue), NULL);
+	/* definition and creation of canRxQueue */
+	osMessageQDef(canRxQueue, 16, CanFrameTypedef);
+	canRxQueueHandle = osMessageCreate(osMessageQ(canRxQueue), NULL);
 
-  /* definition and creation of sdioLogQueue */
-  osMessageQDef(sdioLogQueue, 16, const char*);
-  sdioLogQueueHandle = osMessageCreate(osMessageQ(sdioLogQueue), NULL);
+	/* definition and creation of sdioLogQueue */
+	osMessageQDef(sdioLogQueue, 16, const char*);
+	sdioLogQueueHandle = osMessageCreate(osMessageQ(sdioLogQueue), NULL);
 
-  /* definition and creation of sdioSubQueue */
-  osMessageQDef(sdioSubQueue, 32, uint32_t);
-  sdioSubQueueHandle = osMessageCreate(osMessageQ(sdioSubQueue), NULL);
+	/* definition and creation of sdioSubQueue */
+	osMessageQDef(sdioSubQueue, 32, uint32_t);
+	sdioSubQueueHandle = osMessageCreate(osMessageQ(sdioSubQueue), NULL);
 
-  /* USER CODE BEGIN RTOS_QUEUES */
+	/* USER CODE BEGIN RTOS_QUEUES */
 	/* add queues, ... */
-  /* USER CODE END RTOS_QUEUES */
+	/* USER CODE END RTOS_QUEUES */
 
-  /* Create the thread(s) */
-  /* definition and creation of iwdgGtkp */
-  osThreadDef(iwdgGtkp, StartIwdgGtkpTask, osPriorityNormal, 0, 128);
-  iwdgGtkpHandle = osThreadCreate(osThread(iwdgGtkp), NULL);
+	/* Create the thread(s) */
+	/* definition and creation of iwdgGtkp */
+	osThreadDef(iwdgGtkp, StartIwdgGtkpTask, osPriorityNormal, 0, 128);
+	iwdgGtkpHandle = osThreadCreate(osThread(iwdgGtkp), NULL);
 
-  /* definition and creation of btRx */
-  osThreadDef(btRx, StartBtRxTask, osPriorityNormal, 0, 128);
-  btRxHandle = osThreadCreate(osThread(btRx), NULL);
+	/* definition and creation of btRx */
+	osThreadDef(btRx, StartBtRxTask, osPriorityNormal, 0, 128);
+	btRxHandle = osThreadCreate(osThread(btRx), NULL);
 
-  /* definition and creation of xbeeTx */
-  osThreadDef(xbeeTx, StartXbeeTxTask, osPriorityNormal, 0, 128);
-  xbeeTxHandle = osThreadCreate(osThread(xbeeTx), NULL);
+	/* definition and creation of xbeeTx */
+	osThreadDef(xbeeTx, StartXbeeTxTask, osPriorityNormal, 0, 128);
+	xbeeTxHandle = osThreadCreate(osThread(xbeeTx), NULL);
 
-  /* definition and creation of xbeeRx */
-  osThreadDef(xbeeRx, StartXbeeRxTask, osPriorityNormal, 0, 128);
-  xbeeRxHandle = osThreadCreate(osThread(xbeeRx), NULL);
+	/* definition and creation of xbeeRx */
+	osThreadDef(xbeeRx, StartXbeeRxTask, osPriorityNormal, 0, 128);
+	xbeeRxHandle = osThreadCreate(osThread(xbeeRx), NULL);
 
-  /* definition and creation of gnssRx */
-  osThreadDef(gnssRx, StartGnssRxTask, osPriorityAboveNormal, 0, 128);
-  gnssRxHandle = osThreadCreate(osThread(gnssRx), NULL);
+	/* definition and creation of gnssRx */
+	osThreadDef(gnssRx, StartGnssRxTask, osPriorityAboveNormal, 0, 128);
+	gnssRxHandle = osThreadCreate(osThread(gnssRx), NULL);
 
-  /* definition and creation of rfRx */
-  osThreadDef(rfRx, StartRfRxTask, osPriorityNormal, 0, 128);
-  rfRxHandle = osThreadCreate(osThread(rfRx), NULL);
+	/* definition and creation of rfRx */
+	osThreadDef(rfRx, StartRfRxTask, osPriorityNormal, 0, 128);
+	rfRxHandle = osThreadCreate(osThread(rfRx), NULL);
 
-  /* definition and creation of canGtkp */
-  osThreadDef(canGtkp, StartCanGtkpTask, osPriorityHigh, 0, 128);
-  canGtkpHandle = osThreadCreate(osThread(canGtkp), NULL);
+	/* definition and creation of canGtkp */
+	osThreadDef(canGtkp, StartCanGtkpTask, osPriorityHigh, 0, 128);
+	canGtkpHandle = osThreadCreate(osThread(canGtkp), NULL);
 
-  /* definition and creation of sdioGtkp */
-  osThreadDef(sdioGtkp, StartSdioGtkpTask, osPriorityNormal, 0, 1024);
-  sdioGtkpHandle = osThreadCreate(osThread(sdioGtkp), NULL);
+	/* definition and creation of sdioGtkp */
+	osThreadDef(sdioGtkp, StartSdioGtkpTask, osPriorityNormal, 0, 1024);
+	sdioGtkpHandle = osThreadCreate(osThread(sdioGtkp), NULL);
 
-  /* definition and creation of diag */
-  osThreadDef(diag, StartDiagTask, osPriorityBelowNormal, 0, 128);
-  diagHandle = osThreadCreate(osThread(diag), NULL);
+	/* definition and creation of diagnostic */
+	osThreadDef(diagnostic, StartDiagnosticTask, osPriorityBelowNormal, 0, 128);
+	diagnosticHandle = osThreadCreate(osThread(diagnostic), NULL);
 
-  /* USER CODE BEGIN RTOS_THREADS */
+	/* USER CODE BEGIN RTOS_THREADS */
 	/* add threads, ... */
-  /* USER CODE END RTOS_THREADS */
+	/* USER CODE END RTOS_THREADS */
 
-  /* Start scheduler */
-  osKernelStart();
+	/* Start scheduler */
+	osKernelStart();
 
-  /* We should never get here as control is now taken by the scheduler */
-  /* Infinite loop */
-  /* USER CODE BEGIN WHILE */
+	/* We should never get here as control is now taken by the scheduler */
+	/* Infinite loop */
+	/* USER CODE BEGIN WHILE */
 	while (1) {
-    /* USER CODE END WHILE */
+		/* USER CODE END WHILE */
 
-    /* USER CODE BEGIN 3 */
+		/* USER CODE BEGIN 3 */
 	}
-  /* USER CODE END 3 */
+	/* USER CODE END 3 */
 }
 
 /**
-  * @brief System Clock Configuration
-  * @retval None
-  */
-void SystemClock_Config(void)
-{
-  RCC_OscInitTypeDef RCC_OscInitStruct = {0};
-  RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+ * @brief System Clock Configuration
+ * @retval None
+ */
+void SystemClock_Config(void) {
+	RCC_OscInitTypeDef RCC_OscInitStruct = { 0 };
+	RCC_ClkInitTypeDef RCC_ClkInitStruct = { 0 };
 
-  /** Configure the main internal regulator output voltage
-  */
-  __HAL_RCC_PWR_CLK_ENABLE();
-  __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
-  /** Initializes the RCC Oscillators according to the specified parameters
-  * in the RCC_OscInitTypeDef structure.
-  */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI|RCC_OSCILLATORTYPE_LSI;
-  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
-  RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
-  RCC_OscInitStruct.LSIState = RCC_LSI_ON;
-  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
-  RCC_OscInitStruct.PLL.PLLM = 16;
-  RCC_OscInitStruct.PLL.PLLN = 192;
-  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
-  RCC_OscInitStruct.PLL.PLLQ = 4;
-  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /** Initializes the CPU, AHB and APB buses clocks
-  */
-  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
-                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
-  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_HSI;
-  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
-  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
+	/** Configure the main internal regulator output voltage
+	 */
+	__HAL_RCC_PWR_CLK_ENABLE();
+	__HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
+	/** Initializes the RCC Oscillators according to the specified parameters
+	 * in the RCC_OscInitTypeDef structure.
+	 */
+	RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI
+			| RCC_OSCILLATORTYPE_LSI;
+	RCC_OscInitStruct.HSIState = RCC_HSI_ON;
+	RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
+	RCC_OscInitStruct.LSIState = RCC_LSI_ON;
+	RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+	RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
+	RCC_OscInitStruct.PLL.PLLM = 16;
+	RCC_OscInitStruct.PLL.PLLN = 192;
+	RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
+	RCC_OscInitStruct.PLL.PLLQ = 4;
+	if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK) {
+		Error_Handler();
+	}
+	/** Initializes the CPU, AHB and APB buses clocks
+	 */
+	RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK
+			| RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
+	RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_HSI;
+	RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+	RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
+	RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
-  {
-    Error_Handler();
-  }
+	if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK) {
+		Error_Handler();
+	}
 }
 
 /**
-  * @brief ADC1 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_ADC1_Init(void)
-{
+ * @brief ADC1 Initialization Function
+ * @param None
+ * @retval None
+ */
+static void MX_ADC1_Init(void) {
 
-  /* USER CODE BEGIN ADC1_Init 0 */
+	/* USER CODE BEGIN ADC1_Init 0 */
 
-  /* USER CODE END ADC1_Init 0 */
+	/* USER CODE END ADC1_Init 0 */
 
-  ADC_ChannelConfTypeDef sConfig = {0};
+	ADC_ChannelConfTypeDef sConfig = { 0 };
 
-  /* USER CODE BEGIN ADC1_Init 1 */
+	/* USER CODE BEGIN ADC1_Init 1 */
 
-  /* USER CODE END ADC1_Init 1 */
-  /** Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
-  */
-  hadc1.Instance = ADC1;
-  hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV2;
-  hadc1.Init.Resolution = ADC_RESOLUTION_12B;
-  hadc1.Init.ScanConvMode = DISABLE;
-  hadc1.Init.ContinuousConvMode = DISABLE;
-  hadc1.Init.DiscontinuousConvMode = DISABLE;
-  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
-  hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
-  hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-  hadc1.Init.NbrOfConversion = 1;
-  hadc1.Init.DMAContinuousRequests = ENABLE;
-  hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
-  if (HAL_ADC_Init(&hadc1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
-  */
-  sConfig.Channel = ADC_CHANNEL_TEMPSENSOR;
-  sConfig.Rank = 1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
-  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN ADC1_Init 2 */
+	/* USER CODE END ADC1_Init 1 */
+	/** Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
+	 */
+	hadc1.Instance = ADC1;
+	hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV2;
+	hadc1.Init.Resolution = ADC_RESOLUTION_12B;
+	hadc1.Init.ScanConvMode = DISABLE;
+	hadc1.Init.ContinuousConvMode = DISABLE;
+	hadc1.Init.DiscontinuousConvMode = DISABLE;
+	hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
+	hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+	hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+	hadc1.Init.NbrOfConversion = 1;
+	hadc1.Init.DMAContinuousRequests = ENABLE;
+	hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+	if (HAL_ADC_Init(&hadc1) != HAL_OK) {
+		Error_Handler();
+	}
+	/** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+	 */
+	sConfig.Channel = ADC_CHANNEL_TEMPSENSOR;
+	sConfig.Rank = 1;
+	sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
+	if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK) {
+		Error_Handler();
+	}
+	/* USER CODE BEGIN ADC1_Init 2 */
 
-  /* USER CODE END ADC1_Init 2 */
+	/* USER CODE END ADC1_Init 2 */
 
 }
 
 /**
-  * @brief CAN1 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_CAN1_Init(void)
-{
+ * @brief CAN1 Initialization Function
+ * @param None
+ * @retval None
+ */
+static void MX_CAN1_Init(void) {
 
-  /* USER CODE BEGIN CAN1_Init 0 */
+	/* USER CODE BEGIN CAN1_Init 0 */
 
-  /* USER CODE END CAN1_Init 0 */
+	/* USER CODE END CAN1_Init 0 */
 
-  /* USER CODE BEGIN CAN1_Init 1 */
+	/* USER CODE BEGIN CAN1_Init 1 */
 
-  /* USER CODE END CAN1_Init 1 */
-  hcan1.Instance = CAN1;
-  hcan1.Init.Prescaler = 2;
-  hcan1.Init.Mode = CAN_MODE_NORMAL;
-  hcan1.Init.SyncJumpWidth = CAN_SJW_1TQ;
-  hcan1.Init.TimeSeg1 = CAN_BS1_6TQ;
-  hcan1.Init.TimeSeg2 = CAN_BS2_1TQ;
-  hcan1.Init.TimeTriggeredMode = DISABLE;
-  hcan1.Init.AutoBusOff = DISABLE;
-  hcan1.Init.AutoWakeUp = DISABLE;
-  hcan1.Init.AutoRetransmission = DISABLE;
-  hcan1.Init.ReceiveFifoLocked = DISABLE;
-  hcan1.Init.TransmitFifoPriority = DISABLE;
-  if (HAL_CAN_Init(&hcan1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN CAN1_Init 2 */
+	/* USER CODE END CAN1_Init 1 */
+	hcan1.Instance = CAN1;
+	hcan1.Init.Prescaler = 2;
+	hcan1.Init.Mode = CAN_MODE_NORMAL;
+	hcan1.Init.SyncJumpWidth = CAN_SJW_1TQ;
+	hcan1.Init.TimeSeg1 = CAN_BS1_6TQ;
+	hcan1.Init.TimeSeg2 = CAN_BS2_1TQ;
+	hcan1.Init.TimeTriggeredMode = DISABLE;
+	hcan1.Init.AutoBusOff = DISABLE;
+	hcan1.Init.AutoWakeUp = DISABLE;
+	hcan1.Init.AutoRetransmission = DISABLE;
+	hcan1.Init.ReceiveFifoLocked = DISABLE;
+	hcan1.Init.TransmitFifoPriority = DISABLE;
+	if (HAL_CAN_Init(&hcan1) != HAL_OK) {
+		Error_Handler();
+	}
+	/* USER CODE BEGIN CAN1_Init 2 */
 
-  /* USER CODE END CAN1_Init 2 */
+	/* USER CODE END CAN1_Init 2 */
 
 }
 
 /**
-  * @brief CRC Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_CRC_Init(void)
-{
+ * @brief CRC Initialization Function
+ * @param None
+ * @retval None
+ */
+static void MX_CRC_Init(void) {
 
-  /* USER CODE BEGIN CRC_Init 0 */
+	/* USER CODE BEGIN CRC_Init 0 */
 
-  /* USER CODE END CRC_Init 0 */
+	/* USER CODE END CRC_Init 0 */
 
-  /* USER CODE BEGIN CRC_Init 1 */
+	/* USER CODE BEGIN CRC_Init 1 */
 
-  /* USER CODE END CRC_Init 1 */
-  hcrc.Instance = CRC;
-  if (HAL_CRC_Init(&hcrc) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN CRC_Init 2 */
+	/* USER CODE END CRC_Init 1 */
+	hcrc.Instance = CRC;
+	if (HAL_CRC_Init(&hcrc) != HAL_OK) {
+		Error_Handler();
+	}
+	/* USER CODE BEGIN CRC_Init 2 */
 
-  /* USER CODE END CRC_Init 2 */
+	/* USER CODE END CRC_Init 2 */
 
 }
 
 /**
-  * @brief IWDG Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_IWDG_Init(void)
-{
+ * @brief IWDG Initialization Function
+ * @param None
+ * @retval None
+ */
+static void MX_IWDG_Init(void) {
 
-  /* USER CODE BEGIN IWDG_Init 0 */
+	/* USER CODE BEGIN IWDG_Init 0 */
 
-  /* USER CODE END IWDG_Init 0 */
+	/* USER CODE END IWDG_Init 0 */
 
-  /* USER CODE BEGIN IWDG_Init 1 */
+	/* USER CODE BEGIN IWDG_Init 1 */
 
-  /* USER CODE END IWDG_Init 1 */
-  hiwdg.Instance = IWDG;
-  hiwdg.Init.Prescaler = IWDG_PRESCALER_256;
-  hiwdg.Init.Reload = 4095;
-  if (HAL_IWDG_Init(&hiwdg) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN IWDG_Init 2 */
+	/* USER CODE END IWDG_Init 1 */
+	hiwdg.Instance = IWDG;
+	hiwdg.Init.Prescaler = IWDG_PRESCALER_256;
+	hiwdg.Init.Reload = 4095;
+	if (HAL_IWDG_Init(&hiwdg) != HAL_OK) {
+		Error_Handler();
+	}
+	/* USER CODE BEGIN IWDG_Init 2 */
 
-  /* USER CODE END IWDG_Init 2 */
+	/* USER CODE END IWDG_Init 2 */
 
 }
 
 /**
-  * @brief SDIO Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_SDIO_SD_Init(void)
-{
+ * @brief SDIO Initialization Function
+ * @param None
+ * @retval None
+ */
+static void MX_SDIO_SD_Init(void) {
 
-  /* USER CODE BEGIN SDIO_Init 0 */
+	/* USER CODE BEGIN SDIO_Init 0 */
 
-  /* USER CODE END SDIO_Init 0 */
+	/* USER CODE END SDIO_Init 0 */
 
-  /* USER CODE BEGIN SDIO_Init 1 */
+	/* USER CODE BEGIN SDIO_Init 1 */
 
-  /* USER CODE END SDIO_Init 1 */
-  hsd.Instance = SDIO;
-  hsd.Init.ClockEdge = SDIO_CLOCK_EDGE_RISING;
-  hsd.Init.ClockBypass = SDIO_CLOCK_BYPASS_DISABLE;
-  hsd.Init.ClockPowerSave = SDIO_CLOCK_POWER_SAVE_DISABLE;
-  hsd.Init.BusWide = SDIO_BUS_WIDE_1B;
-  hsd.Init.HardwareFlowControl = SDIO_HARDWARE_FLOW_CONTROL_DISABLE;
-  hsd.Init.ClockDiv = 0;
-  /* USER CODE BEGIN SDIO_Init 2 */
+	/* USER CODE END SDIO_Init 1 */
+	hsd.Instance = SDIO;
+	hsd.Init.ClockEdge = SDIO_CLOCK_EDGE_RISING;
+	hsd.Init.ClockBypass = SDIO_CLOCK_BYPASS_DISABLE;
+	hsd.Init.ClockPowerSave = SDIO_CLOCK_POWER_SAVE_DISABLE;
+	hsd.Init.BusWide = SDIO_BUS_WIDE_1B;
+	hsd.Init.HardwareFlowControl = SDIO_HARDWARE_FLOW_CONTROL_DISABLE;
+	hsd.Init.ClockDiv = 0;
+	/* USER CODE BEGIN SDIO_Init 2 */
 
-  /* USER CODE END SDIO_Init 2 */
-
-}
-
-/**
-  * @brief SPI1 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_SPI1_Init(void)
-{
-
-  /* USER CODE BEGIN SPI1_Init 0 */
-
-  /* USER CODE END SPI1_Init 0 */
-
-  /* USER CODE BEGIN SPI1_Init 1 */
-
-  /* USER CODE END SPI1_Init 1 */
-  /* SPI1 parameter configuration*/
-  hspi1.Instance = SPI1;
-  hspi1.Init.Mode = SPI_MODE_MASTER;
-  hspi1.Init.Direction = SPI_DIRECTION_2LINES;
-  hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
-  hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
-  hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
-  hspi1.Init.NSS = SPI_NSS_HARD_OUTPUT;
-  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
-  hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
-  hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
-  hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
-  hspi1.Init.CRCPolynomial = 10;
-  if (HAL_SPI_Init(&hspi1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN SPI1_Init 2 */
-
-  /* USER CODE END SPI1_Init 2 */
+	/* USER CODE END SDIO_Init 2 */
 
 }
 
 /**
-  * @brief UART4 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_UART4_Init(void)
-{
+ * @brief SPI1 Initialization Function
+ * @param None
+ * @retval None
+ */
+static void MX_SPI1_Init(void) {
 
-  /* USER CODE BEGIN UART4_Init 0 */
+	/* USER CODE BEGIN SPI1_Init 0 */
 
-  /* USER CODE END UART4_Init 0 */
+	/* USER CODE END SPI1_Init 0 */
 
-  /* USER CODE BEGIN UART4_Init 1 */
+	/* USER CODE BEGIN SPI1_Init 1 */
 
-  /* USER CODE END UART4_Init 1 */
-  huart4.Instance = UART4;
-  huart4.Init.BaudRate = 19200;
-  huart4.Init.WordLength = UART_WORDLENGTH_8B;
-  huart4.Init.StopBits = UART_STOPBITS_1;
-  huart4.Init.Parity = UART_PARITY_NONE;
-  huart4.Init.Mode = UART_MODE_TX_RX;
-  huart4.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-  huart4.Init.OverSampling = UART_OVERSAMPLING_16;
-  if (HAL_UART_Init(&huart4) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN UART4_Init 2 */
+	/* USER CODE END SPI1_Init 1 */
+	/* SPI1 parameter configuration*/
+	hspi1.Instance = SPI1;
+	hspi1.Init.Mode = SPI_MODE_MASTER;
+	hspi1.Init.Direction = SPI_DIRECTION_2LINES;
+	hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
+	hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
+	hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
+	hspi1.Init.NSS = SPI_NSS_SOFT;
+	hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_16;
+	hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
+	hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
+	hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
+	hspi1.Init.CRCPolynomial = 10;
+	if (HAL_SPI_Init(&hspi1) != HAL_OK) {
+		Error_Handler();
+	}
+	/* USER CODE BEGIN SPI1_Init 2 */
 
-  /* USER CODE END UART4_Init 2 */
-
-}
-
-/**
-  * @brief USART1 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_USART1_UART_Init(void)
-{
-
-  /* USER CODE BEGIN USART1_Init 0 */
-
-  /* USER CODE END USART1_Init 0 */
-
-  /* USER CODE BEGIN USART1_Init 1 */
-
-  /* USER CODE END USART1_Init 1 */
-  huart1.Instance = USART1;
-  huart1.Init.BaudRate = 19200;
-  huart1.Init.WordLength = UART_WORDLENGTH_8B;
-  huart1.Init.StopBits = UART_STOPBITS_1;
-  huart1.Init.Parity = UART_PARITY_NONE;
-  huart1.Init.Mode = UART_MODE_TX_RX;
-  huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-  huart1.Init.OverSampling = UART_OVERSAMPLING_16;
-  if (HAL_UART_Init(&huart1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN USART1_Init 2 */
-
-  /* USER CODE END USART1_Init 2 */
+	/* USER CODE END SPI1_Init 2 */
 
 }
 
 /**
-  * @brief USART2 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_USART2_UART_Init(void)
-{
+ * @brief UART4 Initialization Function
+ * @param None
+ * @retval None
+ */
+static void MX_UART4_Init(void) {
 
-  /* USER CODE BEGIN USART2_Init 0 */
+	/* USER CODE BEGIN UART4_Init 0 */
 
-  /* USER CODE END USART2_Init 0 */
+	/* USER CODE END UART4_Init 0 */
 
-  /* USER CODE BEGIN USART2_Init 1 */
+	/* USER CODE BEGIN UART4_Init 1 */
 
-  /* USER CODE END USART2_Init 1 */
-  huart2.Instance = USART2;
-  huart2.Init.BaudRate = 19200;
-  huart2.Init.WordLength = UART_WORDLENGTH_8B;
-  huart2.Init.StopBits = UART_STOPBITS_1;
-  huart2.Init.Parity = UART_PARITY_NONE;
-  huart2.Init.Mode = UART_MODE_TX_RX;
-  huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-  huart2.Init.OverSampling = UART_OVERSAMPLING_16;
-  if (HAL_UART_Init(&huart2) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN USART2_Init 2 */
+	/* USER CODE END UART4_Init 1 */
+	huart4.Instance = UART4;
+	huart4.Init.BaudRate = 19200;
+	huart4.Init.WordLength = UART_WORDLENGTH_8B;
+	huart4.Init.StopBits = UART_STOPBITS_1;
+	huart4.Init.Parity = UART_PARITY_NONE;
+	huart4.Init.Mode = UART_MODE_TX_RX;
+	huart4.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+	huart4.Init.OverSampling = UART_OVERSAMPLING_16;
+	if (HAL_UART_Init(&huart4) != HAL_OK) {
+		Error_Handler();
+	}
+	/* USER CODE BEGIN UART4_Init 2 */
 
-  /* USER CODE END USART2_Init 2 */
+	/* USER CODE END UART4_Init 2 */
 
 }
 
 /**
-  * @brief USART3 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_USART3_UART_Init(void)
-{
+ * @brief USART1 Initialization Function
+ * @param None
+ * @retval None
+ */
+static void MX_USART1_UART_Init(void) {
 
-  /* USER CODE BEGIN USART3_Init 0 */
+	/* USER CODE BEGIN USART1_Init 0 */
 
-  /* USER CODE END USART3_Init 0 */
+	/* USER CODE END USART1_Init 0 */
 
-  /* USER CODE BEGIN USART3_Init 1 */
+	/* USER CODE BEGIN USART1_Init 1 */
 
-  /* USER CODE END USART3_Init 1 */
-  huart3.Instance = USART3;
-  huart3.Init.BaudRate = 9600;
-  huart3.Init.WordLength = UART_WORDLENGTH_8B;
-  huart3.Init.StopBits = UART_STOPBITS_1;
-  huart3.Init.Parity = UART_PARITY_NONE;
-  huart3.Init.Mode = UART_MODE_TX_RX;
-  huart3.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-  huart3.Init.OverSampling = UART_OVERSAMPLING_16;
-  if (HAL_UART_Init(&huart3) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN USART3_Init 2 */
+	/* USER CODE END USART1_Init 1 */
+	huart1.Instance = USART1;
+	huart1.Init.BaudRate = 19200;
+	huart1.Init.WordLength = UART_WORDLENGTH_8B;
+	huart1.Init.StopBits = UART_STOPBITS_1;
+	huart1.Init.Parity = UART_PARITY_NONE;
+	huart1.Init.Mode = UART_MODE_TX_RX;
+	huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+	huart1.Init.OverSampling = UART_OVERSAMPLING_16;
+	if (HAL_UART_Init(&huart1) != HAL_OK) {
+		Error_Handler();
+	}
+	/* USER CODE BEGIN USART1_Init 2 */
 
-  /* USER CODE END USART3_Init 2 */
+	/* USER CODE END USART1_Init 2 */
 
 }
 
 /**
-  * Enable DMA controller clock
-  */
-static void MX_DMA_Init(void)
-{
+ * @brief USART2 Initialization Function
+ * @param None
+ * @retval None
+ */
+static void MX_USART2_UART_Init(void) {
 
-  /* DMA controller clock enable */
-  __HAL_RCC_DMA2_CLK_ENABLE();
-  __HAL_RCC_DMA1_CLK_ENABLE();
+	/* USER CODE BEGIN USART2_Init 0 */
 
-  /* DMA interrupt init */
-  /* DMA1_Stream1_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Stream1_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(DMA1_Stream1_IRQn);
-  /* DMA1_Stream2_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Stream2_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(DMA1_Stream2_IRQn);
-  /* DMA2_Stream0_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA2_Stream0_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(DMA2_Stream0_IRQn);
-  /* DMA2_Stream2_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA2_Stream2_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(DMA2_Stream2_IRQn);
-  /* DMA2_Stream3_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA2_Stream3_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(DMA2_Stream3_IRQn);
-  /* DMA2_Stream4_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA2_Stream4_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(DMA2_Stream4_IRQn);
-  /* DMA2_Stream6_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA2_Stream6_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(DMA2_Stream6_IRQn);
+	/* USER CODE END USART2_Init 0 */
+
+	/* USER CODE BEGIN USART2_Init 1 */
+
+	/* USER CODE END USART2_Init 1 */
+	huart2.Instance = USART2;
+	huart2.Init.BaudRate = 19200;
+	huart2.Init.WordLength = UART_WORDLENGTH_8B;
+	huart2.Init.StopBits = UART_STOPBITS_1;
+	huart2.Init.Parity = UART_PARITY_NONE;
+	huart2.Init.Mode = UART_MODE_TX_RX;
+	huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+	huart2.Init.OverSampling = UART_OVERSAMPLING_16;
+	if (HAL_UART_Init(&huart2) != HAL_OK) {
+		Error_Handler();
+	}
+	/* USER CODE BEGIN USART2_Init 2 */
+
+	/* USER CODE END USART2_Init 2 */
 
 }
 
 /**
-  * @brief GPIO Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_GPIO_Init(void)
-{
-  GPIO_InitTypeDef GPIO_InitStruct = {0};
+ * @brief USART3 Initialization Function
+ * @param None
+ * @retval None
+ */
+static void MX_USART3_UART_Init(void) {
 
-  /* GPIO Ports Clock Enable */
-  __HAL_RCC_GPIOC_CLK_ENABLE();
-  __HAL_RCC_GPIOA_CLK_ENABLE();
-  __HAL_RCC_GPIOB_CLK_ENABLE();
-  __HAL_RCC_GPIOD_CLK_ENABLE();
+	/* USER CODE BEGIN USART3_Init 0 */
 
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(XBEE_RESET_GPIO_Port, XBEE_RESET_Pin, GPIO_PIN_RESET);
+	/* USER CODE END USART3_Init 0 */
 
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, RF_PWR_UP_Pin|RF_TRX_CE_Pin|RF_TX_EN_Pin|GNSS_FORCE_ON_Pin
-                          |GNSS_RESET_Pin, GPIO_PIN_RESET);
+	/* USER CODE BEGIN USART3_Init 1 */
 
-  /*Configure GPIO pins : XBEE_RSSI_Pin RF_DR_Pin RF_AM_Pin */
-  GPIO_InitStruct.Pin = XBEE_RSSI_Pin|RF_DR_Pin|RF_AM_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+	/* USER CODE END USART3_Init 1 */
+	huart3.Instance = USART3;
+	huart3.Init.BaudRate = 9600;
+	huart3.Init.WordLength = UART_WORDLENGTH_8B;
+	huart3.Init.StopBits = UART_STOPBITS_1;
+	huart3.Init.Parity = UART_PARITY_NONE;
+	huart3.Init.Mode = UART_MODE_TX_RX;
+	huart3.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+	huart3.Init.OverSampling = UART_OVERSAMPLING_16;
+	if (HAL_UART_Init(&huart3) != HAL_OK) {
+		Error_Handler();
+	}
+	/* USER CODE BEGIN USART3_Init 2 */
 
-  /*Configure GPIO pin : XBEE_RESET_Pin */
-  GPIO_InitStruct.Pin = XBEE_RESET_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(XBEE_RESET_GPIO_Port, &GPIO_InitStruct);
+	/* USER CODE END USART3_Init 2 */
 
-  /*Configure GPIO pins : RF_CD_Pin RF_uPCLK_Pin GNSS_1PPS_Pin */
-  GPIO_InitStruct.Pin = RF_CD_Pin|RF_uPCLK_Pin|GNSS_1PPS_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+}
 
-  /*Configure GPIO pins : RF_PWR_UP_Pin RF_TRX_CE_Pin RF_TX_EN_Pin GNSS_FORCE_ON_Pin
-                           GNSS_RESET_Pin */
-  GPIO_InitStruct.Pin = RF_PWR_UP_Pin|RF_TRX_CE_Pin|RF_TX_EN_Pin|GNSS_FORCE_ON_Pin
-                          |GNSS_RESET_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+/**
+ * Enable DMA controller clock
+ */
+static void MX_DMA_Init(void) {
+
+	/* DMA controller clock enable */
+	__HAL_RCC_DMA2_CLK_ENABLE();
+	__HAL_RCC_DMA1_CLK_ENABLE();
+
+	/* DMA interrupt init */
+	/* DMA1_Stream1_IRQn interrupt configuration */
+	HAL_NVIC_SetPriority(DMA1_Stream1_IRQn, 0, 0);
+	HAL_NVIC_EnableIRQ(DMA1_Stream1_IRQn);
+	/* DMA1_Stream2_IRQn interrupt configuration */
+	HAL_NVIC_SetPriority(DMA1_Stream2_IRQn, 0, 0);
+	HAL_NVIC_EnableIRQ(DMA1_Stream2_IRQn);
+	/* DMA2_Stream2_IRQn interrupt configuration */
+	HAL_NVIC_SetPriority(DMA2_Stream2_IRQn, 0, 0);
+	HAL_NVIC_EnableIRQ(DMA2_Stream2_IRQn);
+	/* DMA2_Stream3_IRQn interrupt configuration */
+	HAL_NVIC_SetPriority(DMA2_Stream3_IRQn, 0, 0);
+	HAL_NVIC_EnableIRQ(DMA2_Stream3_IRQn);
+	/* DMA2_Stream4_IRQn interrupt configuration */
+	HAL_NVIC_SetPriority(DMA2_Stream4_IRQn, 0, 0);
+	HAL_NVIC_EnableIRQ(DMA2_Stream4_IRQn);
+	/* DMA2_Stream6_IRQn interrupt configuration */
+	HAL_NVIC_SetPriority(DMA2_Stream6_IRQn, 0, 0);
+	HAL_NVIC_EnableIRQ(DMA2_Stream6_IRQn);
+
+}
+
+/**
+ * @brief GPIO Initialization Function
+ * @param None
+ * @retval None
+ */
+static void MX_GPIO_Init(void) {
+	GPIO_InitTypeDef GPIO_InitStruct = { 0 };
+
+	/* GPIO Ports Clock Enable */
+	__HAL_RCC_GPIOC_CLK_ENABLE();
+	__HAL_RCC_GPIOA_CLK_ENABLE();
+	__HAL_RCC_GPIOB_CLK_ENABLE();
+	__HAL_RCC_GPIOD_CLK_ENABLE();
+
+	/*Configure GPIO pin Output Level */
+	HAL_GPIO_WritePin(XBEE_RESET_GPIO_Port, XBEE_RESET_Pin, GPIO_PIN_RESET);
+
+	/*Configure GPIO pin Output Level */
+	HAL_GPIO_WritePin(RF_SPI1_CSN_GPIO_Port, RF_SPI1_CSN_Pin, GPIO_PIN_SET);
+
+	/*Configure GPIO pin Output Level */
+	HAL_GPIO_WritePin(GPIOB,
+			RF_PWR_UP_Pin | RF_TRX_CE_Pin | RF_TX_EN_Pin | GNSS_FORCE_ON_Pin
+					| GNSS_RESET_Pin, GPIO_PIN_RESET);
+
+	/*Configure GPIO pins : XBEE_RSSI_Pin RF_AM_Pin */
+	GPIO_InitStruct.Pin = XBEE_RSSI_Pin | RF_AM_Pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+	HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+
+	/*Configure GPIO pin : XBEE_RESET_Pin */
+	GPIO_InitStruct.Pin = XBEE_RESET_Pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+	HAL_GPIO_Init(XBEE_RESET_GPIO_Port, &GPIO_InitStruct);
+
+	/*Configure GPIO pin : RF_SPI1_CSN_Pin */
+	GPIO_InitStruct.Pin = RF_SPI1_CSN_Pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+	HAL_GPIO_Init(RF_SPI1_CSN_GPIO_Port, &GPIO_InitStruct);
+
+	/*Configure GPIO pin : RF_DR_Pin */
+	GPIO_InitStruct.Pin = RF_DR_Pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+	HAL_GPIO_Init(RF_DR_GPIO_Port, &GPIO_InitStruct);
+
+	/*Configure GPIO pins : RF_CD_Pin RF_uPCLK_Pin GNSS_1PPS_Pin */
+	GPIO_InitStruct.Pin = RF_CD_Pin | RF_uPCLK_Pin | GNSS_1PPS_Pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+	HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+	/*Configure GPIO pins : RF_PWR_UP_Pin RF_TRX_CE_Pin RF_TX_EN_Pin GNSS_FORCE_ON_Pin
+	 GNSS_RESET_Pin */
+	GPIO_InitStruct.Pin = RF_PWR_UP_Pin | RF_TRX_CE_Pin | RF_TX_EN_Pin
+			| GNSS_FORCE_ON_Pin | GNSS_RESET_Pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+	HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+	/* EXTI interrupt init*/
+	HAL_NVIC_SetPriority(EXTI4_IRQn, 0, 0);
+	HAL_NVIC_EnableIRQ(EXTI4_IRQn);
 
 }
 
 /* USER CODE BEGIN 4 */
+
+/**
+ * @brief  EXTI line detection callbacks.
+ * @param  GPIO_Pin Specifies the pins connected EXTI line
+ * @retval None
+ */
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
+	if (RF_DR_Pin == GPIO_Pin) {
+
+		/* Notify the rfRx task */
+		vTaskNotifyGiveFromISR(rfRxHandle, NULL);
+
+	}
+
+}
 
 /**
  * @brief  Regular conversion complete callback in non blocking mode
@@ -868,25 +885,8 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc) {
 
 	if (TEMPSENSOR_ADC_INSTANCE == hadc->Instance) {
 
-		/* Resume the selfDiagnostic task */
-		vTaskNotifyGiveFromISR(diagHandle, NULL);
-
-	}
-
-}
-
-/**
- * @brief  Rx Transfer completed callback.
- * @param  hspi pointer to a SPI_HandleTypeDef structure that contains
- *               the configuration information for SPI module.
- * @retval None
- */
-void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi) {
-
-	if (RF_SPI_INSTANCE == hspi->Instance) {
-
-		/* Resume the rfRx task */
-		vTaskNotifyGiveFromISR(rfRxHandle, NULL);
+		/* Notify the diagnostic task */
+		vTaskNotifyGiveFromISR(diagnosticHandle, NULL);
 
 	}
 
@@ -902,7 +902,7 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart) {
 
 	if (XBEE_UART_INSTANCE == huart->Instance) {
 
-		/* Resume the xbeeTx task */
+		/* Notify the xbeeTx task */
 		vTaskNotifyGiveFromISR(xbeeTxHandle, NULL);
 
 	}
@@ -949,7 +949,7 @@ void xbeeRx_WaitSubscriptionFromSdioGtkp(void) {
 
 	uint32_t frameNum; /* Number of frames in a subscription */
 	uint32_t subscription[R3TP_VER1_MAX_FRAME_NUM]; /* Buffer for telemetry subscription CAN IDs */
-	uint32_t notificationValue; /* Buffer for the notification value */
+	uint32_t notificationValue; /* Buffer to pass the notification value out of the xTaskNotifyWait function */
 
 	/* Wait for sdioGtkp to notify the task if there is a valid subscription stored on the SD card */
 	if (pdTRUE
@@ -1157,13 +1157,16 @@ void xbeeRx_UartReceiveSubscription(uint8_t buff[]) {
 }
 
 /**
- * @brief Receives and handles the driver warning R3TP frame
- * @param buff UART Rx buffer of size R3TP_VER2_FRAME_SIZE
+ * @brief Receives the warning for the driver via UART
+ * @param [in]buff UART Rx buffer of size R3TP_VER2_FRAME_SIZE
+ * @param [out]pWarningType Buffer for the type of the warning for the driver (R3TP_GREEN_WARNING or R3TP_RED_WARNING)
+ * @param [out]pWarningTime Buffer for the time the warning is to be displayed to the driver
  * @retval None
  */
-void xbeeRx_UartReceiveDriverWarning(uint8_t buff[]) {
+void xbeeRx_UartReceiveWarning(uint8_t buff[], uint8_t *pWarningType,
+		uint8_t *pWarningTime) {
 
-	/*
+	/**
 	 * TODO
 	 */
 
@@ -1250,7 +1253,7 @@ void gnssRx_Send_GPS_POS(GnssDataTypedef *pData) {
 	canFrame.Header.Tx.DLC = 8;
 	canFrame.Header.Tx.IDE = CAN_ID_STD;
 	canFrame.Header.Tx.RTR = CAN_RTR_DATA;
-	canFrame.Header.Tx.StdId = WCU_CANID_GPS_POS;
+	canFrame.Header.Tx.StdId = WCU_CAN_ID_GPS_POS;
 	canFrame.Header.Tx.TransmitGlobalTime = DISABLE;
 
 	/* Write the longitude to the frame payload */
@@ -1286,7 +1289,7 @@ void gnssRx_Send_GPS_POS2(GnssDataTypedef *pData) {
 	canFrame.Header.Tx.DLC = 6;
 	canFrame.Header.Tx.IDE = CAN_ID_STD;
 	canFrame.Header.Tx.RTR = CAN_RTR_DATA;
-	canFrame.Header.Tx.StdId = WCU_CANID_GPS_POS2;
+	canFrame.Header.Tx.StdId = WCU_CAN_ID_GPS_POS2;
 	canFrame.Header.Tx.TransmitGlobalTime = DISABLE;
 
 	/* Write the speed to the frame payload */
@@ -1323,7 +1326,7 @@ void gnssRx_Send_GPS_STATUS(GnssDataTypedef *pData) {
 	canFrame.Header.Tx.DLC = 8;
 	canFrame.Header.Tx.IDE = CAN_ID_STD;
 	canFrame.Header.Tx.RTR = CAN_RTR_DATA;
-	canFrame.Header.Tx.StdId = WCU_CANID_GPS_STATUS;
+	canFrame.Header.Tx.StdId = WCU_CAN_ID_GPS_STATUS;
 	canFrame.Header.Tx.TransmitGlobalTime = DISABLE;
 
 	/* Write the satellites visible count to the frame payload */
@@ -1361,9 +1364,18 @@ void gnssRx_Send_GPS_STATUS(GnssDataTypedef *pData) {
  */
 void rfRx_DeviceConfig(void) {
 
+	/* Set CSN low to start configuring the device */
+	HAL_GPIO_WritePin(RF_SPI1_CSN_GPIO_Port, RF_SPI1_CSN_Pin, GPIO_PIN_RESET);
+
 	/*
-	 * TODO
+	 * TODO:
 	 */
+
+	/* Power up the chip by driving PWR_UP high */
+	HAL_GPIO_WritePin(RF_PWR_UP_GPIO_Port, RF_PWR_UP_Pin, GPIO_PIN_SET);
+
+	/* Select ShockBurst(TM) RX mode by driving TX_EN low */
+	HAL_GPIO_WritePin(RF_TX_EN_GPIO_Port, RF_TX_EN_Pin, GPIO_PIN_RESET);
 
 }
 
@@ -1389,7 +1401,7 @@ uint32_t sdioGtkp_LoadTelemetrySubscription(FIL *fp, const TCHAR *path) {
 	UINT bytesRead; /* Buffer for the number of bytes read */
 
 	/* Try reading the number of frames */
-	if(FR_OK != f_read(fp, temp, 4, &bytesRead)) {
+	if (FR_OK != f_read(fp, temp, 4, &bytesRead)) {
 
 		/* If failed to read the number of frames */
 		/* Cleanup */
@@ -1402,7 +1414,7 @@ uint32_t sdioGtkp_LoadTelemetrySubscription(FIL *fp, const TCHAR *path) {
 	frameNum = READ32(temp[3], temp[2], temp[1], temp[0]);
 
 	/* Validate the number of frames */
-	if(frameNum > R3TP_VER1_MAX_FRAME_NUM) {
+	if (frameNum > R3TP_VER1_MAX_FRAME_NUM) {
 
 		/* Cleanup */
 		(void) f_close(fp);
@@ -1414,7 +1426,7 @@ uint32_t sdioGtkp_LoadTelemetrySubscription(FIL *fp, const TCHAR *path) {
 	for (uint32_t i = 0; i < frameNum; i += 1UL) {
 
 		/* Try reading the frame */
-		if(FR_OK != f_read(fp, temp, 4, &bytesRead)) {
+		if (FR_OK != f_read(fp, temp, 4, &bytesRead)) {
 
 			/* Cleanup */
 			(void) f_close(fp);
@@ -1466,11 +1478,8 @@ uint32_t sdioGtkp_LoadTelemetrySubscription(FIL *fp, const TCHAR *path) {
  * @retval None
  */
 /* USER CODE END Header_StartIwdgGtkpTask */
-void StartIwdgGtkpTask(void const * argument)
-{
-  /* USER CODE BEGIN 5 */
-
-	static uint32_t notificationValue; /* Buffer to pass the notification value out of the xTaskNotifyWait function */
+void StartIwdgGtkpTask(void const *argument) {
+	/* USER CODE BEGIN 5 */
 
 	/* Give the other tasks time to set up */
 	vTaskDelay(WCU_IWDGGTKP_INIT_DELAY);
@@ -1483,6 +1492,7 @@ void StartIwdgGtkpTask(void const * argument)
 
 		vTaskDelay(WCU_DEFAULT_TASK_DELAY);
 
+		static uint32_t notificationValue; /* Buffer to pass the notification value out of the xTaskNotifyWait function */
 		/* Wait for notification */
 		if (pdTRUE
 				== xTaskNotifyWait(0x00000000UL, 0x00000000UL,
@@ -1507,7 +1517,7 @@ void StartIwdgGtkpTask(void const * argument)
 
 	}
 
-  /* USER CODE END 5 */
+	/* USER CODE END 5 */
 }
 
 /* USER CODE BEGIN Header_StartBtRxTask */
@@ -1517,9 +1527,8 @@ void StartIwdgGtkpTask(void const * argument)
  * @retval None
  */
 /* USER CODE END Header_StartBtRxTask */
-void StartBtRxTask(void const * argument)
-{
-  /* USER CODE BEGIN StartBtRxTask */
+void StartBtRxTask(void const *argument) {
+	/* USER CODE BEGIN StartBtRxTask */
 
 	static CanFrameTypedef canFrame = { .DataDirection = TX }; /* CAN frame structure */
 
@@ -1537,13 +1546,14 @@ void StartBtRxTask(void const * argument)
 
 		vTaskDelay(WCU_DEFAULT_TASK_DELAY);
 
-		/* Wait for notify from ISR/message received callback */
+		/* Wait for notification from ISR/message received callback */
 		if (0UL < ulTaskNotifyTake(pdTRUE,
 		WCU_BTRX_ULTASKNOTIFYTAKE_TIMEOUT)) {
 
 			/* Validate the VER and RES/SEQ field */
 			if (R3TP_VER0_VER_RES_SEQ_BYTE != uartRxBuff[0]) {
 
+				/* Log the error */
 				LOGERROR("Invalid VER/RES/SEQ in btRx\r\n");
 				/* Listen for the next message */
 				(void) HAL_UART_Receive_DMA(&BT_UART_HANDLE, uartRxBuff,
@@ -1557,6 +1567,7 @@ void StartBtRxTask(void const * argument)
 					|| (R3TP_END_SEQ_HIGH_BYTE
 							!= uartRxBuff[R3TP_VER0_FRAME_SIZE - 1U])) {
 
+				/* Log the error */
 				LOGERROR("Invalid END SEQ in btRx\r\n");
 				/* Listen for the next message */
 				(void) HAL_UART_Receive_DMA(&BT_UART_HANDLE, uartRxBuff,
@@ -1572,8 +1583,6 @@ void StartBtRxTask(void const * argument)
 			/* Clear the CHECKSUM field */
 			uartRxBuff[2] = 0x00U;
 			uartRxBuff[3] = 0x00U;
-
-
 
 			/* Get the CRC mutex */
 			if (osOK != osMutexWait(crcMutexHandle, WCU_CRCMUTEX_TIMEOUT)) {
@@ -1598,6 +1607,7 @@ void StartBtRxTask(void const * argument)
 			/* Validate the CRC */
 			if (readCrc != calculatedCrc) {
 
+				/* Log the error */
 				LOGERROR("Invalid CRC in btRx\r\n");
 				/* Listen for the next message */
 				(void) HAL_UART_Receive_DMA(&BT_UART_HANDLE, uartRxBuff,
@@ -1613,6 +1623,7 @@ void StartBtRxTask(void const * argument)
 			canFrame.Header.Tx.DLC = (uint32_t) uartRxBuff[8];
 			if (CAN_PAYLOAD_SIZE < canFrame.Header.Tx.DLC) {
 
+				/* Log the error */
 				LOGERROR("Invalid DLC in btRx\r\n");
 				/* Listen for the next message */
 				(void) HAL_UART_Receive_DMA(&BT_UART_HANDLE, uartRxBuff,
@@ -1642,7 +1653,7 @@ void StartBtRxTask(void const * argument)
 
 	}
 
-  /* USER CODE END StartBtRxTask */
+	/* USER CODE END StartBtRxTask */
 }
 
 /* USER CODE BEGIN Header_StartXbeeTxTask */
@@ -1652,9 +1663,8 @@ void StartBtRxTask(void const * argument)
  * @retval None
  */
 /* USER CODE END Header_StartXbeeTxTask */
-void StartXbeeTxTask(void const * argument)
-{
-  /* USER CODE BEGIN StartXbeeTxTask */
+void StartXbeeTxTask(void const *argument) {
+	/* USER CODE BEGIN StartXbeeTxTask */
 
 	/* Activate XBEE Pro by driving the XBEE_RESET pin high */
 	HAL_GPIO_WritePin(XBEE_RESET_GPIO_Port, XBEE_RESET_Pin, GPIO_PIN_SET);
@@ -1752,7 +1762,7 @@ void StartXbeeTxTask(void const * argument)
 
 	}
 
-  /* USER CODE END StartXbeeTxTask */
+	/* USER CODE END StartXbeeTxTask */
 }
 
 /* USER CODE BEGIN Header_StartXbeeRxTask */
@@ -1762,37 +1772,48 @@ void StartXbeeTxTask(void const * argument)
  * @retval None
  */
 /* USER CODE END Header_StartXbeeRxTask */
-void StartXbeeRxTask(void const * argument)
-{
-  /* USER CODE BEGIN StartXbeeRxTask */
+void StartXbeeRxTask(void const *argument) {
+	/* USER CODE BEGIN StartXbeeRxTask */
 
 	/* Wait for SDIO gatekeeper to test if there is a valid subscription stored on the SD card */
 	xbeeRx_WaitSubscriptionFromSdioGtkp();
+
+	static uint8_t warningType; /* Type of the warning for the driver (R3TP_VER2_GREEN_WARNING or R3TP_VER2_RED_WARNING) */
+	static uint8_t warningTime; /* Time the warning is to be displayed to the driver */
 
 	/* Infinite loop */
 	for (;;) {
 
 		vTaskDelay(WCU_DEFAULT_TASK_DELAY);
 
-		static uint8_t uartRxBuff[R3TP_VER1_MAX_FRAME_SIZE]; /* UART Rx buffer */
-		/* Listen for the subscription frame VER octet */
-		(void) HAL_UART_Receive_DMA(&XBEE_UART_HANDLE, uartRxBuff, 1);
+		static uint8_t verByteBuff; /* Buffer for the R3TP protocol version octet */
+		/* Listen for the VER octet */
+		(void) HAL_UART_Receive_DMA(&XBEE_UART_HANDLE, &verByteBuff, 1);
 
-		/* Wait for notify from ISR/message received callback */
+		/* Wait for notification from ISR/message received callback */
 		if (0UL < ulTaskNotifyTake(pdTRUE,
 		WCU_XBEERX_ULTASKNOTIFYTAKE_TIMEOUT)) {
 
+			static uint8_t r3tpVer1Buff[R3TP_VER1_MAX_FRAME_SIZE]; /* UART Rx buffer for VER1 R3TP message */
+			static uint8_t r3tpVer2Buff[R3TP_VER2_FRAME_SIZE]; /* UART Rx buffer for VER2 R3TP message */
+
 			/* Identify the protocol version */
-			switch (uartRxBuff[0]) {
+			switch (verByteBuff) {
 			case R3TP_VER1_VER_RES_SEQ_BYTE: /* New subscription */
 
-				xbeeRx_UartReceiveSubscription(uartRxBuff);
+				/* Write the VER octet to the buffer to properly calculate the CRC */
+				r3tpVer1Buff[0] = verByteBuff;
+				/* Receive the rest of the message */
+				xbeeRx_UartReceiveSubscription(r3tpVer1Buff);
 				break;
 
 			case R3TP_VER2_VER_RES_SEQ_BYTE: /* Warning for the driver */
 
-				xbeeRx_UartReceiveDriverWarning(uartRxBuff);
-				break;
+				/* Write the VER octet to the buffer to properly calculate the CRC */
+				r3tpVer2Buff[0] = verByteBuff;
+				/* Receive the rest of the message */
+				xbeeRx_UartReceiveWarning(r3tpVer2Buff, &warningType,
+						&warningTime);
 
 			default:
 
@@ -1800,7 +1821,7 @@ void StartXbeeRxTask(void const * argument)
 				LOGERROR("Invalid VER/RES/SEQ in xbeeRx\r\n");
 				/* Assert the invalid message won't raise any more interrupts */
 				while (HAL_OK
-						== HAL_UART_Receive(&XBEE_UART_HANDLE, uartRxBuff, 1U,
+						== HAL_UART_Receive(&XBEE_UART_HANDLE, &verByteBuff, 1U,
 						WCU_XBEERX_UART_CLEANUP_TIMEOUT)) {
 
 					__NOP();
@@ -1814,7 +1835,7 @@ void StartXbeeRxTask(void const * argument)
 
 	}
 
-  /* USER CODE END StartXbeeRxTask */
+	/* USER CODE END StartXbeeRxTask */
 }
 
 /* USER CODE BEGIN Header_StartGnssRxTask */
@@ -1824,31 +1845,30 @@ void StartXbeeRxTask(void const * argument)
  * @retval None
  */
 /* USER CODE END Header_StartGnssRxTask */
-void StartGnssRxTask(void const * argument)
-{
-  /* USER CODE BEGIN StartGnssRxTask */
+void StartGnssRxTask(void const *argument) {
+	/* USER CODE BEGIN StartGnssRxTask */
 
 	/* Configure the device */
 	gnssRx_DeviceConfig();
 
-	static uint8_t uartRxBuff[WCU_GNSSRX_UARTRXBUFF_SIZE]; /* UART Rx buffer */
+	static uint8_t uartRxBuff[WCU_GNSSRX_UART_RX_BUFF_SIZE]; /* UART Rx buffer */
 	/* Listen for the message */
 	(void) HAL_UART_Receive_DMA(&GNSS_UART_HANDLE, uartRxBuff,
-	WCU_GNSSRX_UARTRXBUFF_SIZE);
+	WCU_GNSSRX_UART_RX_BUFF_SIZE);
 
 	/* Infinite loop */
 	for (;;) {
 
 		vTaskDelay(WCU_DEFAULT_TASK_DELAY);
 
-		/* Wait for notify from ISR/message received callback */
+		/* Wait for notification from ISR/message received callback */
 		if (0UL < ulTaskNotifyTake(pdTRUE,
 		WCU_GNSSRX_ULTASKNOTIFYTAKE_TIMEOUT)) {
 
 			static GnssDataTypedef dataBuff; /* GNSS data buffer */
 			/* Try parsing the message */
 			switch (parseMessage(&dataBuff, (char*) uartRxBuff,
-			WCU_GNSSRX_UARTRXBUFF_SIZE)) {
+			WCU_GNSSRX_UART_RX_BUFF_SIZE)) {
 
 			case GNSS_DATA_READY: /* If the data is ready */
 
@@ -1862,14 +1882,14 @@ void StartGnssRxTask(void const * argument)
 
 				/* Listen for the next message */
 				(void) HAL_UART_Receive_DMA(&GNSS_UART_HANDLE, uartRxBuff,
-				WCU_GNSSRX_UARTRXBUFF_SIZE);
+				WCU_GNSSRX_UART_RX_BUFF_SIZE);
 				break;
 
 			case GNSS_DATA_PENDING: /* If the data is not complete */
 
 				/* Listen for the next message */
 				(void) HAL_UART_Receive_DMA(&GNSS_UART_HANDLE, uartRxBuff,
-				WCU_GNSSRX_UARTRXBUFF_SIZE);
+				WCU_GNSSRX_UART_RX_BUFF_SIZE);
 				break;
 
 			case GNSS_DATA_ERROR: /* If the parser failed */
@@ -1878,7 +1898,7 @@ void StartGnssRxTask(void const * argument)
 				LOGERROR("parseMessage failed in gnssRx\r\n");
 				/* Listen for the next message */
 				(void) HAL_UART_Receive_DMA(&GNSS_UART_HANDLE, uartRxBuff,
-				WCU_GNSSRX_UARTRXBUFF_SIZE);
+				WCU_GNSSRX_UART_RX_BUFF_SIZE);
 				break;
 
 			}
@@ -1890,7 +1910,7 @@ void StartGnssRxTask(void const * argument)
 
 	}
 
-  /* USER CODE END StartGnssRxTask */
+	/* USER CODE END StartGnssRxTask */
 }
 
 /* USER CODE BEGIN Header_StartRfRxTask */
@@ -1900,30 +1920,64 @@ void StartGnssRxTask(void const * argument)
  * @retval None
  */
 /* USER CODE END Header_StartRfRxTask */
-void StartRfRxTask(void const * argument)
-{
-  /* USER CODE BEGIN StartRfRxTask */
-	uint8_t spiRxBuff[WCU_RFRX_SPIRXBUFF_SIZE]; /* SPI Rx buffer */
+void StartRfRxTask(void const *argument) {
+	/* USER CODE BEGIN StartRfRxTask */
+	uint8_t spiRxBuff[WCU_RFRX_SPI_RX_BUFF_SIZE]; /* SPI Rx buffer */
 
 	/* Configure the device */
 	rfRx_DeviceConfig();
 
-	/* Listen for the message */
-	(void) HAL_SPI_Receive_DMA(&RF_SPI_HANDLE, spiRxBuff,
-	WCU_RFRX_SPIRXBUFF_SIZE);
-
 	/* Infinite loop */
 	for (;;) {
 
+		/* Enable the chip for receive by driving TRX_CE high */
+		HAL_GPIO_WritePin(RF_TRX_CE_GPIO_Port, RF_TRX_CE_Pin, GPIO_PIN_SET);
+
 		vTaskDelay(WCU_DEFAULT_TASK_DELAY);
 
-		/* Wait for notify from ISR/message received callback */
-		if (0UL < ulTaskNotifyTake(pdTRUE,
-		WCU_RFRX_ULTASKNOTIFYTAKE_TIMEOUT)) {
+		/* Wait for notification that the DR pin was set high */
+		if (0UL < ulTaskNotifyTake(pdTRUE, WCU_RFRX_ULTASKNOTIFYTAKE_TIMEOUT)) {
 
-			/*
-			 * TODO: Decode the message
-			 */
+			/* Set the TRX_CE pin low to enter standby mode */
+			HAL_GPIO_WritePin(RF_TRX_CE_GPIO_Port, RF_TRX_CE_Pin,
+					GPIO_PIN_RESET);
+
+			/* Set the CSN pin low to start the SPI transmission */
+			HAL_GPIO_WritePin(RF_SPI1_CSN_GPIO_Port, RF_SPI1_CSN_Pin,
+					GPIO_PIN_RESET);
+
+			static const uint8_t R_TX_PAYLOAD = 0b00100100; /* nRF905 SPI instruction to read the payload */
+			/* Request the payload */
+			(void) HAL_SPI_Transmit(&RF_SPI_HANDLE, (uint8_t*) &R_TX_PAYLOAD, 1,
+			WCU_RFRX_SPI_TX_TIMEOUT);
+
+			/* Set the CSN pin high to end the SPI transmission */
+			HAL_GPIO_WritePin(RF_SPI1_CSN_GPIO_Port, RF_SPI1_CSN_Pin,
+					GPIO_PIN_SET);
+
+			/* Keep clocking out the message until the DR pin is set low again */
+			for (uint32_t i = 0;
+					GPIO_PIN_SET == HAL_GPIO_ReadPin(RF_DR_GPIO_Port, RF_DR_Pin);
+					i += 1UL) {
+
+				(void) HAL_SPI_Receive(&RF_SPI_HANDLE, spiRxBuff + i, 1,
+				WCU_RFRX_SPI_RX_TIMEOUT);
+
+				/* On buffer overflow */
+				if (WCU_RFRX_SPI_RX_BUFF_SIZE <= i) {
+
+					/* Log the error */
+					LOGERROR("spiRxBuff overflow in rfRx\r\n");
+					/* Reset the device */
+					HAL_GPIO_WritePin(RF_PWR_UP_GPIO_Port, RF_PWR_UP_Pin,
+							GPIO_PIN_RESET);
+					HAL_GPIO_WritePin(RF_PWR_UP_GPIO_Port, RF_PWR_UP_Pin,
+							GPIO_PIN_SET);
+					continue;
+
+				}
+
+			}
 
 		}
 
@@ -1931,7 +1985,8 @@ void StartRfRxTask(void const * argument)
 		WATCHDOG_CHECKIN(WCU_IWDGGTKP_NV_RFRX);
 
 	}
-  /* USER CODE END StartRfRxTask */
+
+	/* USER CODE END StartRfRxTask */
 }
 
 /* USER CODE BEGIN Header_StartCanGtkpTask */
@@ -1941,9 +1996,8 @@ void StartRfRxTask(void const * argument)
  * @retval None
  */
 /* USER CODE END Header_StartCanGtkpTask */
-void StartCanGtkpTask(void const * argument)
-{
-  /* USER CODE BEGIN StartCanGtkpTask */
+void StartCanGtkpTask(void const *argument) {
+	/* USER CODE BEGIN StartCanGtkpTask */
 
 	/* Infinite loop */
 	for (;;) {
@@ -1999,7 +2053,7 @@ void StartCanGtkpTask(void const * argument)
 
 	}
 
-  /* USER CODE END StartCanGtkpTask */
+	/* USER CODE END StartCanGtkpTask */
 }
 
 /* USER CODE BEGIN Header_StartSdioGtkpTask */
@@ -2009,9 +2063,8 @@ void StartCanGtkpTask(void const * argument)
  * @retval None
  */
 /* USER CODE END Header_StartSdioGtkpTask */
-void StartSdioGtkpTask(void const * argument)
-{
-  /* USER CODE BEGIN StartSdioGtkpTask */
+void StartSdioGtkpTask(void const *argument) {
+	/* USER CODE BEGIN StartSdioGtkpTask */
 
 	static FATFS fatFs; /* File system object structure */
 
@@ -2025,7 +2078,6 @@ void StartSdioGtkpTask(void const * argument)
 
 	static uint32_t notificationValue; /* Buffer for the notification value */
 	static FIL subscriptionFile; /* Telemetry subscription file object structure */
-
 	/* Try loading the telemetry subscription from the SD card */
 	notificationValue = sdioGtkp_LoadTelemetrySubscription(&subscriptionFile,
 	WCU_SDIOGTKP_SUBFILE_PATH);
@@ -2079,9 +2131,8 @@ void StartSdioGtkpTask(void const * argument)
 			}
 
 			/* Try opening the file */
-			if (FR_OK
-					!= f_open(&subscriptionFile, WCU_SDIOGTKP_SUBFILE_PATH,
-							FA_WRITE | FA_CREATE_ALWAYS)) {
+			if (FR_OK != f_open(&subscriptionFile, WCU_SDIOGTKP_SUBFILE_PATH,
+			FA_WRITE | FA_CREATE_ALWAYS)) {
 
 				/* Log the error and continue */
 				LOGERROR("sdioGtkp failed to open the subscription file\r\n");
@@ -2130,19 +2181,18 @@ void StartSdioGtkpTask(void const * argument)
 
 	}
 
-  /* USER CODE END StartSdioGtkpTask */
+	/* USER CODE END StartSdioGtkpTask */
 }
 
-/* USER CODE BEGIN Header_StartDiagTask */
+/* USER CODE BEGIN Header_StartDiagnosticTask */
 /**
- * @brief Function implementing the diag thread.
+ * @brief Function implementing the diagnostic thread.
  * @param argument: Not used
  * @retval None
  */
-/* USER CODE END Header_StartDiagTask */
-void StartDiagTask(void const * argument)
-{
-  /* USER CODE BEGIN StartDiagTask */
+/* USER CODE END Header_StartDiagnosticTask */
+void StartDiagnosticTask(void const *argument) {
+	/* USER CODE BEGIN StartDiagnosticTask */
 
 	static CanFrameTypedef canFrame = { .DataDirection = TX }; /* CAN frame structure */
 
@@ -2150,13 +2200,13 @@ void StartDiagTask(void const * argument)
 	canFrame.Header.Tx.DLC = 4;
 	canFrame.Header.Tx.IDE = CAN_ID_STD;
 	canFrame.Header.Tx.RTR = CAN_RTR_DATA;
-	canFrame.Header.Tx.StdId = WCU_CANID_WCU_DIAG;
+	canFrame.Header.Tx.StdId = WCU_CAN_ID_WCU_DIAG;
 	canFrame.Header.Tx.TransmitGlobalTime = DISABLE;
 
 	/* Infinite loop */
 	for (;;) {
 
-		vTaskDelay(WCU_DIAG_TASK_DELAY);
+		vTaskDelay(WCU_DIAGNOSTIC_TASK_DELAY);
 
 		static uint16_t temperatureSensorAdcBuff; /* Buffer for the result of the temperature sensor ADC conversion */
 		/* Start the ADC */
@@ -2164,7 +2214,7 @@ void StartDiagTask(void const * argument)
 				1);
 
 		if (0UL < ulTaskNotifyTake(pdTRUE,
-		WCU_DIAG_ULTASKNOTIFYTAKE_TIMEOUT)) {
+		WCU_DIAGNOSTIC_ULTASKNOTIFYTAKE_TIMEOUT)) {
 
 			typedef float float32_t; /* 32-bit floating-point type typedef */
 
@@ -2196,45 +2246,44 @@ void StartDiagTask(void const * argument)
 			canFrame.Payload[3] = LSB(mcuUptime);
 
 			/* Push CAN frame to queue */
-			ADDTOCANTXQUEUE(&canFrame, "diag failed to send to canTxQueue\r\n");
+			ADDTOCANTXQUEUE(&canFrame,
+					"diagnostic failed to send to canTxQueue\r\n");
 
 		}
 	}
 
-  /* USER CODE END StartDiagTask */
+	/* USER CODE END StartDiagnosticTask */
 }
 
 /**
-  * @brief  Period elapsed callback in non blocking mode
-  * @note   This function is called  when TIM6 interrupt took place, inside
-  * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
-  * a global variable "uwTick" used as application time base.
-  * @param  htim : TIM handle
-  * @retval None
-  */
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
-{
-  /* USER CODE BEGIN Callback 0 */
+ * @brief  Period elapsed callback in non blocking mode
+ * @note   This function is called  when TIM6 interrupt took place, inside
+ * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
+ * a global variable "uwTick" used as application time base.
+ * @param  htim : TIM handle
+ * @retval None
+ */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
+	/* USER CODE BEGIN Callback 0 */
 
-  /* USER CODE END Callback 0 */
-  if (htim->Instance == TIM6) {
-    HAL_IncTick();
-  }
-  /* USER CODE BEGIN Callback 1 */
+	/* USER CODE END Callback 0 */
+	if (htim->Instance == TIM6) {
+		HAL_IncTick();
+	}
+	/* USER CODE BEGIN Callback 1 */
 
-  /* USER CODE END Callback 1 */
+	/* USER CODE END Callback 1 */
 }
 
 /**
-  * @brief  This function is executed in case of error occurrence.
-  * @retval None
-  */
-void Error_Handler(void)
-{
-  /* USER CODE BEGIN Error_Handler_Debug */
+ * @brief  This function is executed in case of error occurrence.
+ * @retval None
+ */
+void Error_Handler(void) {
+	/* USER CODE BEGIN Error_Handler_Debug */
 	/* User can add his own implementation to report the HAL error return state */
 
-  /* USER CODE END Error_Handler_Debug */
+	/* USER CODE END Error_Handler_Debug */
 }
 
 #ifdef  USE_FULL_ASSERT

@@ -1,7 +1,7 @@
 /**
  * @author Adrian Cinal
  * @file quectel_l26_gnss_parser.h
- * @brief Header file containing functions and typedefs for parsing a Quectel L26 NMEA message
+ * @brief Header file containing function prototypes and defines for parsing a Quectel L26 NMEA message
  */
 
 #ifndef __QUECTEL_L26_GNSS_PARSER_H_
