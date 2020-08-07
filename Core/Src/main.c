@@ -28,6 +28,7 @@
 #include <rt12e_libs_generic.h>
 #include <rt12e_libs_can.h>
 #include <quectel_l26_gnss_parser.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
@@ -92,7 +93,7 @@
 	/* Push the frame to the queue */ \
 	if (pdTRUE != xQueueSend(canTxQueueHandle, pCanFrame, WCU_CANTXQUEUE_XQUEUESEND_TIMEOUT)) { \
 		\
-		/* Log error */ \
+		/* Log the error */ \
 		LOGERROR(errMsg); \
 		\
 	} \
@@ -179,7 +180,15 @@ void StartDiagTask(void const *argument);
  * @brief Waits for SDIO gatekeeper to test if there is a valid subscription stored on the SD card
  * @retval None
  */
-void xbeeRx_WaitSubscriptionFromSD(void);
+void xbeeRx_WaitSubscriptionFromSdioGtkp(void);
+
+/**
+ * @brief Forwards the telemetry subscription to the SDIO gatekeeper to be stored on the SD card
+ * @param ids Pointer to the subscription memory block
+ * @param count Length of the ids array
+ * @retval BaseType_t pdPASS if the subscription was successfully forwarded to the gatekeeper, errQUEUE_FULL otherwise
+ */
+BaseType_t xbeeRx_SendSubscriptionToSdioGtkp(uint32_t *ids, size_t count);
 
 /**
  * @brief Configures the Quectel L26 device
@@ -294,7 +303,7 @@ int main(void) {
 
 	/* Create the queue(s) */
 	/* definition and creation of canTxQueue */
-	osMessageQDef(canTxQueue, 16, CanFrameTypedef);
+	osMessageQDef(canTxQueue, 32, CanFrameTypedef);
 	canTxQueueHandle = osMessageCreate(osMessageQ(canTxQueue), NULL);
 
 	/* definition and creation of canRxQueue */
@@ -339,7 +348,7 @@ int main(void) {
 	rfRxHandle = osThreadCreate(osThread(rfRx), NULL);
 
 	/* definition and creation of canGtkp */
-	osThreadDef(canGtkp, StartCanGtkpTask, osPriorityNormal, 0, 128);
+	osThreadDef(canGtkp, StartCanGtkpTask, osPriorityHigh, 0, 128);
 	canGtkpHandle = osThreadCreate(osThread(canGtkp), NULL);
 
 	/* definition and creation of sdioGtkp */
@@ -905,7 +914,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
  * @brief Waits for SDIO gatekeeper to test if there is a valid subscription stored on the SD card
  * @retval None
  */
-void xbeeRx_WaitSubscriptionFromSD(void) {
+void xbeeRx_WaitSubscriptionFromSdioGtkp(void) {
 
 	uint32_t frameNum; /* Number of frames in a subscription */
 	uint32_t subscription[R3TP_VER1_MAX_FRAME_NUM]; /* Buffer for telemetry subscription CAN IDs */
@@ -931,7 +940,7 @@ void xbeeRx_WaitSubscriptionFromSD(void) {
 						!= xQueueReceive(sdioSubQueueHandle, subscription + i,
 						WCU_SDIOSUBQUEUE_XQUEUERECEIVE_TIMEOUT)) {
 
-					/* Log error and break */
+					/* Log the error and break */
 					LOGERROR("xbeeRx failed to receive from sdioSubQueue\r\n");
 					readStatus = SUBSCRIPTIONREAD_ERROR;
 					break;
@@ -950,7 +959,7 @@ void xbeeRx_WaitSubscriptionFromSD(void) {
 
 		} else {
 
-			/* Log error */
+			/* Log the error */
 			switch (notificationValue) {
 
 			case WCU_XBEERX_NOTIFICATIONVALUE_FOPENFAILED:
@@ -985,6 +994,40 @@ void xbeeRx_WaitSubscriptionFromSD(void) {
 
 	}
 
+}
+
+/**
+ * @brief Forwards the telemetry subscription to the SDIO gatekeeper to be stored on the SD card
+ * @param ids Pointer to the subscription memory block
+ * @param count Length of the ids array
+ * @retval BaseType_t pdPASS if the subscription was successfully forwarded to the gatekeeper, errQUEUE_FULL otherwise
+ */
+BaseType_t xbeeRx_SendSubscriptionToSdioGtkp(uint32_t *ids, size_t count) {
+
+	BaseType_t ret = pdPASS; /* Buffer for xQueueSend return value */
+
+	/* Write subscription to sdioSubscriptionQueue */
+	for (uint32_t i = 0; i < count; i += 1UL) {
+
+		ret = xQueueSend(sdioSubQueueHandle, ids + i, WCU_SDIOSUBQUEUE_XQUEUESEND_TIMEOUT);
+		/* Send the frame to the queue */
+		if (pdPASS != ret) {
+
+			/* Log the error */
+			LOGERROR("xbeeRx failed to send to sdioSubQueue\r\n");
+			/* Cleanup */
+			(void) xQueueReset(sdioSubQueueHandle);
+			return ret;
+
+		}
+
+	}
+
+	/* Notify sdioGatekeeper */
+	(void) xTaskNotify(sdioGtkpHandle, count,
+			eSetValueWithOverwrite);
+
+	return ret;
 }
 
 /**
@@ -1283,6 +1326,8 @@ void StartIwdgGtkpTask(void const *argument) {
 	/* Infinite loop */
 	for (;;) {
 
+		vTaskDelay(WCU_DEFAULT_TASK_DELAY);
+
 		/* Wait for notification */
 		if (pdTRUE
 				== xTaskNotifyWait(0x00000000UL, 0x00000000UL,
@@ -1306,8 +1351,6 @@ void StartIwdgGtkpTask(void const *argument) {
 			}
 
 		}
-
-		vTaskDelay(WCU_DEFAULT_TASK_DELAY);
 
 	}
 
@@ -1337,6 +1380,8 @@ void StartBtRxTask(void const *argument) {
 
 	/* Infinite loop */
 	for (;;) {
+
+		vTaskDelay(WCU_DEFAULT_TASK_DELAY);
 
 		/* Wait for notify from ISR/message received callback */
 		if (0UL < ulTaskNotifyTake(pdTRUE,
@@ -1438,8 +1483,6 @@ void StartBtRxTask(void const *argument) {
 		/* Report to watchdog */
 		WATCHDOG_CHECKIN(WCU_IWDGGTKP_NOTIFICATIONVALUE_BTRX);
 
-		vTaskDelay(WCU_DEFAULT_TASK_DELAY);
-
 	}
 
 	/* USER CODE END StartBtRxTask */
@@ -1461,6 +1504,8 @@ void StartXbeeTxTask(void const *argument) {
 	/* Infinite loop */
 	for (;;) {
 
+		vTaskDelay(WCU_DEFAULT_TASK_DELAY);
+
 		static CanFrameTypedef frameBuff; /* CAN frame buffer */
 		/* Listen on the canRxQueue for messages to send */
 		if (pdTRUE == xQueueReceive(canRxQueueHandle, &frameBuff,
@@ -1468,8 +1513,8 @@ void StartXbeeTxTask(void const *argument) {
 			/* Assert valid data direction */
 			if (RX != frameBuff.DataDirection) {
 
-				/* Log error */
-				LOGERROR("Invalid DataDirection in xbeeSend\r\n");
+				/* Log the error */
+				LOGERROR("Invalid DataDirection in xbeeTx\r\n");
 				continue;
 
 			}
@@ -1522,13 +1567,13 @@ void StartXbeeTxTask(void const *argument) {
 
 			} else {
 
-				/* Log error */
+				/* Log the error */
 				LOGERROR("crcMutex timeout in xbeeTx\r\n");
 				continue;
 
 			}
 
-			/* Transmit frame */
+			/* Transmit the frame */
 			(void) HAL_UART_Transmit_DMA(&XBEE_UART_HANDLE, uartTxBuff,
 			R3TP_VER0_FRAME_SIZE);
 
@@ -1536,7 +1581,7 @@ void StartXbeeTxTask(void const *argument) {
 			if (0UL < ulTaskNotifyTake(pdTRUE,
 			WCU_XBEETX_ULTASKNOTIFYTAKE_TIMEOUT)) {
 
-				/* Log error */
+				/* Log the error */
 				LOGERROR(
 						"xbeeTx failed to receive notification from TxCpltCallback\r\n");
 
@@ -1546,8 +1591,6 @@ void StartXbeeTxTask(void const *argument) {
 
 		/* Report to watchdog */
 		WATCHDOG_CHECKIN(WCU_IWDGGTKP_NOTIFICATIONVALUE_XBEETX);
-
-		vTaskDelay(WCU_DEFAULT_TASK_DELAY);
 
 	}
 
@@ -1565,7 +1608,7 @@ void StartXbeeRxTask(void const *argument) {
 	/* USER CODE BEGIN StartXbeeRxTask */
 
 	/* Wait for SDIO gatekeeper to test if there is a valid subscription stored on the SD card */
-	xbeeRx_WaitSubscriptionFromSD();
+	xbeeRx_WaitSubscriptionFromSdioGtkp();
 
 	/* Infinite loop */
 	for (;;) {
@@ -1602,7 +1645,7 @@ void StartXbeeRxTask(void const *argument) {
 					!= HAL_UART_Receive(&XBEE_UART_HANDLE, uartRxBuff + 1U, 7,
 					WCU_XBEERX_UART_TIMEOUT)) {
 
-				/* Log error */
+				/* Log the error */
 				LOGERROR(
 						"Failed to receive SEQ NUM, CHECKSUM and FRAME NUM in xbeeRx\r\n");
 				continue;
@@ -1617,7 +1660,7 @@ void StartXbeeRxTask(void const *argument) {
 			/* Assert the payload won't overflow the buffer */
 			if (frameNum > R3TP_VER1_MAX_FRAME_NUM) {
 
-				/* Log error */
+				/* Log the error */
 				LOGERROR("Invalid FRAME NUM in xbeeRx\r\n");
 				/* Assert the invalid message won't raise any more interrupts */
 				while (HAL_OK
@@ -1637,7 +1680,7 @@ void StartXbeeRxTask(void const *argument) {
 							R3TP_VER1_PAYLOAD_BEGIN(uartRxBuff), frameNum * 4U,
 							WCU_XBEERX_UART_TIMEOUT)) {
 
-				/* Log error */
+				/* Log the error */
 				LOGERROR("Failed to receive the payload in xbeeRx\r\n");
 				continue;
 
@@ -1649,7 +1692,7 @@ void StartXbeeRxTask(void const *argument) {
 							R3TP_VER1_EPILOGUE_BEGIN(uartRxBuff, frameNum), 4U,
 							WCU_XBEERX_UART_TIMEOUT)) {
 
-				/* Log error */
+				/* Log the error */
 				LOGERROR("Failed to receive END SEQ in xbeeRx\r\n");
 				continue;
 
@@ -1662,7 +1705,7 @@ void StartXbeeRxTask(void const *argument) {
 							!= uartRxBuff[R3TP_VER1_MESSAGE_LENGTH(frameNum)
 									- 1U])) {
 
-				/* Log error */
+				/* Log the error */
 				LOGERROR("Invalid END SEQ in xbeeRx\r\n");
 				/* Assert the invalid message won't raise any more interrupts */
 				while (HAL_OK
@@ -1693,7 +1736,7 @@ void StartXbeeRxTask(void const *argument) {
 
 			} else {
 
-				/* Log error */
+				/* Log the error */
 				LOGERROR("crcMutex timeout in xbeeRx\r\n");
 				continue;
 
@@ -1702,7 +1745,7 @@ void StartXbeeRxTask(void const *argument) {
 			/* Validate the CRC */
 			if (readCrc != calculatedCrc) {
 
-				/* Log error */
+				/* Log the error */
 				LOGERROR("Invalid CRC in xbeeRx\r\n");
 				/* Assert the invalid message won't raise any more interrupts */
 				while (HAL_OK
@@ -1729,36 +1772,8 @@ void StartXbeeRxTask(void const *argument) {
 
 			}
 
-			/* Write subscription to sdioSubscriptionQueue */
-			enum {
-				SUBSCRIPTIONWRITE_OK = 0U, SUBSCRIPTIONWRITE_ERROR
-			} writeStatus = SUBSCRIPTIONWRITE_OK; /* Status flag */
-			for (uint32_t i = 0; i < frameNum; i += 1UL) {
-
-				/* Send the frame to the queue */
-				if (pdTRUE
-						!= xQueueSend(sdioSubQueueHandle, subscription + i,
-								WCU_SDIOSUBQUEUE_XQUEUESEND_TIMEOUT)) {
-
-					/* Log error */
-					LOGERROR("xbeeRx failed to send to sdioSubQueue\r\n");
-					/* Cleanup */
-					(void) xQueueReset(sdioSubQueueHandle);
-					writeStatus = SUBSCRIPTIONWRITE_ERROR;
-					break;
-
-				}
-
-			}
-
-			/* If no error occured while pushing the subscription to sdioSubscriptionQueue */
-			if (SUBSCRIPTIONWRITE_OK == writeStatus) {
-
-				/* Notify sdioGatekeeper */
-				(void) xTaskNotify(sdioGtkpHandle, frameNum,
-						eSetValueWithOverwrite);
-
-			}
+			/* Forward the subscription to the sdioGtkp */
+			(void) xbeeRx_SendSubscriptionToSdioGtkp(subscription, frameNum);
 
 			/* Set the CAN filters */
 			setCanFilterList(&hcan1, subscription, frameNum);
@@ -1790,6 +1805,8 @@ void StartGnssRxTask(void const *argument) {
 
 	/* Infinite loop */
 	for (;;) {
+
+		vTaskDelay(WCU_DEFAULT_TASK_DELAY);
 
 		/* Wait for notify from ISR/message received callback */
 		if (0UL < ulTaskNotifyTake(pdTRUE,
@@ -1824,11 +1841,12 @@ void StartGnssRxTask(void const *argument) {
 
 			case GNSS_DATA_ERROR: /* If the parser failed */
 
-				/* Log error */
+				/* Log the error */
 				LOGERROR("parseMessage failed in gnssRx\r\n");
 				/* Listen for the next message */
 				(void) HAL_UART_Receive_DMA(&GNSS_UART_HANDLE, uartRxBuff,
 				WCU_GNSSRX_UARTRXBUFF_SIZE);
+				break;
 
 			}
 
@@ -1836,8 +1854,6 @@ void StartGnssRxTask(void const *argument) {
 
 		/* Report to watchdog */
 		WATCHDOG_CHECKIN(WCU_IWDGGTKP_NOTIFICATIONVALUE_GNSSRX);
-
-		vTaskDelay(WCU_DEFAULT_TASK_DELAY);
 
 	}
 
@@ -1865,6 +1881,8 @@ void StartRfRxTask(void const *argument) {
 	/* Infinite loop */
 	for (;;) {
 
+		vTaskDelay(WCU_DEFAULT_TASK_DELAY);
+
 		/* Wait for notify from ISR/message received callback */
 		if (0UL < ulTaskNotifyTake(pdTRUE,
 		WCU_RFRX_ULTASKNOTIFYTAKE_TIMEOUT)) {
@@ -1877,8 +1895,6 @@ void StartRfRxTask(void const *argument) {
 
 		/* Report to watchdog */
 		WATCHDOG_CHECKIN(WCU_IWDGGTKP_NOTIFICATIONVALUE_RFRX);
-
-		vTaskDelay(WCU_DEFAULT_TASK_DELAY);
 
 	}
 	/* USER CODE END StartRfRxTask */
@@ -1897,6 +1913,8 @@ void StartCanGtkpTask(void const *argument) {
 	/* Infinite loop */
 	for (;;) {
 
+		vTaskDelay(WCU_DEFAULT_TASK_DELAY);
+
 		static CanFrameTypedef frameBuff; /* CAN frame buffer */
 
 		/* Check for outgoing messages */
@@ -1914,7 +1932,7 @@ void StartCanGtkpTask(void const *argument) {
 
 			} else {
 
-				/* Log error */
+				/* Log the error */
 				LOGERROR("Invalid DataDirection in canGtkp\r\n");
 
 			}
@@ -1934,7 +1952,7 @@ void StartCanGtkpTask(void const *argument) {
 					!= xQueueSend(canRxQueueHandle, &frameBuff,
 							WCU_CANRXQUEUE_XQUEUESEND_TIMEOUT)) {
 
-				/* Log error */
+				/* Log the error */
 				LOGERROR("canGtkp failed to send to canRxQueue\r\n");
 
 			}
@@ -1943,8 +1961,6 @@ void StartCanGtkpTask(void const *argument) {
 
 		/* Report to watchdog */
 		WATCHDOG_CHECKIN(WCU_IWDGGTKP_NOTIFICATIONVALUE_CANGTKP);
-
-		vTaskDelay(WCU_DEFAULT_TASK_DELAY);
 
 	}
 
@@ -1976,16 +1992,18 @@ void StartSdioGtkpTask(void const *argument) {
 
 	/* Try loading the telemetry subscription from the SD card */
 	notificationValue = sdioGtkp_LoadTelemetrySubscription(&subscriptionFile,
-			WCU_SDIOGTKP_SUBFILE_PATH);
+	WCU_SDIOGTKP_SUBFILE_PATH);
 	/* Notify xbeeRx of the result */
 	(void) xTaskNotify(xbeeRxHandle, notificationValue, eSetValueWithOverwrite);
 
 	/* Infinite loop */
 	for (;;) {
 
+		vTaskDelay(WCU_DEFAULT_TASK_DELAY);
+
 		static char *errorLogBuff; /* Buffer for the pointer to the error message */
 
-		/* Listen on incoming error messages */
+		/* Listen for incoming error messages */
 		if (pdTRUE == xQueueReceive(sdioLogQueueHandle, &errorLogBuff,
 		WCU_SDIOLOGQUEUE_XQUEUERECEIVE_TIMEOUT)) {
 
@@ -2009,77 +2027,71 @@ void StartSdioGtkpTask(void const *argument) {
 
 		}
 
-		/* Listen on notification from xbeeSubscribe */
+		/* Listen for notifications from xbeeSubscribe */
 		if (pdTRUE
 				== xTaskNotifyWait(0x00000000UL, 0xFFFFFFFFUL,
 						&notificationValue,
 						WCU_SDIOGTKP_XTASKNOTIFYWAIT_TIMEOUT)) {
 
-			if (notificationValue <= 28UL) {
+			/* Validate the notification */
+			if(28UL < notificationValue) {
 
-				/* Try opening the file */
-				if (FR_OK == f_open(&subscriptionFile,
-				WCU_SDIOGTKP_SUBFILE_PATH,
-				FA_WRITE | FA_CREATE_ALWAYS)) {
-
-					/* If notificationValue is less than or equal to 28, it is to be interpreted as the number of frames waiting in the queue */
-					uint32_t frameBuff; /* Buffer for a subscription frame */
-					uint8_t temp[4]; /* Temporary buffer to facilitate transmitting a 32-bit little endian value */
-					UINT bytesWritten; /* Buffer for the number of bytes written */
-
-					/* Print the number of frames to the SD card */
-					temp[0] = LSB(notificationValue);
-					temp[1] = LOWMID32(notificationValue);
-					temp[2] = HIGHMID32(notificationValue);
-					temp[3] = MSB32(notificationValue);
-					(void) f_write(&subscriptionFile, temp, 4U, &bytesWritten);
-
-					/* Print the subscription to the file */
-					for (uint32_t i = 0; i < notificationValue; i += 1UL) {
-
-						if (pdTRUE
-								!= xQueueReceive(sdioSubQueueHandle, &frameBuff,
-								WCU_SDIOSUBQUEUE_XQUEUERECEIVE_TIMEOUT)) {
-
-							/* Log error */
-							LOGERROR(
-									"sdioGtkp failed to receive from sdioSubQueue\r\n");
-							break;
-
-						}
-
-						/* Print the frame to the SD card */
-						temp[0] = LSB(frameBuff);
-						temp[1] = LOWMID32(frameBuff);
-						temp[2] = HIGHMID32(frameBuff);
-						temp[3] = MSB32(frameBuff);
-						(void) f_write(&subscriptionFile, temp, 4U,
-								&bytesWritten);
-
-					}
-
-					/* Close the file */
-					(void) f_close(&subscriptionFile);
-
-				} else {
-
-					/* If failed to open the file */
-					/* Log error */
-					LOGERROR(
-							"sdioGatekeeper failed to open the subscription file\r\n");
-
-				}
-
-			} else {
-
-				/* Log error */
+				/* Log the error and continue */
 				LOGERROR("Invalid notification value in sdioGtkp\r\n");
+				continue;
 
 			}
 
-		}
+			/* Try opening the file */
+			if(FR_OK != f_open(&subscriptionFile, WCU_SDIOGTKP_SUBFILE_PATH, FA_WRITE | FA_CREATE_ALWAYS)) {
 
-		vTaskDelay(WCU_DEFAULT_TASK_DELAY);
+				/* Log the error and continue */
+				LOGERROR(
+						"sdioGtkp failed to open the subscription file\r\n");
+				continue;
+
+			}
+
+			uint32_t frameBuff; /* Buffer for a subscription frame */
+			uint8_t temp[4]; /* Temporary buffer to facilitate transmitting a 32-bit little endian value */
+			UINT bytesWritten; /* Buffer for the number of bytes written */
+
+			/* If notificationValue is less than or equal to 28, it is to be interpreted as the number of frames waiting in the queue */
+			/* Print the number of frames to the SD card */
+			temp[0] = LSB(notificationValue);
+			temp[1] = LOWMID32(notificationValue);
+			temp[2] = HIGHMID32(notificationValue);
+			temp[3] = MSB32(notificationValue);
+			(void) f_write(&subscriptionFile, temp, 4U, &bytesWritten);
+
+			/* Print the subscription to the file */
+			for (uint32_t i = 0; i < notificationValue; i += 1UL) {
+
+				if (pdTRUE
+						!= xQueueReceive(sdioSubQueueHandle, &frameBuff,
+						WCU_SDIOSUBQUEUE_XQUEUERECEIVE_TIMEOUT)) {
+
+					/* Log the error and break */
+					LOGERROR(
+							"sdioGtkp failed to receive from sdioSubQueue\r\n");
+					break;
+
+				}
+
+				/* Print the frame to the SD card */
+				temp[0] = LSB(frameBuff);
+				temp[1] = LOWMID32(frameBuff);
+				temp[2] = HIGHMID32(frameBuff);
+				temp[3] = MSB32(frameBuff);
+				(void) f_write(&subscriptionFile, temp, 4U,
+						&bytesWritten);
+
+			}
+
+			/* Close the file */
+			(void) f_close(&subscriptionFile);
+
+		}
 
 	}
 
@@ -2107,6 +2119,8 @@ void StartDiagTask(void const *argument) {
 
 	/* Infinite loop */
 	for (;;) {
+
+		vTaskDelay(WCU_DIAG_TASK_DELAY);
 
 		static uint16_t temperatureSensorAdcBuff; /* Buffer for the result of the temperature sensor ADC conversion */
 		/* Start the ADC */
@@ -2147,8 +2161,6 @@ void StartDiagTask(void const *argument) {
 
 			/* Push CAN frame to queue */
 			ADDTOCANTXQUEUE(&canFrame, "diag failed to send to canTxQueue\r\n");
-
-			vTaskDelay(WCU_DIAG_TASK_DELAY);
 
 		}
 	}
