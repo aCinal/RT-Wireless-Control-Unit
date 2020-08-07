@@ -8,9 +8,9 @@
 #define __RT12E_LIBS_R3TP_H_
 
 /* Exported defines ------------------------------------------------------------*/
-#define R3TP_VER0_VER_RES_SEQ_BYTE	(0x00U)								/* VER 0 protocol version byte */
-#define R3TP_VER1_VER_RES_SEQ_BYTE	(0x1U << 5)							/* VER 1 protocol version byte */
-#define R3TP_VER2_VER_RES_SEQ_BYTE	(0x2U << 5)							/* VER 2 protocol version byte */
+#define R3TP_VER0_VER_BYTE			(0x00U)								/* VER 0 protocol version byte */
+#define R3TP_VER1_VER_BYTE			(0x1U << 5)							/* VER 1 protocol version byte */
+#define R3TP_VER2_VER_BYTE			(0x2U << 5)							/* VER 2 protocol version byte */
 
 #define R3TP_VER0_FRAME_SIZE		20U									/* R3TP version 0 frame size in bytes */
 #define R3TP_VER2_FRAME_SIZE		8U									/* R3TP version 2 frame size in bytes */

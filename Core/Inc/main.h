@@ -163,6 +163,8 @@ void Error_Handler(void);
 #define WCU_DEFAULT_TASK_DELAY						1U						/* Default task delay */
 #define WCU_DEFAULT_TIMEOUT							portMAX_DELAY			/* Default timeout */
 #define WCU_DIAGNOSTIC_TASK_DELAY					pdMS_TO_TICKS(1000)		/* diagnostic task delay */
+#define WCU_XBEEDIAG_TASK_DELAY						pdMS_TO_TICKS(1000)		/* xbeeDiag task delay */
+
 #define WCU_IWDGGTKP_XTASKNOTIFYWAIT_TIMEOUT		WCU_DEFAULT_TIMEOUT		/* iwdgGtkp xTaskNotifyWait timeout */
 #define WCU_CANTXQUEUE_XQUEUESEND_TIMEOUT			WCU_DEFAULT_TIMEOUT		/* canTxQueue xQueueSend timeout */
 #define WCU_CANTXQUEUE_XQUEUERECEIVE_TIMEOUT		0U						/* canTxQueue xQueueReceive timeout */
@@ -172,35 +174,40 @@ void Error_Handler(void);
 #define WCU_SDIOLOGQUEUE_XQUEUERECEIVE_TIMEOUT		0U						/* sdioLogQueue xQueueReceive timeout */
 #define WCU_SDIOSUBQUEUE_XQUEUESEND_TIMEOUT			WCU_DEFAULT_TIMEOUT		/* sdioSubQueue xQueueSend timeout */
 #define WCU_SDIOSUBQUEUE_XQUEUERECEIVE_TIMEOUT		WCU_DEFAULT_TIMEOUT		/* sdioSubQueue xQueueReceive timeout */
+
 #define WCU_CRCMUTEX_TIMEOUT						WCU_DEFAULT_TIMEOUT		/* crcMutex acquire timeout */
+
 #define WCU_BTRX_ULTASKNOTIFYTAKE_TIMEOUT			0U						/* btRx ulTaskNotifyTake timeout */
 #define WCU_XBEETX_ULTASKNOTIFYTAKE_TIMEOUT			WCU_DEFAULT_TIMEOUT		/* xbeeTx ulTaskNotifyTake timeout */
-#define WCU_XBEERX_UART_TIMEOUT						500U					/* xbeeRx UART Rx timeout */
-#define WCU_XBEERX_UART_CLEANUP_TIMEOUT				10U						/* xbeeRx UART Rx cleanup timeout */
 #define WCU_XBEERX_ULTASKNOTIFYTAKE_TIMEOUT			WCU_DEFAULT_TIMEOUT		/* xbeeRx ulTaskNotifyTake timeout */
 #define WCU_XBEERX_XTASKNOTIFYWAIT_TIMEOUT			pdMS_TO_TICKS(1000)		/* xbeeRx xTaskNotifyWait timeout */
 #define WCU_SDIOGTKP_XTASKNOTIFYWAIT_TIMEOUT		0U						/* sdioGtkp xTaskNotifyWait timeout */
 #define WCU_GNSSRX_ULTASKNOTIFYTAKE_TIMEOUT			WCU_DEFAULT_TIMEOUT		/* gnssRx ulTaskNotifyTake timeout */
 #define WCU_GNSSRX_DEVICECONFIG_UART_TIMEOUT		WCU_DEFAULT_TIMEOUT		/* gnssRx_DeviceConfig UART Tx timeout */
-#define WCU_GNSSRX_DEVICECONFIG_SETUP_DELAY			1000U					/* gnssRx_DeviceConfig device setup delay */
 #define WCU_RFRX_ULTASKNOTIFYTAKE_TIMEOUT			WCU_DEFAULT_TIMEOUT		/* rfRx ulTaskNotifyTake timeout */
+#define WCU_DIAGNOSTIC_ULTASKNOTIFYTAKE_TIMEOUT		WCU_DEFAULT_TIMEOUT		/* diagnostic ulTaskNotifyTake timeout */
+#define WCU_XBEEDIAG_XTASKNOTIFYWAIT_TIMEOUT		0U						/* xbeeDiag xTaskNotifyWait timeout */
+
+#define WCU_XBEERX_UART_TIMEOUT						500U					/* xbeeRx UART Rx timeout */
+#define WCU_XBEERX_UART_CLEANUP_TIMEOUT				10U						/* xbeeRx UART Rx cleanup timeout */
 #define WCU_RFRX_SPI_TX_TIMEOUT						50U						/* rfRx SPI Tx timeout */
 #define WCU_RFRX_SPI_RX_TIMEOUT						1000U					/* rfRx SPI Rx timeout */
+
 #define WCU_IWDGGTKP_INIT_DELAY						1000U					/* iwdgGtkp IWDG init delay */
-#define WCU_DIAGNOSTIC_ULTASKNOTIFYTAKE_TIMEOUT		WCU_DEFAULT_TIMEOUT		/* diagnostic ulTaskNotifyTake timeout */
+#define WCU_GNSSRX_DEVICECONFIG_SETUP_DELAY			1000U					/* gnssRx_DeviceConfig device setup delay */
 
 #define WCU_LOGGER_TIMESTAMP_SIZE					11U						/* Length of the error log timestamp */
 #define WCU_GNSSRX_UART_RX_BUFF_SIZE				100U					/* Size in bytes of the gnssRx UART Rx buffer */
 #define WCU_RFRX_SPI_RX_BUFF_SIZE					32U						/* Size in bytes of the rfRx SPI Rx buffer */
 
-#define WCU_SDIOGTKP_LOGFILE_PATH					"ERRLOG.TXT"				/* Error log file path */
-#define WCU_SDIOGTKP_SUBFILE_PATH					"SUBSCR"					/* Subscription file path */
+#define WCU_SDIOGTKP_LOGFILE_PATH					"ERRLOG.TXT"			/* Error log file path */
+#define WCU_SDIOGTKP_SUBFILE_PATH					"SUBSCR"				/* Subscription file path */
 
-#define WCU_CAN_ID_GPS_POS							0x500UL						/* CAN ID: _500_GPS_POS */
-#define WCU_CAN_ID_GPS_POS2							0x501UL						/* CAN ID: _501_GPS_POS2 */
-#define WCU_CAN_ID_GPS_STATUS						0x502UL						/* CAN ID: _502_GPS_STATUS */
-#define WCU_CAN_ID_WCU_DIAG							0x733UL						/* CAN ID: _733_WCU_DIAG */
-#define WCU_CAN_ID_TELEMETRY_DIAG					0x712UL						/* CAN ID: _712_TELEMETRY_DIAG */
+#define WCU_CAN_ID_GPS_POS							0x500UL					/* CAN ID: _500_GPS_POS */
+#define WCU_CAN_ID_GPS_POS2							0x501UL					/* CAN ID: _501_GPS_POS2 */
+#define WCU_CAN_ID_GPS_STATUS						0x502UL					/* CAN ID: _502_GPS_STATUS */
+#define WCU_CAN_ID_WCU_DIAG							0x733UL					/* CAN ID: _733_WCU_DIAG */
+#define WCU_CAN_ID_TELEMETRY_DIAG					0x712UL					/* CAN ID: _712_TELEMETRY_DIAG */
 
 /* USER CODE END Private defines */
 

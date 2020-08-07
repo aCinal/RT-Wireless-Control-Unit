@@ -140,6 +140,7 @@ osThreadId rfRxHandle;
 osThreadId canGtkpHandle;
 osThreadId sdioGtkpHandle;
 osThreadId diagnosticHandle;
+osThreadId xbeeDiagHandle;
 osMessageQId canTxQueueHandle;
 osMessageQId canRxQueueHandle;
 osMessageQId sdioLogQueueHandle;
@@ -172,6 +173,7 @@ void StartRfRxTask(void const *argument);
 void StartCanGtkpTask(void const *argument);
 void StartSdioGtkpTask(void const *argument);
 void StartDiagnosticTask(void const *argument);
+void StartXbeeDiagTask(void const *argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -374,6 +376,10 @@ int main(void) {
 	/* definition and creation of diagnostic */
 	osThreadDef(diagnostic, StartDiagnosticTask, osPriorityBelowNormal, 0, 128);
 	diagnosticHandle = osThreadCreate(osThread(diagnostic), NULL);
+
+	/* definition and creation of xbeeDiag */
+	osThreadDef(xbeeDiag, StartXbeeDiagTask, osPriorityNormal, 0, 128);
+	xbeeDiagHandle = osThreadCreate(osThread(xbeeDiag), NULL);
 
 	/* USER CODE BEGIN RTOS_THREADS */
 	/* add threads, ... */
@@ -1166,9 +1172,53 @@ void xbeeRx_UartReceiveSubscription(uint8_t buff[]) {
 void xbeeRx_UartReceiveWarning(uint8_t buff[], uint8_t *pWarningType,
 		uint8_t *pWarningTime) {
 
-	/**
-	 * TODO
-	 */
+	/* Set the warning time to zero in case of error */
+	*pWarningTime = 0;
+
+	/* Validate the END SEQ */
+	if ((R3TP_END_SEQ_LOW_BYTE != buff[R3TP_VER2_FRAME_SIZE - 2U])
+			|| (R3TP_END_SEQ_HIGH_BYTE != buff[R3TP_VER2_FRAME_SIZE - 1U])) {
+
+		/* Log the error and return */
+		LOGERROR("Invalid END SEQ in xbeeRx_UartReceiveWarning\r\n");
+		return;
+
+	}
+
+	/* Read the CRC */
+	uint16_t readCrc = READ16(buff[3], buff[2]);
+
+	/* Get the CRC mutex */
+	if (osOK != osMutexWait(crcMutexHandle, WCU_CRCMUTEX_TIMEOUT)) {
+
+		/* Log the error and return */
+		LOGERROR("crcMutex timeout in xbeeRx_UartReceiveWarning\r\n");
+		return;
+
+	}
+
+	/* Calculate the CRC */
+	uint16_t calculatedCrc =
+			TWOLOWBYTES(
+					HAL_CRC_Calculate(&hcrc, (uint32_t* )buff, R3TP_VER2_FRAME_SIZE / 4U));
+
+	/* Release the CRC mutex */
+	(void) osMutexRelease(crcMutexHandle);
+
+	/* Validate the CRC */
+	if (readCrc != calculatedCrc) {
+
+		/* Log the error and return */
+		LOGERROR("Invalid CRC in xbeeRx_UartReceiveWarning\r\n");
+		return;
+
+	}
+
+	/* Read the warning type */
+	*pWarningType = buff[4];
+	/* Read the warning time */
+	*pWarningTime = buff[5];
+	return;
 
 }
 
@@ -1550,8 +1600,8 @@ void StartBtRxTask(void const *argument) {
 		if (0UL < ulTaskNotifyTake(pdTRUE,
 		WCU_BTRX_ULTASKNOTIFYTAKE_TIMEOUT)) {
 
-			/* Validate the VER and RES/SEQ field */
-			if (R3TP_VER0_VER_RES_SEQ_BYTE != uartRxBuff[0]) {
+			/* Validate the VER */
+			if (R3TP_VER0_VER_BYTE != uartRxBuff[0]) {
 
 				/* Log the error */
 				LOGERROR("Invalid VER/RES/SEQ in btRx\r\n");
@@ -1562,7 +1612,7 @@ void StartBtRxTask(void const *argument) {
 
 			}
 
-			/* Validate the END SEQ field */
+			/* Validate the END SEQ */
 			if ((R3TP_END_SEQ_LOW_BYTE != uartRxBuff[R3TP_VER0_FRAME_SIZE - 2U])
 					|| (R3TP_END_SEQ_HIGH_BYTE
 							!= uartRxBuff[R3TP_VER0_FRAME_SIZE - 1U])) {
@@ -1692,7 +1742,7 @@ void StartXbeeTxTask(void const *argument) {
 			(void) memset(uartTxBuff, 0x00U, R3TP_VER0_FRAME_SIZE);
 
 			/* Set VER and RES/SEQ field */
-			uartTxBuff[0] = R3TP_VER0_VER_RES_SEQ_BYTE;
+			uartTxBuff[0] = R3TP_VER0_VER_BYTE;
 
 			static uint8_t seqNum = 0U; /* Sequence number */
 			/* Set the SEQ NUM field */
@@ -1799,7 +1849,7 @@ void StartXbeeRxTask(void const *argument) {
 
 			/* Identify the protocol version */
 			switch (verByteBuff) {
-			case R3TP_VER1_VER_RES_SEQ_BYTE: /* New subscription */
+			case R3TP_VER1_VER_BYTE: /* New subscription */
 
 				/* Write the VER octet to the buffer to properly calculate the CRC */
 				r3tpVer1Buff[0] = verByteBuff;
@@ -1807,7 +1857,7 @@ void StartXbeeRxTask(void const *argument) {
 				xbeeRx_UartReceiveSubscription(r3tpVer1Buff);
 				break;
 
-			case R3TP_VER2_VER_RES_SEQ_BYTE: /* Warning for the driver */
+			case R3TP_VER2_VER_BYTE: /* Warning for the driver */
 
 				/* Write the VER octet to the buffer to properly calculate the CRC */
 				r3tpVer2Buff[0] = verByteBuff;
@@ -2253,6 +2303,70 @@ void StartDiagnosticTask(void const *argument) {
 	}
 
 	/* USER CODE END StartDiagnosticTask */
+}
+
+/* USER CODE BEGIN Header_StartXbeeDiagTask */
+/**
+ * @brief Function implementing the xbeeDiag thread.
+ * @param argument: Not used
+ * @retval None
+ */
+/* USER CODE END Header_StartXbeeDiagTask */
+void StartXbeeDiagTask(void const *argument) {
+	/* USER CODE BEGIN StartXbeeDiagTask */
+
+	static CanFrameTypedef canFrame = { .DataDirection = TX }; /* CAN frame structure */
+
+	/* Configure the CAN Tx header */
+	canFrame.Header.Tx.DLC = 2;
+	canFrame.Header.Tx.IDE = CAN_ID_STD;
+	canFrame.Header.Tx.RTR = CAN_RTR_DATA;
+	canFrame.Header.Tx.StdId = WCU_CAN_ID_TELEMETRY_DIAG;
+	canFrame.Header.Tx.TransmitGlobalTime = DISABLE;
+
+	/* Infinite loop */
+	for (;;) {
+
+		vTaskDelay(WCU_XBEEDIAG_TASK_DELAY);
+
+		static uint8_t rssi; /* Buffer for the Received Signal Strength Indication value */
+		/*
+		 * TODO: Read Xbee RSSI
+		 */
+
+		/* Write the RSSI value to the CAN frame payload */
+		canFrame.Payload[0] = rssi;
+
+		static uint32_t notificationValue; /* Buffer to pass the notification value out of the xTaskNotifyWait function */
+		/* Wait for notification */
+		if(pdTRUE == xTaskNotifyWait(0x00000000UL, 0xFFFFFFFF, &notificationValue, WCU_XBEEDIAG_XTASKNOTIFYWAIT_TIMEOUT)) {
+			/* The LSB of the notification value is to be interpreted as the warning type */
+			switch(LSB(notificationValue)) {
+			case R3TP_GREEN_WARNING:
+
+				/* Set the Telemetry_Pit flag */
+				SET_BIT(canFrame.Payload[1], 5);
+				break;
+
+			case R3TP_RED_WARNING:
+
+				/* Set the Telemetry_Warn flag */
+				SET_BIT(canFrame.Payload[1], 6);
+				break;
+
+			default:
+
+				/* Log the error */
+				LOGERROR("Invalid notificationValue in xbeeDiag\r\n");
+				break;
+
+			}
+
+		}
+
+		ADDTOCANTXQUEUE(&canFrame, "xbeeDiag failed to send to canTxQueue\r\n");
+	}
+	/* USER CODE END StartXbeeDiagTask */
 }
 
 /**
