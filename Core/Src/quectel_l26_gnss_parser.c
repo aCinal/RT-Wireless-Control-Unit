@@ -68,8 +68,8 @@ GnssDataStatusTypedef parseMessage(GnssDataTypedef *pDataBuff,
 
 		}
 
-		/* If the length exceeds the minimum sentence length */
-		if (NMEA_SENTENCE_MINIMUM_LENGTH <= SentenceLength) {
+		/* If the length exceeds the minimum sentence length necessary to validate the format */
+		if (5U <= SentenceLength) {
 
 			/* Test if end sequence has been found */
 			if (('\r' == SentenceBuffer[SentenceLength - 2UL])

@@ -14,7 +14,6 @@
 /* Exported defines ------------------------------------------------------------*/
 #define NMEA_PARSER_SENTENCE_BUFFER_SIZE	512				/* Message parser sentence buffer size */
 #define NMEA_PARSER_DATAFIELD_BUFFER_SIZE	11				/* Sentence parser data field buffer size */
-#define NMEA_SENTENCE_MINIMUM_LENGTH		11U				/* Minimum length of an NMEA sentence */
 
 #define NMEA_RMC_RECEIVED					0x01U			/* --RMC NMEA sentence received flag */
 #define NMEA_VTG_RECEIVED					0x02U			/* GPVTG NMEA sentence received flag */
