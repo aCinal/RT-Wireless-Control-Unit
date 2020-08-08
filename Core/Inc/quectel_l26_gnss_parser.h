@@ -12,17 +12,17 @@
 #include <stdbool.h>
 
 /* Exported defines ------------------------------------------------------------*/
-#define NMEA_PARSER_SENTENCE_BUFFER_SIZE	512			/* Message parser sentence buffer size */
-#define NMEA_PARSER_DATAFIELD_BUFFER_SIZE	11			/* Sentence parser data field buffer size */
+#define NMEA_PARSER_SENTENCE_BUFFER_SIZE	(512U)		/* Message parser sentence buffer size */
+#define NMEA_PARSER_DATAFIELD_BUFFER_SIZE	(11U)		/* Sentence parser data field buffer size */
 
-#define NMEA_RMC_RECEIVED					0x01U		/* --RMC NMEA sentence received flag */
-#define NMEA_VTG_RECEIVED					0x02U		/* GPVTG NMEA sentence received flag */
-#define NMEA_GGA_RECEIVED					0x04U		/* GPGGA NMEA sentence received flag */
-#define NMEA_GSA_RECEIVED					0x08U		/* --GSA NMEA sentence received flag */
-#define NMEA_GPGSV_RECEIVED					0x10U		/* GPGSV NMEA sentence received flag */
-#define NMEA_GLGSV_RECEIVED					0x20U		/* GLGSV NMEA sentence received flag */
-#define NMEA_GLL_RECEIVED					0x40U		/* --GLL NMEA sentence received flag */
-#define NMEA_TXT_RECEIVED					0x80U		/* GPTXT NMEA sentence received flag */
+#define NMEA_RMC_RECEIVED					(0x01U)		/* --RMC NMEA sentence received flag */
+#define NMEA_VTG_RECEIVED					(0x02U)		/* GPVTG NMEA sentence received flag */
+#define NMEA_GGA_RECEIVED					(0x04U)		/* GPGGA NMEA sentence received flag */
+#define NMEA_GSA_RECEIVED					(0x08U)		/* --GSA NMEA sentence received flag */
+#define NMEA_GPGSV_RECEIVED					(0x10U)		/* GPGSV NMEA sentence received flag */
+#define NMEA_GLGSV_RECEIVED					(0x20U)		/* GLGSV NMEA sentence received flag */
+#define NMEA_GLL_RECEIVED					(0x40U)		/* --GLL NMEA sentence received flag */
+#define NMEA_TXT_RECEIVED					(0x80U)		/* GPTXT NMEA sentence received flag */
 
 /* Exported macros ------------------------------------------------------------*/
 /**

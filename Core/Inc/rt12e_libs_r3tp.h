@@ -8,21 +8,21 @@
 #define __RT12E_LIBS_R3TP_H_
 
 /* Exported defines ------------------------------------------------------------*/
-#define R3TP_VER0_VER_BYTE			(0x00U)								/* VER 0 protocol version byte */
-#define R3TP_VER1_VER_BYTE			(0x1U << 5)							/* VER 1 protocol version byte */
-#define R3TP_VER2_VER_BYTE			(0x2U << 5)							/* VER 2 protocol version byte */
+#define R3TP_VER0_VER_BYTE			(0x00U)									/* VER 0 protocol version byte */
+#define R3TP_VER1_VER_BYTE			(0x01U)									/* VER 1 protocol version byte */
+#define R3TP_VER2_VER_BYTE			(0x02U)									/* VER 2 protocol version byte */
 
-#define R3TP_VER0_FRAME_SIZE		20U									/* R3TP version 0 frame size in bytes */
-#define R3TP_VER2_FRAME_SIZE		8U									/* R3TP version 2 frame size in bytes */
+#define R3TP_VER0_FRAME_SIZE		(20U)									/* R3TP version 0 frame size in bytes */
+#define R3TP_VER2_FRAME_SIZE		(8U)									/* R3TP version 2 frame size in bytes */
 
-#define R3TP_VER1_MAX_FRAME_NUM		28U									/* Maximum number of frames in a subscription */
-#define R3TP_VER1_MAX_FRAME_SIZE	12U + 4U * R3TP_VER1_MAX_FRAME_NUM	/* R3TP version 1 max frame size in bytes */
+#define R3TP_VER1_MAX_FRAME_NUM		(28U)									/* Maximum number of frames in a subscription */
+#define R3TP_VER1_MAX_FRAME_SIZE	(12U + 4U * R3TP_VER1_MAX_FRAME_NUM)	/* R3TP version 1 max frame size in bytes */
 
-#define R3TP_END_SEQ_LOW_BYTE		0xDEU								/* R3TP end sequence low byte */
-#define R3TP_END_SEQ_HIGH_BYTE		0xEDU								/* R3TP end sequence high byte */
+#define R3TP_END_SEQ_LOW_BYTE		(0xDEU)									/* R3TP end sequence low byte */
+#define R3TP_END_SEQ_HIGH_BYTE		(0xEDU)									/* R3TP end sequence high byte */
 
-#define R3TP_GREEN_WARNING			0x00U								/* R3TP VER 2 green warning */
-#define R3TP_RED_WARNING			0x01U								/* R3TP VER 2 red warning */
+#define R3TP_GREEN_WARNING			(0x00U)									/* R3TP VER 2 green warning */
+#define R3TP_RED_WARNING			(0x01U)									/* R3TP VER 2 red warning */
 
 /* Exported macros ------------------------------------------------------------*/
 /**
