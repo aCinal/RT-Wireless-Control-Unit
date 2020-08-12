@@ -25,12 +25,14 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
-#include "rt12e_libs_generic.h"
-#include "rt12e_libs_can.h"
-#include "quectel_l26_gnss_parser.h"
+#include "wcu_basic.h"
+#include "wcu_sdiogtkp_calls.h"
+#include "wcu_xbeetx_calls.h"
+#include "wcu_xbeerx_calls.h"
+#include "wcu_gnssrx_calls.h"
+#include "wcu_rfrx_calls.h"
+
 #include <stddef.h>
-#include <stdio.h>
-#include <string.h>
 #include <math.h>
 
 /* USER CODE END Includes */
@@ -43,67 +45,20 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 
-/* Intuitive names for peripheral instances */
-#define BT_UART_INSTANCE		USART1
-#define GNSS_UART_INSTANCE		USART3
-#define XBEE_UART_INSTANCE		UART4
-#define RF_SPI_INSTANCE			SPI1
-#define TEMPSENSOR_ADC_INSTANCE	ADC1
-
-/* Intuitive names for peripheral handles */
-#define BT_UART_HANDLE			huart1
-#define GNSS_UART_HANDLE		huart3
-#define XBEE_UART_HANDLE		huart4
-#define RF_SPI_HANDLE			hspi1
-
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
 
 /**
- * @brief Logs an error message to the SD card
- */
-#define LOGERROR(message) do { \
-	\
-	/* Allocate the memory for the error message */ \
-	char* errMsg = pvPortMalloc(WCU_LOGGER_TIMESTAMP_SIZE + strlen(message) + 1U); \
-	/* Assert successful memory allocation */ \
-	if(errMsg != NULL) { \
-		\
-		/* Write the timestamp to the memory block */ \
-		(void) sprintf(errMsg, "%010lu ", HAL_GetTick()); \
-		/* Write the message to the memory block */ \
-		(void) sprintf(errMsg + WCU_LOGGER_TIMESTAMP_SIZE, message); \
-		/* Push the pointer to the message to the logErrorQueue */ \
-		if(pdPASS != xQueueSend(sdioLogQueueHandle, &errMsg, WCU_SDIOLOGQUEUE_XQUEUESEND_TIMEOUT)) { \
-			/* Cleanup on failure to push to queue */ \
-			vPortFree(errMsg);\
-		} \
-		\
-	} \
-	\
-} while(0)
-
-/**
- * @brief Pushes a CAN frame to the canTxQueue
- */
-#define ADDTOCANTXQUEUE(pCanFrame, errMsg) do { \
-	\
-	/* Push the frame to the queue */ \
-	if (pdPASS != xQueueSend(canTxQueueHandle, pCanFrame, WCU_CANTXQUEUE_XQUEUESEND_TIMEOUT)) { \
-		\
-		/* Log the error */ \
-		LOGERROR(errMsg); \
-		\
-	} \
-	\
-} while(0)
-
-/**
  * @brief Checks in with the watchdog thread
  */
 #define WATCHDOG_CHECKIN(notificationValue) ((void)xTaskNotify((TaskHandle_t)iwdgGtkpHandle, notificationValue, eSetBits))
+
+/**
+ * @brief Clears the notification value bits based on the provided mask
+ */
+#define CLEARNVBITS(nvMask) ((void) xTaskNotifyWait(nvMask, 0, NULL, 0))
 
 /* USER CODE END PM */
 
@@ -122,6 +77,10 @@ DMA_HandleTypeDef hdma_sdio_rx;
 DMA_HandleTypeDef hdma_sdio_tx;
 
 SPI_HandleTypeDef hspi1;
+DMA_HandleTypeDef hdma_spi1_rx;
+
+TIM_HandleTypeDef htim7;
+DMA_HandleTypeDef hdma_tim7_up;
 
 UART_HandleTypeDef huart4;
 UART_HandleTypeDef huart1;
@@ -143,8 +102,8 @@ osThreadId rfRxHandle;
 osThreadId diagnosticHandle;
 osMessageQId canTxQueueHandle;
 osMessageQId canRxQueueHandle;
-osMessageQId sdioLogQueueHandle;
 osMessageQId sdioSubQueueHandle;
+osMessageQId sdioLogQueueHandle;
 osMutexId crcMutexHandle;
 /* USER CODE BEGIN PV */
 
@@ -164,6 +123,7 @@ static void MX_USART1_UART_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_USART3_UART_Init(void);
 static void MX_ADC1_Init(void);
+static void MX_TIM7_Init(void);
 void StartCanGtkpTask(void const * argument);
 void StartSdioGtkpTask(void const * argument);
 void StartIwdgGtkpTask(void const * argument);
@@ -176,75 +136,6 @@ void StartRfRxTask(void const * argument);
 void StartDiagnosticTask(void const * argument);
 
 /* USER CODE BEGIN PFP */
-
-/**
- * @brief Waits for SDIO gatekeeper to test if there is a valid subscription stored on the SD card
- * @retval None
- */
-void xbeeRx_WaitSubscriptionFromSdioGtkp(void);
-
-/**
- * @brief Receives and handles the telemetry subscription via UART
- * @param buff UART Rx buffer of size R3TP_VER1_MAX_FRAME_SIZE
- * @retval None
- */
-void xbeeRx_UartReceiveSubscription(uint8_t buff[]);
-
-/**
- * @brief Receives the warning for the driver via UART
- * @param buff UART Rx buffer of size R3TP_VER2_FRAME_SIZE
- * @retval None
- */
-void xbeeRx_UartReceiveWarning(uint8_t buff[]);
-
-/**
- * @brief Forwards the telemetry subscription to the SDIO gatekeeper to be stored on the SD card
- * @param ids Pointer to the subscription memory block
- * @param count Length of the ids array
- * @retval BaseType_t pdPASS if the subscription was successfully forwarded to the gatekeeper, errQUEUE_FULL otherwise
- */
-BaseType_t xbeeRx_SendSubscriptionToSdioGtkp(uint32_t ids[], size_t count);
-
-/**
- * @brief Configures the Quectel L26 device
- * @retval None
- */
-void gnssRx_DeviceConfig(void);
-
-/**
- * @brief Sends _GPS_POS CAN frame
- * @param pData Pointer to the GNSS data structure
- * @retval None
- */
-void gnssRx_Send_GPS_POS(GnssDataTypedef *pData);
-
-/**
- * @brief Sends _GPS_POS CAN frame
- * @param pData Pointer to the GNSS data structure
- * @retval None
- */
-void gnssRx_Send_GPS_POS2(GnssDataTypedef *pData);
-
-/**
- * @brief Sends _GPS_POS CAN frame
- * @param pData Pointer to the GNSS data structure
- * @retval None
- */
-void gnssRx_Send_GPS_STATUS(GnssDataTypedef *pData);
-
-/**
- * @brief Configures the nRF905 device
- * @retval None
- */
-void rfRx_DeviceConfig(void);
-
-/**
- * @brief Tries loading the telemetry subscription from the SD card
- * @param fp Pointer to the blank file object
- * @param path Pointer to the file name
- * @retval uint32_t Number of frames loaded from SD card or error code if over 28UL
- */
-uint32_t sdioGtkp_LoadTelemetrySubscription(FIL *fp, const TCHAR *path);
 
 /* USER CODE END PFP */
 
@@ -293,10 +184,8 @@ int main(void)
   MX_USART3_UART_Init();
   MX_FATFS_Init();
   MX_ADC1_Init();
+  MX_TIM7_Init();
   /* USER CODE BEGIN 2 */
-
-	/* Start the CAN module */
-	HAL_CAN_Start(&hcan1);
 
   /* USER CODE END 2 */
 
@@ -326,13 +215,13 @@ int main(void)
   osMessageQDef(canRxQueue, 16, CanFrameTypedef);
   canRxQueueHandle = osMessageCreate(osMessageQ(canRxQueue), NULL);
 
-  /* definition and creation of sdioLogQueue */
-  osMessageQDef(sdioLogQueue, 16, const char*);
-  sdioLogQueueHandle = osMessageCreate(osMessageQ(sdioLogQueue), NULL);
-
   /* definition and creation of sdioSubQueue */
   osMessageQDef(sdioSubQueue, 32, uint32_t);
   sdioSubQueueHandle = osMessageCreate(osMessageQ(sdioSubQueue), NULL);
+
+  /* definition and creation of sdioLogQueue */
+  osMessageQDef(sdioLogQueue, 16, const char*);
+  sdioLogQueueHandle = osMessageCreate(osMessageQ(sdioLogQueue), NULL);
 
   /* USER CODE BEGIN RTOS_QUEUES */
 	/* add queues, ... */
@@ -650,6 +539,44 @@ static void MX_SPI1_Init(void)
 }
 
 /**
+  * @brief TIM7 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM7_Init(void)
+{
+
+  /* USER CODE BEGIN TIM7_Init 0 */
+
+  /* USER CODE END TIM7_Init 0 */
+
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM7_Init 1 */
+
+  /* USER CODE END TIM7_Init 1 */
+  htim7.Instance = TIM7;
+  htim7.Init.Prescaler = 0;
+  htim7.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim7.Init.Period = 65535;
+  htim7.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim7) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim7, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM7_Init 2 */
+
+  /* USER CODE END TIM7_Init 2 */
+
+}
+
+/**
   * @brief UART4 Initialization Function
   * @param None
   * @retval None
@@ -665,7 +592,7 @@ static void MX_UART4_Init(void)
 
   /* USER CODE END UART4_Init 1 */
   huart4.Instance = UART4;
-  huart4.Init.BaudRate = 19200;
+  huart4.Init.BaudRate = 9600;
   huart4.Init.WordLength = UART_WORDLENGTH_8B;
   huart4.Init.StopBits = UART_STOPBITS_1;
   huart4.Init.Parity = UART_PARITY_NONE;
@@ -798,6 +725,12 @@ static void MX_DMA_Init(void)
   /* DMA1_Stream2_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Stream2_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA1_Stream2_IRQn);
+  /* DMA1_Stream4_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Stream4_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Stream4_IRQn);
+  /* DMA2_Stream0_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA2_Stream0_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA2_Stream0_IRQn);
   /* DMA2_Stream2_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA2_Stream2_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA2_Stream2_IRQn);
@@ -829,27 +762,17 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOD_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(XBEE_RESET_GPIO_Port, XBEE_RESET_Pin, GPIO_PIN_SET);
-
-  /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(RF_SPI1_CSN_GPIO_Port, RF_SPI1_CSN_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, RF_PWR_UP_Pin|RF_TRX_CE_Pin|RF_TX_EN_Pin|GNSS_FORCE_ON_Pin
                           |GNSS_RESET_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pins : XBEE_RSSI_Pin RF_AM_Pin */
-  GPIO_InitStruct.Pin = XBEE_RSSI_Pin|RF_AM_Pin;
+  /*Configure GPIO pins : XBEE_RSSI_Pin XBEE_RESET_Pin RF_DR_Pin RF_AM_Pin */
+  GPIO_InitStruct.Pin = XBEE_RSSI_Pin|XBEE_RESET_Pin|RF_DR_Pin|RF_AM_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : XBEE_RESET_Pin */
-  GPIO_InitStruct.Pin = XBEE_RESET_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(XBEE_RESET_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : RF_SPI1_CSN_Pin */
   GPIO_InitStruct.Pin = RF_SPI1_CSN_Pin;
@@ -857,12 +780,6 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(RF_SPI1_CSN_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : RF_DR_Pin */
-  GPIO_InitStruct.Pin = RF_DR_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(RF_DR_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : RF_CD_Pin RF_uPCLK_Pin GNSS_1PPS_Pin */
   GPIO_InitStruct.Pin = RF_CD_Pin|RF_uPCLK_Pin|GNSS_1PPS_Pin;
@@ -879,23 +796,19 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-  /* EXTI interrupt init*/
-  HAL_NVIC_SetPriority(EXTI4_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(EXTI4_IRQn);
-
 }
 
 /* USER CODE BEGIN 4 */
 
-/* ----------------------------------------------- ISR CALLBACKS START  ----------------------------------------------- */
-
 /**
- * @brief  EXTI line detection callbacks.
- * @param  GPIO_Pin Specifies the pins connected EXTI line
+ * @brief  Rx Transfer completed callback.
+ * @param  hspi pointer to a SPI_HandleTypeDef structure that contains
+ *               the configuration information for SPI module.
  * @retval None
  */
-void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
-	if (RF_DR_Pin == GPIO_Pin) {
+void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi) {
+
+	if (RF_SPI_INSTANCE == hspi->Instance) {
 
 		/* Notify the rfRx task */
 		vTaskNotifyGiveFromISR(rfRxHandle, NULL);
@@ -932,7 +845,7 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart) {
 	if (XBEE_UART_INSTANCE == huart->Instance) {
 
 		/* Notify the xbeeTx task */
-		vTaskNotifyGiveFromISR(xbeeTxHandle, NULL);
+		(void) xTaskNotifyFromISR(xbeeTxHandle, WCU_NV_XBEETX_UART_TX_CPLT_CB, eSetBits, NULL);
 
 	}
 
@@ -963,594 +876,12 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 	case (uint32_t) XBEE_UART_INSTANCE:
 
 		/* Notify the xbeeRx task */
-		vTaskNotifyGiveFromISR(xbeeRxHandle, NULL);
+		(void) xTaskNotifyFromISR(xbeeRxHandle, WCU_NV_XBEERX_UART_RX_CPLT_CB, eSetBits, NULL);
 		break;
 
 	}
 
 }
-
-/* ----------------------------------------------- ISR CALLBACKS END  ----------------------------------------------- */
-
-
-
-
-
-
-
-/* ----------------------------------------------- TASK CALLS START  ----------------------------------------------- */
-
-/**
- * @brief Waits for SDIO gatekeeper to test if there is a valid subscription stored on the SD card
- * @retval None
- */
-void xbeeRx_WaitSubscriptionFromSdioGtkp(void) {
-
-	uint32_t frameNum; /* Number of frames in a subscription */
-	uint32_t subscription[R3TP_VER1_MAX_FRAME_NUM]; /* Buffer for telemetry subscription CAN IDs */
-	uint32_t notificationValue; /* Buffer to pass the notification value out of the xTaskNotifyWait function */
-
-	/* Wait for sdioGtkp to notify the task if there is a valid subscription stored on the SD card */
-	if (pdTRUE
-			== xTaskNotifyWait(0x00000000UL, 0xFFFFFFFFUL, &notificationValue,
-			WCU_XBEERX_XTASKNOTIFYWAIT_TIMEOUT)) {
-
-		if (notificationValue <= 28UL) {
-
-			/* If notificationValue is less than or equal to 28, it is to be interpreted as the number of frames waiting in the queue */
-			frameNum = notificationValue;
-
-			for (uint32_t i = 0; i < frameNum; i += 1UL) {
-
-				if (pdPASS
-						!= xQueueReceive(sdioSubQueueHandle, subscription + i,
-						WCU_SDIOSUBQUEUE_XQUEUERECEIVE_TIMEOUT)) {
-
-					/* Log the error and return */
-					LOGERROR("xbeeRx failed to receive from sdioSubQueue\r\n");
-					return;
-
-				}
-
-			}
-
-			/* Set the CAN filters */
-			setCanFilterList(&hcan1, subscription, frameNum);
-
-		} else {
-
-			/* Log the error */
-			switch (notificationValue) {
-
-			case WCU_XBEERX_NV_FOPENFAILED:
-
-				LOGERROR("sdioGtkp failed to open the subscription file\r\n");
-				break;
-
-			case WCU_XBEERX_NV_FREADFAILED:
-
-				LOGERROR(
-						"sdioGtkp failed to read from the subscription file\r\n");
-				break;
-
-			case WCU_XBEERX_NV_INVALIDFRAMENUM:
-
-				LOGERROR("Invalid FRAME NUM in the subscription file\r\n");
-				break;
-
-			case WCU_XBEERX_NV_XQUEUESENDFAILED:
-
-				LOGERROR("sdioGtkp failed to send to sdioSubQueue\r\n");
-				break;
-
-			default:
-
-				LOGERROR(
-						"Invalid FRAME NUM in xbeeRx_WaitSubscriptionSdioGtkp\r\n");
-				break;
-
-			}
-
-		}
-
-	}
-
-}
-
-/**
- * @brief Receives and handles the telemetry subscription via UART
- * @param buff UART Rx buffer of size R3TP_VER1_MAX_FRAME_SIZE
- * @retval None
- */
-void xbeeRx_UartReceiveSubscription(uint8_t buff[]) {
-	/* Receive SEQ NUM, CHECKSUM and FRAME NUM */
-	if (HAL_OK != HAL_UART_Receive(&XBEE_UART_HANDLE, buff + 1U, 7,
-	WCU_XBEERX_UART_TIMEOUT)) {
-
-		/* Log the error */
-		LOGERROR(
-				"Failed to receive SEQ NUM, CHECKSUM and FRAME NUM in xbeeRx_UartReceiveSubscription\r\n");
-		return;
-
-	}
-
-	/* Read the FRAME NUM field */
-	uint32_t frameNum = READ32(buff[7], buff[6], buff[5], buff[4]);
-
-	/* Assert the payload won't overflow the buffer */
-	if (frameNum > R3TP_VER1_MAX_FRAME_NUM) {
-
-		/* Log the error */
-		LOGERROR("Invalid FRAME NUM in xbeeRx_UartReceiveSubscription\r\n");
-		/* Assert the invalid message won't raise any more interrupts */
-		while (HAL_OK == HAL_UART_Receive(&XBEE_UART_HANDLE, buff, 1U,
-		WCU_XBEERX_UART_CLEANUP_TIMEOUT)) {
-
-			__NOP();
-
-		}
-		return;
-
-	}
-
-	/* Receive the payload */
-	if (HAL_OK
-			!= HAL_UART_Receive(&XBEE_UART_HANDLE,
-					R3TP_VER1_PAYLOAD_BEGIN(buff), frameNum * 4U,
-					WCU_XBEERX_UART_TIMEOUT)) {
-
-		/* Log the error */
-		LOGERROR(
-				"Failed to receive the payload in xbeeRx_UartReceiveSubscription\r\n");
-		return;
-
-	}
-
-	/* Receive the frame align bytes (two) and END SEQ (also two bytes) */
-	if (HAL_OK
-			!= HAL_UART_Receive(&XBEE_UART_HANDLE,
-					R3TP_VER1_EPILOGUE_BEGIN(buff, frameNum), 4U,
-					WCU_XBEERX_UART_TIMEOUT)) {
-
-		/* Log the error */
-		LOGERROR(
-				"Failed to receive END SEQ in xbeeRx_UartReceiveSubscription\r\n");
-		return;
-
-	}
-
-	/* Validate the END SEQ field */
-	if ((R3TP_END_SEQ_LOW_BYTE != buff[R3TP_VER1_MESSAGE_LENGTH(frameNum) - 2U])
-			|| (R3TP_END_SEQ_HIGH_BYTE
-					!= buff[R3TP_VER1_MESSAGE_LENGTH(frameNum) - 1U])) {
-
-		/* Log the error */
-		LOGERROR("Invalid END SEQ in xbeeRx_UartReceiveSubscription\r\n");
-		/* Assert the invalid message won't raise any more interrupts */
-		while (HAL_OK == HAL_UART_Receive(&XBEE_UART_HANDLE, buff, 1U,
-		WCU_XBEERX_UART_CLEANUP_TIMEOUT)) {
-			__NOP();
-		}
-		return;
-
-	}
-
-	/* Read the CHECKSUM field - note that the CRC is transmitted as little endian */
-	uint16_t readCrc = READ16(buff[3], buff[2]);
-
-	/* Clear the CHECKSUM field */
-	buff[2] = 0x00U;
-	buff[3] = 0x00U;
-
-	/* Get the CRC mutex */
-	if (osOK != osMutexWait(crcMutexHandle, WCU_CRCMUTEX_TIMEOUT)) {
-
-		/* Log the error */
-		LOGERROR("crcMutex timeout in xbeeRx_UartReceiveSubscription\r\n");
-		return;
-
-	}
-
-	/* Calculate the CRC */
-	uint16_t calculatedCrc =
-			TWOLOWBYTES(
-					HAL_CRC_Calculate(&hcrc, (uint32_t*)buff, R3TP_VER1_MESSAGE_LENGTH(frameNum) / 4U));
-
-	/* Release the CRC mutex */
-	(void) osMutexRelease(crcMutexHandle);
-
-	/* Validate the CRC */
-	if (readCrc != calculatedCrc) {
-
-		/* Log the error */
-		LOGERROR("Invalid CRC in xbeeRx_UartReceiveSubscription\r\n");
-		/* Assert the invalid message won't raise any more interrupts */
-		while (HAL_OK == HAL_UART_Receive(&XBEE_UART_HANDLE, buff, 1,
-		WCU_XBEERX_UART_CLEANUP_TIMEOUT)) {
-
-			__NOP();
-
-		}
-		return;
-
-	}
-
-	uint32_t subscription[R3TP_VER1_MAX_FRAME_NUM]; /* Buffer for telemetry subscription CAN IDs */
-	/* Read the payload */
-	for (uint32_t i = 0; i < frameNum; i += 1UL) {
-
-		subscription[i] = READ32(
-				*(R3TP_VER1_PAYLOAD_BEGIN_OFFSET(buff, 3U + 4U * i)),
-				*(R3TP_VER1_PAYLOAD_BEGIN_OFFSET(buff, 2U + 4U * i)),
-				*(R3TP_VER1_PAYLOAD_BEGIN_OFFSET(buff, 1U + 4U * i)),
-				*(R3TP_VER1_PAYLOAD_BEGIN_OFFSET(buff, 4U * i)));
-
-	}
-
-	/* Forward the subscription to the sdioGtkp */
-	(void) xbeeRx_SendSubscriptionToSdioGtkp(subscription, frameNum);
-
-	/* Set the CAN filters */
-	setCanFilterList(&hcan1, subscription, frameNum);
-
-}
-
-/**
- * @brief Receives the warning for the driver via UART
- * @param buff UART Rx buffer of size R3TP_VER2_FRAME_SIZE
- * @retval None
- */
-void xbeeRx_UartReceiveWarning(uint8_t buff[]) {
-
-	/* Validate the END SEQ */
-	if ((R3TP_END_SEQ_LOW_BYTE != buff[R3TP_VER2_FRAME_SIZE - 2U])
-			|| (R3TP_END_SEQ_HIGH_BYTE != buff[R3TP_VER2_FRAME_SIZE - 1U])) {
-
-		/* Log the error and return */
-		LOGERROR("Invalid END SEQ in xbeeRx_UartReceiveWarning\r\n");
-		return;
-
-	}
-
-	/* Read the CRC */
-	uint16_t readCrc = READ16(buff[3], buff[2]);
-
-	/* Get the CRC mutex */
-	if (osOK != osMutexWait(crcMutexHandle, WCU_CRCMUTEX_TIMEOUT)) {
-
-		/* Log the error and return */
-		LOGERROR("crcMutex timeout in xbeeRx_UartReceiveWarning\r\n");
-		return;
-
-	}
-
-	/* Calculate the CRC */
-	uint16_t calculatedCrc =
-			TWOLOWBYTES(
-					HAL_CRC_Calculate(&hcrc, (uint32_t* )buff, R3TP_VER2_FRAME_SIZE / 4U));
-
-	/* Release the CRC mutex */
-	(void) osMutexRelease(crcMutexHandle);
-
-	/* Validate the CRC */
-	if (readCrc != calculatedCrc) {
-
-		/* Log the error and return */
-		LOGERROR("Invalid CRC in xbeeRx_UartReceiveWarning\r\n");
-		return;
-
-	}
-
-	/* Notify xbeeDiag */
-	(void) xTaskNotify(xbeeDiagHandle, READ32(0x00, 0x00, buff[5], buff[4]), eSetValueWithOverwrite);
-	return;
-
-}
-
-/**
- * @brief Forwards the telemetry subscription to the SDIO gatekeeper to be stored on the SD card
- * @param ids Pointer to the subscription memory block
- * @param count Length of the ids array
- * @retval BaseType_t pdPASS if the subscription was successfully forwarded to the gatekeeper, errQUEUE_FULL otherwise
- */
-BaseType_t xbeeRx_SendSubscriptionToSdioGtkp(uint32_t ids[], size_t count) {
-
-	BaseType_t ret = pdPASS; /* Buffer for xQueueSend return value */
-
-	/* Write subscription to sdioSubscriptionQueue */
-	for (uint32_t i = 0; i < count; i += 1UL) {
-
-		ret = xQueueSend(sdioSubQueueHandle, ids + i,
-				WCU_SDIOSUBQUEUE_XQUEUESEND_TIMEOUT);
-		/* Send the frame to the queue */
-		if (pdPASS != ret) {
-
-			/* Log the error */
-			LOGERROR("xbeeRx failed to send to sdioSubQueue\r\n");
-			/* Cleanup */
-			(void) xQueueReset(sdioSubQueueHandle);
-			return ret;
-
-		}
-
-	}
-
-	/* Notify sdioGatekeeper */
-	(void) xTaskNotify(sdioGtkpHandle, count, eSetValueWithOverwrite);
-
-	return ret;
-}
-
-/**
- * @brief Configures the Quectel L26 device
- * @retval None
- */
-void gnssRx_DeviceConfig(void) {
-
-	/* Wait for the device to turn on and set up */
-	vTaskDelay(WCU_GNSSRX_DEVICECONFIG_SETUP_DELAY);
-
-	/* Send packet 220 PMTK_SET_POS_FIX - set position fix interval to 100 ms */
-	const char PMTK_SET_POS_FIX[] = "$PMTK220,100*1F\r\n";
-	if (HAL_OK
-			!= HAL_UART_Transmit(&GNSS_UART_HANDLE, (uint8_t*) PMTK_SET_POS_FIX,
-					sizeof(PMTK_SET_POS_FIX),
-					WCU_GNSSRX_DEVICECONFIG_UART_TIMEOUT)) {
-
-		Error_Handler();
-
-	}
-
-	/* Send packet 353 PMTK_API_SET_GNSS_SEARCH_MODE - configure the receiver to start searching GPS and GLONASS satellites */
-	const char PMTK_API_SET_GNSS_SEARCH_MODE[] = "$PMTK353,1,1,0,0,0*2B\r\n";
-	if (HAL_OK
-			!= HAL_UART_Transmit(&GNSS_UART_HANDLE,
-					(uint8_t*) PMTK_API_SET_GNSS_SEARCH_MODE,
-					sizeof(PMTK_API_SET_GNSS_SEARCH_MODE),
-					WCU_GNSSRX_DEVICECONFIG_UART_TIMEOUT)) {
-
-		Error_Handler();
-
-	}
-
-}
-
-/**
- * @brief Sends _GPS_POS CAN frame
- * @param pData Pointer to the GNSS data structure
- * @retval None
- */
-void gnssRx_Send_GPS_POS(GnssDataTypedef *pData) {
-
-	CanFrameTypedef canFrame = { .DataDirection = TX }; /* CAN frame structure */
-
-	/* Configure the CAN Tx header */
-	canFrame.Header.Tx.DLC = 8;
-	canFrame.Header.Tx.IDE = CAN_ID_STD;
-	canFrame.Header.Tx.RTR = CAN_RTR_DATA;
-	canFrame.Header.Tx.StdId = WCU_CAN_ID_GPS_POS;
-	canFrame.Header.Tx.TransmitGlobalTime = DISABLE;
-
-	/* Write the longitude to the frame payload */
-	int32_t longitude = normalizeCoordinate(pData->Longitude, pData->LonDir);
-	canFrame.Payload[0] = MSB32(longitude);
-	canFrame.Payload[1] = HIGHMID32(longitude);
-	canFrame.Payload[2] = LOWMID32(longitude);
-	canFrame.Payload[3] = LSB(longitude);
-
-	/* Write the latitude to the frame payload */
-	int32_t latitude = normalizeCoordinate(pData->Latitude, pData->LatDir);
-	canFrame.Payload[4] = MSB32(latitude);
-	canFrame.Payload[5] = HIGHMID32(longitude);
-	canFrame.Payload[6] = LOWMID32(longitude);
-	canFrame.Payload[7] = LSB(longitude);
-
-	/* Transmit the frame */
-	ADDTOCANTXQUEUE(&canFrame,
-			"gnssRx_Send_GPS_POS failed to send to canTxQueue\r\n");
-
-}
-
-/**
- * @brief Sends _GPS_POS CAN frame
- * @param pData Pointer to the GNSS data structure
- * @retval None
- */
-void gnssRx_Send_GPS_POS2(GnssDataTypedef *pData) {
-
-	CanFrameTypedef canFrame = { .DataDirection = TX }; /* CAN frame structure */
-
-	/* Configure the CAN Tx header */
-	canFrame.Header.Tx.DLC = 6;
-	canFrame.Header.Tx.IDE = CAN_ID_STD;
-	canFrame.Header.Tx.RTR = CAN_RTR_DATA;
-	canFrame.Header.Tx.StdId = WCU_CAN_ID_GPS_POS2;
-	canFrame.Header.Tx.TransmitGlobalTime = DISABLE;
-
-	/* Write the speed to the frame payload */
-	uint16_t speed = normalizeSpeed(pData->Speed);
-	canFrame.Payload[0] = MSB16(speed);
-	canFrame.Payload[1] = LSB(speed);
-
-	/* Write the direction to the frame payload */
-	uint16_t direction = normalizeDirection(pData->COG);
-	canFrame.Payload[2] = MSB16(direction);
-	canFrame.Payload[3] = LSB(direction);
-
-	/* Write the altitude to the frame payload */
-	uint16_t altitude = normalizeAltitude(pData->Altitude);
-	canFrame.Payload[4] = MSB16(altitude);
-	canFrame.Payload[5] = LSB(altitude);
-
-	/* Transmit the frame */
-	ADDTOCANTXQUEUE(&canFrame,
-			"gnssRx_Send_GPS_POS2 failed to send to canTxQueue\r\n");
-
-}
-
-/**
- * @brief Sends _GPS_POS CAN frame
- * @param pData Pointer to the GNSS data structure
- * @retval None
- */
-void gnssRx_Send_GPS_STATUS(GnssDataTypedef *pData) {
-
-	CanFrameTypedef canFrame = { .DataDirection = TX }; /* CAN frame structure */
-
-	/* Configure the CAN Tx header */
-	canFrame.Header.Tx.DLC = 8;
-	canFrame.Header.Tx.IDE = CAN_ID_STD;
-	canFrame.Header.Tx.RTR = CAN_RTR_DATA;
-	canFrame.Header.Tx.StdId = WCU_CAN_ID_GPS_STATUS;
-	canFrame.Header.Tx.TransmitGlobalTime = DISABLE;
-
-	/* Write the satellites visible count to the frame payload */
-	canFrame.Payload[0] = pData->SatellitesInViewGLONASS
-			+ pData->SatellitesInViewGPS;
-	/* Clear two most significant bits */
-	canFrame.Payload[0] &= 0b00111111;
-	/* Use two most significant bits of the first byte to store fix status flags */
-	canFrame.Payload[0] |= (uint8_t) pData->FixStatus << 6U;
-
-	/* Write the satellites in use count to the frame payload */
-	canFrame.Payload[1] = pData->SatellitesInUse;
-
-	/* Write the time to the frame payload */
-	uint32_t time = normalizeTime(pData->Time);
-	canFrame.Payload[2] = MSB32(time);
-	canFrame.Payload[3] = HIGHMID32(time);
-	canFrame.Payload[4] = LOWMID32(time);
-	canFrame.Payload[5] = LSB(time);
-
-	/* Pack the date in the frame payload by overwriting four least significant bits of the time */
-	canFrame.Payload[5] |= (MSB32(pData->Date) & 0xF) << 4U;
-	canFrame.Payload[6] = 0xFF & (pData->Date >> 20U);
-	canFrame.Payload[7] = 0xFF & (pData->Date >> 12U);
-
-	/* Transmit the frame */
-	ADDTOCANTXQUEUE(&canFrame,
-			"gnssRx_Send_GPS_STATUS failed to send to canTxQueue\r\n");
-
-}
-
-/**
- * @brief Configures the nRF905 device
- * @retval None
- */
-void rfRx_DeviceConfig(void) {
-
-	/* Set CSN low to start configuring the device */
-	HAL_GPIO_WritePin(RF_SPI1_CSN_GPIO_Port, RF_SPI1_CSN_Pin, GPIO_PIN_RESET);
-
-	/*
-	 * TODO:
-	 */
-
-	/* Power up the chip by driving PWR_UP high */
-	HAL_GPIO_WritePin(RF_PWR_UP_GPIO_Port, RF_PWR_UP_Pin, GPIO_PIN_SET);
-
-	/* Select ShockBurst(TM) RX mode by driving TX_EN low */
-	HAL_GPIO_WritePin(RF_TX_EN_GPIO_Port, RF_TX_EN_Pin, GPIO_PIN_RESET);
-
-}
-
-/**
- * @brief Tries loading the telemetry subscription from the SD card
- * @param fp Pointer to the blank file object
- * @param path Pointer to the file name
- * @retval uint32_t Number of frames loaded from SD card or error code if over 28UL
- */
-uint32_t sdioGtkp_LoadTelemetrySubscription(FIL *fp, const TCHAR *path) {
-
-	/* Try opening the file */
-	if (FR_OK != f_open(fp, path, FA_READ | FA_OPEN_EXISTING)) {
-
-		/* If failed to open the file */
-		return WCU_XBEERX_NV_FOPENFAILED;
-
-	}
-
-	uint32_t frameNum; /* Buffer for the number of frames */
-	uint32_t frameBuff; /* Buffer for a subscription frame */
-	uint8_t temp[4]; /* Temporary buffer for four bytes to be read as a single 32-bit little endian value */
-	UINT bytesRead; /* Buffer for the number of bytes read */
-
-	/* Try reading the number of frames */
-	if (FR_OK != f_read(fp, temp, 4, &bytesRead)) {
-
-		/* If failed to read the number of frames */
-		/* Cleanup */
-		(void) f_close(fp);
-		return WCU_XBEERX_NV_FREADFAILED;
-
-	}
-
-	/* Parse the number of frames */
-	frameNum = READ32(temp[3], temp[2], temp[1], temp[0]);
-
-	/* Validate the number of frames */
-	if (frameNum > R3TP_VER1_MAX_FRAME_NUM) {
-
-		/* Cleanup */
-		(void) f_close(fp);
-		return WCU_XBEERX_NV_INVALIDFRAMENUM;
-
-	}
-
-	/* Read the payload and push it to the queue */
-	for (uint32_t i = 0; i < frameNum; i += 1UL) {
-
-		/* Try reading the frame */
-		if (FR_OK != f_read(fp, temp, 4, &bytesRead)) {
-
-			/* Cleanup */
-			(void) f_close(fp);
-			(void) xQueueReset(sdioSubQueueHandle);
-			return WCU_XBEERX_NV_FREADFAILED;
-
-		}
-
-		/* Assert end of file was not reached */
-		if (bytesRead < 4U) {
-
-			/* Cleanup */
-			(void) f_close(fp);
-			(void) xQueueReset(sdioSubQueueHandle);
-			return WCU_XBEERX_NV_INVALIDFRAMENUM;
-
-		}
-
-		/* Parse the frame */
-		frameBuff = READ32(temp[3], temp[2], temp[1], temp[0]);
-
-		/* Send the frame to the queue */
-		if (pdPASS
-				!= xQueueSend(sdioSubQueueHandle, &frameBuff,
-						WCU_SDIOSUBQUEUE_XQUEUESEND_TIMEOUT)) {
-
-			/* Cleanup */
-			(void) f_close(fp);
-			(void) xQueueReset(sdioSubQueueHandle);
-			return WCU_XBEERX_NV_XQUEUESENDFAILED;
-
-		}
-
-	}
-
-	/* Cleanup */
-	(void) f_close(fp);
-	/* Return the number of frames read */
-	return frameNum;
-
-}
-
-/* ----------------------------------------------- TASK CALLS END  ----------------------------------------------- */
-
-
-
-
-
-
 
 /* USER CODE END 4 */
 
@@ -1565,6 +896,9 @@ void StartCanGtkpTask(void const * argument)
 {
   /* USER CODE BEGIN 5 */
 
+	/* Start the CAN module */
+	(void) HAL_CAN_Start(&hcan1);
+
 	/* Infinite loop */
 	for (;;) {
 
@@ -1574,7 +908,7 @@ void StartCanGtkpTask(void const * argument)
 
 		/* Check for outgoing messages */
 		if (pdPASS == xQueueReceive(canTxQueueHandle, &frameBuff,
-			WCU_CANTXQUEUE_XQUEUERECEIVE_TIMEOUT)) {
+		WCU_CANTXQUEUE_XQUEUERECEIVE_TIMEOUT)) {
 
 			/* Validate the DataDirection member */
 			if (TX == frameBuff.DataDirection) {
@@ -1582,8 +916,8 @@ void StartCanGtkpTask(void const * argument)
 				static uint32_t dummy; /* CAN Tx mailbox */
 
 				/* Send the message */
-				(void)HAL_CAN_AddTxMessage(&hcan1, &frameBuff.Header.Tx,
-					frameBuff.Payload, &dummy);
+				(void) HAL_CAN_AddTxMessage(&hcan1, &frameBuff.Header.Tx,
+						frameBuff.Payload, &dummy);
 
 			} else {
 
@@ -1598,14 +932,14 @@ void StartCanGtkpTask(void const * argument)
 		if (0UL < HAL_CAN_GetRxFifoFillLevel(&hcan1, CAN_RX_FIFO0)) {
 
 			/* Receive the message */
-			(void)HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0,
-				&frameBuff.Header.Rx, frameBuff.Payload);
+			(void) HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0,
+					&frameBuff.Header.Rx, frameBuff.Payload);
 			/* Set the DataDirection member in the CAN frame struct */
 			frameBuff.DataDirection = RX;
 			/* Send the frame to the telemetry queue */
 			if (pdPASS
-				!= xQueueSend(canRxQueueHandle, &frameBuff,
-					WCU_CANRXQUEUE_XQUEUESEND_TIMEOUT)) {
+					!= xQueueSend(canRxQueueHandle, &frameBuff,
+							WCU_CANRXQUEUE_XQUEUESEND_TIMEOUT)) {
 
 				/* Log the error */
 				LOGERROR("canGtkp failed to send to canRxQueue\r\n");
@@ -1615,7 +949,7 @@ void StartCanGtkpTask(void const * argument)
 		}
 
 		/* Report to watchdog */
-		WATCHDOG_CHECKIN(WCU_IWDGGTKP_NV_CANGTKP);
+		WATCHDOG_CHECKIN(WCU_NV_IWDGGTKP_CANGTKP);
 
 	}
 
@@ -1713,10 +1047,10 @@ void StartSdioGtkpTask(void const * argument)
 
 			/* If notificationValue is less than or equal to 28, it is to be interpreted as the number of frames waiting in the queue */
 			/* Print the number of frames to the SD card */
-			temp[0] = LSB(notificationValue);
-			temp[1] = LOWMID32(notificationValue);
-			temp[2] = HIGHMID32(notificationValue);
-			temp[3] = MSB32(notificationValue);
+			temp[0] = _bits0_7(notificationValue);
+			temp[1] = _bits8_15(notificationValue);
+			temp[2] = _bits16_23(notificationValue);
+			temp[3] = _bits24_31(notificationValue);
 			(void) f_write(&subscriptionFile, temp, 4U, &bytesWritten);
 
 			/* Print the subscription to the file */
@@ -1733,10 +1067,10 @@ void StartSdioGtkpTask(void const * argument)
 				}
 
 				/* Print the frame to the SD card */
-				temp[0] = LSB(frameBuff);
-				temp[1] = LOWMID32(frameBuff);
-				temp[2] = HIGHMID32(frameBuff);
-				temp[3] = MSB32(frameBuff);
+				temp[0] = _bits0_7(frameBuff);
+				temp[1] = _bits8_15(frameBuff);
+				temp[2] = _bits16_23(frameBuff);
+				temp[3] = _bits24_31(frameBuff);
 				(void) f_write(&subscriptionFile, temp, 4U, &bytesWritten);
 
 			}
@@ -1761,7 +1095,6 @@ void StartSdioGtkpTask(void const * argument)
 void StartIwdgGtkpTask(void const * argument)
 {
   /* USER CODE BEGIN StartIwdgGtkpTask */
-  /* Infinite loop */
 
 	/* Give the other tasks time to set up */
 	vTaskDelay(WCU_IWDGGTKP_INIT_DELAY);
@@ -1783,15 +1116,14 @@ void StartIwdgGtkpTask(void const * argument)
 
 			/* If all tasks checked in */
 			if (notificationValue
-					== (WCU_IWDGGTKP_NV_BTRX | WCU_IWDGGTKP_NV_XBEETX
-							| WCU_IWDGGTKP_NV_GNSSRX | WCU_IWDGGTKP_NV_RFRX
-							| WCU_IWDGGTKP_NV_CANGTKP)) {
+					== (WCU_NV_IWDGGTKP_BTRX | WCU_NV_IWDGGTKP_XBEETX
+							| WCU_NV_IWDGGTKP_GNSSRX | WCU_NV_IWDGGTKP_RFRX
+							| WCU_NV_IWDGGTKP_CANGTKP)) {
 
 				/* Refresh the counter */
 				(void) HAL_IWDG_Refresh(&hiwdg);
 				/* Clear the notification value */
-				(void) xTaskNotifyWait(0xFFFFFFFFUL, 0xFFFFFFFFUL,
-						&notificationValue, 0);
+				CLEARNVBITS(0xFFFFFFFF);
 
 			}
 
@@ -1813,6 +1145,9 @@ void StartXbeeTxTask(void const * argument)
 {
   /* USER CODE BEGIN StartXbeeTxTask */
 
+	/* Start the timer */
+	HAL_TIM_Base_Start_IT(&htim7);
+
 	/* Infinite loop */
 	for (;;) {
 
@@ -1822,6 +1157,7 @@ void StartXbeeTxTask(void const * argument)
 		/* Listen on the canRxQueue for messages to send */
 		if (pdPASS == xQueueReceive(canRxQueueHandle, &frameBuff,
 		WCU_CANRXQUEUE_XQUEUERECEIVE_TIMEOUT)) {
+
 			/* Assert valid data direction */
 			if (RX != frameBuff.DataDirection) {
 
@@ -1851,8 +1187,8 @@ void StartXbeeTxTask(void const * argument)
 			R3TP_END_SEQ_HIGH_BYTE;
 
 			/* Set CAN ID field - note that the CAN ID is transmitted as little endian */
-			uartTxBuff[4] = LSB(frameBuff.Header.Rx.StdId);
-			uartTxBuff[5] = MSB16(frameBuff.Header.Rx.StdId);
+			uartTxBuff[4] = _bits0_7(frameBuff.Header.Rx.StdId);
+			uartTxBuff[5] = _bits8_15(frameBuff.Header.Rx.StdId);
 
 			/* Set the DLC field */
 			uartTxBuff[8] = (uint8_t) frameBuff.Header.Rx.DLC;
@@ -1864,26 +1200,30 @@ void StartXbeeTxTask(void const * argument)
 
 			}
 
-			/* Get the CRC mutex */
-			if (osOK != osMutexWait(crcMutexHandle, WCU_CRCMUTEX_TIMEOUT)) {
+			/* Calculate the CRC */
+			uint16_t calculatedCrc;
+			/* Acquire crcMutex */
+			if (osOK == osMutexWait(crcMutexHandle, WCU_CRCMUTEX_TIMEOUT)) {
 
+				/* Calculate the CRC */
+				calculatedCrc =
+						_bits0_15(
+								HAL_CRC_Calculate(&hcrc, (uint32_t*)uartTxBuff, R3TP_VER0_FRAME_SIZE / 4U));
+				/* Release crcMutex */
+				(void) osMutexRelease(crcMutexHandle);
+
+			} else {
+
+				/* If failed to acquire crcMutex */
 				/* Log the error */
 				LOGERROR("crcMutex timeout in xbeeTx\r\n");
 				continue;
 
 			}
 
-			/* Calculate the CRC */
-			uint16_t calculatedCrc =
-					TWOLOWBYTES(
-							HAL_CRC_Calculate(&hcrc, (uint32_t*)uartTxBuff, R3TP_VER0_FRAME_SIZE / 4U));
-
-			/* Release the CRC mutex */
-			(void) osMutexRelease(crcMutexHandle);
-
 			/* Set the CHECKSUM field - note that the CRC is transmitted as little endian */
-			uartTxBuff[2] = LSB(calculatedCrc);
-			uartTxBuff[3] = MSB16(calculatedCrc);
+			uartTxBuff[2] = _bits0_7(calculatedCrc);
+			uartTxBuff[3] = _bits8_15(calculatedCrc);
 
 			/* Transmit the frame */
 			(void) HAL_UART_Transmit_DMA(&XBEE_UART_HANDLE, uartTxBuff,
@@ -1902,7 +1242,7 @@ void StartXbeeTxTask(void const * argument)
 		}
 
 		/* Report to watchdog */
-		WATCHDOG_CHECKIN(WCU_IWDGGTKP_NV_XBEETX);
+		WATCHDOG_CHECKIN(WCU_NV_IWDGGTKP_XBEETX);
 
 	}
 
@@ -1922,6 +1262,8 @@ void StartXbeeRxTask(void const * argument)
 
 	/* Wait for SDIO gatekeeper to test if there is a valid subscription stored on the SD card */
 	xbeeRx_WaitSubscriptionFromSdioGtkp();
+
+
 
 	/* Infinite loop */
 	for (;;) {
@@ -2000,14 +1342,13 @@ void StartXbeeDiagTask(void const * argument)
 	canFrame.Header.Tx.StdId = WCU_CAN_ID_TELEMETRY_DIAG;
 	canFrame.Header.Tx.TransmitGlobalTime = DISABLE;
 
-	static uint8_t warningsRemaining; /* Number of times the warning message will be transmitted */
-
 	/* Infinite loop */
 	for (;;) {
 
 		vTaskDelay(WCU_XBEEDIAG_TASK_DELAY);
 
 		static uint8_t rssi; /* Buffer for the Received Signal Strength Indication value */
+
 		/*
 		 * TODO: Read Xbee RSSI
 		 */
@@ -2015,11 +1356,15 @@ void StartXbeeDiagTask(void const * argument)
 		/* Write the RSSI value to the CAN frame payload */
 		canFrame.Payload[0] = rssi;
 
+		static uint8_t warningsRemaining; /* Number of times the warning message will be transmitted */
 		static uint32_t notificationValue; /* Buffer to pass the notification value out of the xTaskNotifyWait function */
 		/* Wait for notification */
-		if(pdTRUE == xTaskNotifyWait(0x00000000UL, 0xFFFFFFFFUL, &notificationValue, WCU_XBEEDIAG_XTASKNOTIFYWAIT_TIMEOUT)) {
+		if (pdTRUE
+				== xTaskNotifyWait(0x00000000UL, 0xFFFFFFFFUL,
+						&notificationValue,
+						WCU_XBEEDIAG_XTASKNOTIFYWAIT_TIMEOUT)) {
 			/* The LSB of the notification value is to be interpreted as the warning type */
-			switch(LSB(notificationValue)) {
+			switch (_bits0_7(notificationValue)) {
 			case R3TP_GREEN_WARNING:
 
 				/* Set the Telemetry_Pit flag */
@@ -2041,7 +1386,7 @@ void StartXbeeDiagTask(void const * argument)
 			}
 
 			/* Update the number of warnings remaining - the notification value's second least significant byte is the warning time */
-			warningsRemaining = MSB16(notificationValue);
+			warningsRemaining = _bits8_15(notificationValue);
 
 		}
 
@@ -2049,13 +1394,13 @@ void StartXbeeDiagTask(void const * argument)
 		ADDTOCANTXQUEUE(&canFrame, "xbeeDiag failed to send to canTxQueue\r\n");
 
 		/* If one of the warning flags is set */
-		if(0U < warningsRemaining) {
+		if (0U < warningsRemaining) {
 
 			/* Decrement the number of warnings remaining */
 			warningsRemaining -= 1U;
 
 			/* If all warnings have been transmitted */
-			if(0U == warningsRemaining) {
+			if (0U == warningsRemaining) {
 
 				/* Clear the Telemetry_Pit flag */
 				CLEAR_BIT(canFrame.Payload[1], 5);
@@ -2129,15 +1474,28 @@ void StartBtRxTask(void const * argument)
 
 			static uint16_t readCrc; /* Buffer for the transmitted CRC */
 			/* Read the CHECKSUM field - note that the CRC is transmitted as little endian */
-			readCrc = READ16(uartRxBuff[3], uartRxBuff[2]);
+			readCrc = _join16bits(uartRxBuff[3], uartRxBuff[2]);
 
 			/* Clear the CHECKSUM field */
 			uartRxBuff[2] = 0x00U;
 			uartRxBuff[3] = 0x00U;
 
-			/* Get the CRC mutex */
-			if (osOK != osMutexWait(crcMutexHandle, WCU_CRCMUTEX_TIMEOUT)) {
+			/* Calculate the CRC */
+			uint16_t calculatedCrc;
+			/* Acquire crcMutex */
+			if (osOK == osMutexWait(crcMutexHandle, WCU_CRCMUTEX_TIMEOUT)) {
 
+				/* Calculate the CRC */
+				calculatedCrc =
+						_bits0_15(
+								HAL_CRC_Calculate(&hcrc, (uint32_t* )uartRxBuff, R3TP_VER0_FRAME_SIZE / 4U));
+
+				/* Release crcMutex */
+				(void) osMutexRelease(crcMutexHandle);
+
+			} else {
+
+				/* If failed to acquire crcMutex */
 				/* Log the error */
 				LOGERROR("crcMutex timeout in btRx\r\n");
 				/* Listen for the next message */
@@ -2146,14 +1504,6 @@ void StartBtRxTask(void const * argument)
 				continue;
 
 			}
-
-			/* Calculate the CRC */
-			uint16_t calculatedCrc =
-					TWOLOWBYTES(
-							HAL_CRC_Calculate(&hcrc, (uint32_t* )uartRxBuff, R3TP_VER0_FRAME_SIZE / 4U));
-
-			/* Release the CRC mutex */
-			(void) osMutexRelease(crcMutexHandle);
 
 			/* Validate the CRC */
 			if (readCrc != calculatedCrc) {
@@ -2168,7 +1518,7 @@ void StartBtRxTask(void const * argument)
 			}
 
 			/* Read the CAN ID - note that the CAN ID is transmitted as little endian */
-			canFrame.Header.Tx.StdId = READ32(uartRxBuff[7], uartRxBuff[6],
+			canFrame.Header.Tx.StdId = _join32bits(uartRxBuff[7], uartRxBuff[6],
 					uartRxBuff[5], uartRxBuff[4]);
 			/* Read the Data Length Code */
 			canFrame.Header.Tx.DLC = (uint32_t) uartRxBuff[8];
@@ -2200,7 +1550,7 @@ void StartBtRxTask(void const * argument)
 		}
 
 		/* Report to watchdog */
-		WATCHDOG_CHECKIN(WCU_IWDGGTKP_NV_BTRX);
+		WATCHDOG_CHECKIN(WCU_NV_IWDGGTKP_BTRX);
 
 	}
 
@@ -2276,7 +1626,7 @@ void StartGnssRxTask(void const * argument)
 		}
 
 		/* Report to watchdog */
-		WATCHDOG_CHECKIN(WCU_IWDGGTKP_NV_GNSSRX);
+		WATCHDOG_CHECKIN(WCU_NV_IWDGGTKP_GNSSRX);
 
 	}
 
@@ -2301,13 +1651,10 @@ void StartRfRxTask(void const * argument)
 	/* Infinite loop */
 	for (;;) {
 
-		/* Enable the chip for receive by driving TRX_CE high */
-		HAL_GPIO_WritePin(RF_TRX_CE_GPIO_Port, RF_TRX_CE_Pin, GPIO_PIN_SET);
-
 		vTaskDelay(WCU_DEFAULT_TASK_DELAY);
 
-		/* Wait for notification that the DR pin was set high */
-		if (0UL < ulTaskNotifyTake(pdTRUE, WCU_RFRX_ULTASKNOTIFYTAKE_TIMEOUT)) {
+		/* Poll the DR pin until it is set high */
+		if (GPIO_PIN_SET == HAL_GPIO_ReadPin(RF_DR_GPIO_Port, RF_DR_Pin)) {
 
 			/* Set the TRX_CE pin low to enter standby mode */
 			HAL_GPIO_WritePin(RF_TRX_CE_GPIO_Port, RF_TRX_CE_Pin,
@@ -2322,38 +1669,30 @@ void StartRfRxTask(void const * argument)
 			(void) HAL_SPI_Transmit(&RF_SPI_HANDLE, (uint8_t*) &R_TX_PAYLOAD, 1,
 			WCU_RFRX_SPI_TX_TIMEOUT);
 
+			/* Receive the payload */
+			(void) HAL_SPI_Receive_DMA(&hspi1, spiRxBuff,
+			WCU_RFRX_SPI_RX_BUFF_SIZE);
+
+			/* Assert the payload was received */
+			if (0UL == ulTaskNotifyTake(pdTRUE,
+			WCU_RFRX_ULTASKNOTIFYTAKE_TIMEOUT)) {
+
+				/* Log the error */
+				LOGERROR("SPI receive timeout in rfRx\r\n");
+
+			}
+
 			/* Set the CSN pin high to end the SPI transmission */
 			HAL_GPIO_WritePin(RF_SPI1_CSN_GPIO_Port, RF_SPI1_CSN_Pin,
 					GPIO_PIN_SET);
 
-			/* Keep clocking out the message until the DR pin is set low again */
-			for (uint32_t i = 0;
-					GPIO_PIN_SET == HAL_GPIO_ReadPin(RF_DR_GPIO_Port, RF_DR_Pin);
-					i += 1UL) {
-
-				(void) HAL_SPI_Receive(&RF_SPI_HANDLE, spiRxBuff + i, 1,
-				WCU_RFRX_SPI_RX_TIMEOUT);
-
-				/* On buffer overflow */
-				if (WCU_RFRX_SPI_RX_BUFF_SIZE <= i) {
-
-					/* Log the error */
-					LOGERROR("spiRxBuff overflow in rfRx\r\n");
-					/* Reset the device */
-					HAL_GPIO_WritePin(RF_PWR_UP_GPIO_Port, RF_PWR_UP_Pin,
-							GPIO_PIN_RESET);
-					HAL_GPIO_WritePin(RF_PWR_UP_GPIO_Port, RF_PWR_UP_Pin,
-							GPIO_PIN_SET);
-					continue;
-
-				}
-
-			}
+			/* Enable the chip for receive by driving TRX_CE high */
+			HAL_GPIO_WritePin(RF_TRX_CE_GPIO_Port, RF_TRX_CE_Pin, GPIO_PIN_SET);
 
 		}
 
 		/* Report to watchdog */
-		WATCHDOG_CHECKIN(WCU_IWDGGTKP_NV_RFRX);
+		WATCHDOG_CHECKIN(WCU_NV_IWDGGTKP_RFRX);
 
 	}
 
@@ -2415,12 +1754,12 @@ void StartDiagnosticTask(void const * argument)
 			mcuUptime = (uint16_t) (HAL_GetTick() / 1000UL);
 
 			/* Write the MCU temperature to the frame payload */
-			canFrame.Payload[0] = MSB16(mcuTemperature);
-			canFrame.Payload[1] = LSB(mcuTemperature);
+			canFrame.Payload[0] = _bits8_15(mcuTemperature);
+			canFrame.Payload[1] = _bits0_7(mcuTemperature);
 
 			/* Write the MCU uptime to the frame payload */
-			canFrame.Payload[2] = MSB16(mcuUptime);
-			canFrame.Payload[3] = LSB(mcuUptime);
+			canFrame.Payload[2] = _bits8_15(mcuUptime);
+			canFrame.Payload[3] = _bits0_7(mcuUptime);
 
 			/* Transmit the frame */
 			ADDTOCANTXQUEUE(&canFrame,
@@ -2449,6 +1788,13 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
     HAL_IncTick();
   }
   /* USER CODE BEGIN Callback 1 */
+
+	if(XBEE_TIM_INSTANCE == htim->Instance) {
+
+		/* Notify the xbeeTx task */
+		(void) xTaskNotifyFromISR(xbeeTxHandle, WCU_NV_XBEERX_TIM_PERIOD_ELAPSED_CB, eSetBits, NULL);
+
+	}
 
   /* USER CODE END Callback 1 */
 }
