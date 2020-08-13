@@ -7,11 +7,11 @@
 #ifndef __RT12E_LIBS_CAN_H_
 #define __RT12E_LIBS_CAN_H_
 
-#include "main.h"
+#include "stm32f4xx_hal.h"
 
 /* Exported defines ------------------------------------------------------------*/
-#define CAN_FILTERBANKS_COUNT	28U	/* Number of CAN filter banks */
-#define CAN_PAYLOAD_SIZE		8U	/* CAN payload size in bytes */
+#define CAN_FILTERBANKS_COUNT	28UL	/* Number of CAN filter banks */
+#define CAN_PAYLOAD_SIZE		8UL		/* CAN payload size in bytes */
 
 /* Exported typedef ------------------------------------------------------------*/
 /**
@@ -23,7 +23,7 @@ typedef struct {
 	 */
 	enum {
 		TX, RX
-	} DataDirection;
+	} EDataDirection;
 
 	/*
 	 * @brief CAN header
@@ -31,19 +31,19 @@ typedef struct {
 	union {
 		CAN_TxHeaderTypeDef Tx;
 		CAN_RxHeaderTypeDef Rx;
-	} Header;
+	} UHeader;
 
 	/**
 	 * @brief CAN frame data
 	 */
-	uint8_t Payload[CAN_PAYLOAD_SIZE];
-} CanFrameTypedef;
+	uint8_t PayloadTable[CAN_PAYLOAD_SIZE];
+} SCanFrame;
 
 /* Exported macro ------------------------------------------------------------*/
 /**
  * @brief Shifts the bits of an 11-bit CAN standard ID to align with the filter bank register field mapping
  */
-#define ALIGN_CAN_ID_WITH_FILTER_FIELD_MAPPING(id) (uint32_t)(id << 5)
+#define alignCanIdWithFilterFieldMapping(id) ((uint32_t)(id << 5))
 
 /* Exported function prototypes -----------------------------------------------*/
 /**

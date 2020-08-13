@@ -7,14 +7,29 @@
 #ifndef __WCU_SDIOGTKP_CALLS_H_
 #define __WCU_SDIOGTKP_CALLS_H_
 
-#include "fatfs.h"
+#include "cmsis_os.h"
+
+extern osMessageQId sdioSubQueueHandle;
+extern osMessageQId sdioLogQueueHandle;
+
+#define WCU_SDIOGTKP_LOGFILE_PATH					("ERRLOG.TXT")			/* Error log file path */
+#define WCU_SDIOGTKP_SUBFILE_PATH					("SUBSCR")				/* Subscription file path */
 
 /**
- * @brief Tries loading the telemetry subscription from the SD card
- * @param fp Pointer to the blank file object
- * @param path Pointer to the file name
+ * @brief Handles the error logger
+ * @retval None
+ */
+void sdioGtkp_HandleLogger(void);
+
+/**
+ * @brief Handles saving the new telemetry subscription to the SD card
+ */
+void sdioGtkp_HandleNewSubscription(void);
+
+/**
+ * @brief Tries loading the telemetry subscription from the SD card and pushing it to an appropriate queue
  * @retval uint32_t Number of frames loaded from SD card or error code if over 28UL
  */
-uint32_t sdioGtkp_LoadTelemetrySubscription(FIL *fp, const TCHAR *path);
+uint32_t sdioGtkp_LoadTelemetrySubscription(void);
 
 #endif /* __WCU_SDIOGTKP_CALLS_H_ */

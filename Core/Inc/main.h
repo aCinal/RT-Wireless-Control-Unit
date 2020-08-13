@@ -58,6 +58,8 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define XBEE_STATUS_Pin GPIO_PIN_15
+#define XBEE_STATUS_GPIO_Port GPIOC
 #define XBEE_RSSI_Pin GPIO_PIN_2
 #define XBEE_RSSI_GPIO_Port GPIOC
 #define XBEE_RESET_Pin GPIO_PIN_3
