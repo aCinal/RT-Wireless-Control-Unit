@@ -11,6 +11,7 @@
 #include "cmsis_os.h"
 
 extern CAN_HandleTypeDef hcan1;
+extern osMessageQId canTxQueueHandle;
 extern osMessageQId canRxQueueHandle;
 extern osMessageQId canSubQueueHandle;
 extern osMessageQId sdioSubQueueHandle;

@@ -13,14 +13,65 @@
 #include <string.h>
 
 /**
+ * @brief Guard Times parameter of XBEE Pro
+ */
+static uint16_t g_GT = XBEE_GT_DEFAULT;
+
+/**
+ * @brief Returns the length of the string not counting the NULL character
+ */
+#define StaticStrlen(str) (uint32_t)(sizeof(str) - 1U)
+
+/**
  * @brief Configures the XBEE Pro device
  * @retval None
  */
 void xbeeTxRx_DeviceConfig(void) {
 
-	/*
-	 * TODO
-	 */
+	/* Wait the default guard time */
+	vTaskDelay(pdMS_TO_TICKS(XBEE_GT_DEFAULT));
+
+	/* Enter command mode */
+	const uint8_t ENTER_COMMAND_MODE[] = "+++";
+	if (HAL_OK
+			!= HAL_UART_Transmit(&XBEE_UART_HANDLE,
+					(uint8_t*) ENTER_COMMAND_MODE,
+					StaticStrlen(ENTER_COMMAND_MODE),
+					WCU_DEFAULT_TIMEOUT)) {
+
+		Error_Handler();
+		return;
+
+	}
+
+	/* Wait the default guard time */
+	vTaskDelay(pdMS_TO_TICKS(XBEE_GT_DEFAULT));
+
+	/* Set required period of silence before and after the Command Sequence Characters */
+	const uint8_t SET_GT[] = "ATGT000A\r";
+	if (HAL_OK
+			!= HAL_UART_Transmit(&XBEE_UART_HANDLE, (uint8_t*) SET_GT,
+					StaticStrlen(SET_GT), WCU_DEFAULT_TIMEOUT)) {
+
+		Error_Handler();
+
+	}
+
+	/* Exit command mode */
+	const uint8_t EXIT_COMMAND_MODE[] = "ATCN\r";
+	if (HAL_OK
+			!= HAL_UART_Transmit(&XBEE_UART_HANDLE,
+					(uint8_t*) EXIT_COMMAND_MODE,
+					(sizeof(EXIT_COMMAND_MODE) - 1U),
+					WCU_DEFAULT_TIMEOUT)) {
+
+		Error_Handler();
+
+	}
+
+	/* Set the Guard Times global variable */
+	/* The desired value is hard-coded because it is also contained in the SET_GL command string */
+	g_GT = 0x000AU;
 
 }
 
@@ -41,7 +92,7 @@ void xbeeTxRx_HandleInternalMail(uint8_t rxBuffTable[]) {
 
 		switch (mail) {
 
-		case XBEE_INTERNAL_R3TP_VER1_HEADER_RECEIVED:
+		case EXbeeInternalMail_R3tpVer1HeaderReceived:
 
 			/* Read the number of frames in the payload */
 			ver1FrameNum = _join32bits(rxBuffTable[7], rxBuffTable[6],
@@ -65,10 +116,10 @@ void xbeeTxRx_HandleInternalMail(uint8_t rxBuffTable[]) {
 			(void) HAL_UART_Receive_DMA(&XBEE_UART_HANDLE,
 					R3TP_VER1_PAYLOAD_BEGIN(rxBuffTable),
 					(R3TP_VER1_MESSAGE_LENGTH(
-							ver1FrameNum) - 8));
+							ver1FrameNum) - R3TP_HEADER_SIZE));
 			break;
 
-		case XBEE_INTERNAL_R3TP_VER1_MESSAGE_RECEIVED:
+		case EXbeeInternalMail_R3tpVer1MessageReceived:
 
 			/* Handle the new subscription */
 			xbeeTxRx_HandleNewSubscription(rxBuffTable);
@@ -81,7 +132,7 @@ void xbeeTxRx_HandleInternalMail(uint8_t rxBuffTable[]) {
 			R3TP_HEADER_SIZE);
 			break;
 
-		case XBEE_INTERNAL_R3TP_VER2_MESSAGE_RECEIVED:
+		case EXbeeInternalMail_R3tpVer2MessageReceived:
 
 			/* Handle the driver warning */
 			xbeeTxRx_HandleDriverWarning(rxBuffTable, &diagnostics);
@@ -94,7 +145,7 @@ void xbeeTxRx_HandleInternalMail(uint8_t rxBuffTable[]) {
 			R3TP_HEADER_SIZE);
 			break;
 
-		case XBEE_INTERNAL_PERIOD_ELAPSED:
+		case EXbeeInternalMail_PeriodElapsed:
 
 			/* Transmit the diagnostic frame */
 			xbeeTxRx_SendDiagnostics(&diagnostics);
@@ -102,12 +153,16 @@ void xbeeTxRx_HandleInternalMail(uint8_t rxBuffTable[]) {
 			xbeeTxRx_UpdateWarnings(&diagnostics);
 			break;
 
-		case XBEE_INTERNAL_UNKNOWN_PROTOCOL:
+		case EXbeeInternalMail_UnknownProtocol:
 
 			/* Log the error */
 			LOGERROR("Invalid VER byte in xbeeTxRx\r\n");
 			/* Assert the invalid message won't raise any more interrupts */
 			IGNORE_REST_OF_THE_MESSAGE();
+			break;
+
+		default:
+
 			break;
 
 		}
@@ -127,18 +182,9 @@ void xbeeTxRx_HandleOutgoingR3tpComms(void) {
 	/* Listen on the canRxQueue for messages to send */
 	if (pdPASS == xQueueReceive(canRxQueueHandle, &frameBuff, 0)) {
 
-		/* Assert valid data direction */
-		if (RX != frameBuff.EDataDirection) {
-
-			/* Log the error */
-			LOGERROR("Invalid DataDirection in xbeeTxRx\r\n");
-			return;
-
-		}
-
 		static uint8_t txBuff[R3TP_VER0_FRAME_SIZE ]; /* UART Tx buffer */
 		/* Clear the buffer */
-		(void) memset(txBuff, 0x00U, R3TP_VER0_FRAME_SIZE);
+		(void) memset(txBuff, 0x00, R3TP_VER0_FRAME_SIZE);
 
 		/* Set VER and RES/SEQ field */
 		txBuff[0] = R3TP_VER0_VER_BYTE;
@@ -335,20 +381,24 @@ void xbeeTxRx_HandleDriverWarning(uint8_t rxBuffTable[],
 	}
 
 	/* Read the payload */
-	switch(rxBuffTable[4]) {
+	switch (rxBuffTable[4]) {
 
-	case R3TP_GREEN_WARNING_BYTE:
+	case R3TP_GREEN_WARNING_BYTE :
 
 		/* Set the green warning */
 		diagnosticsPtr->greenWarningActive = true;
 		diagnosticsPtr->greenWarningDuration = rxBuffTable[5];
 		break;
 
-	case R3TP_RED_WARNING_BYTE:
+	case R3TP_RED_WARNING_BYTE :
 
 		/* Set the red warning */
 		diagnosticsPtr->redWarningActive = true;
 		diagnosticsPtr->redWarningDuration = rxBuffTable[5];
+		break;
+
+	default:
+
 		break;
 
 	}
@@ -362,9 +412,55 @@ void xbeeTxRx_HandleDriverWarning(uint8_t rxBuffTable[],
  */
 void xbeeTxRx_PollForRssi(uint8_t *rssiPtr) {
 
-	/*
-	 * TODO
-	 */
+	/* Wait the guard time */
+	vTaskDelay(pdMS_TO_TICKS(g_GT));
+
+	/* Enter command mode */
+	const uint8_t ENTER_COMMAND_MODE[] = "+++";
+	if (HAL_OK
+			!= HAL_UART_Transmit(&XBEE_UART_HANDLE,
+					(uint8_t*) ENTER_COMMAND_MODE,
+					StaticStrlen(ENTER_COMMAND_MODE),
+					WCU_DEFAULT_TIMEOUT)) {
+
+		Error_Handler();
+		return;
+
+	}
+
+	/* Wait the guard time */
+	vTaskDelay(pdMS_TO_TICKS(g_GT));
+
+	/* Request RSSI */
+	const uint8_t REQUEST_RSSI[] = "ATDB\r";
+	if (HAL_OK
+			!= HAL_UART_Transmit(&XBEE_UART_HANDLE, (uint8_t*) REQUEST_RSSI,
+					StaticStrlen(REQUEST_RSSI), WCU_DEFAULT_TIMEOUT)) {
+
+		Error_Handler();
+		return;
+
+	}
+
+	/* Receive RSSI */
+	if (HAL_OK != HAL_UART_Receive(&XBEE_UART_HANDLE, rssiPtr, 1,
+	WCU_DEFAULT_TIMEOUT)) {
+
+		Error_Handler();
+
+	}
+
+	/* Exit command mode */
+	const uint8_t EXIT_COMMAND_MODE[] = "ATCN\r";
+	if (HAL_OK
+			!= HAL_UART_Transmit(&XBEE_UART_HANDLE,
+					(uint8_t*) EXIT_COMMAND_MODE,
+					StaticStrlen(EXIT_COMMAND_MODE),
+					WCU_DEFAULT_TIMEOUT)) {
+
+		Error_Handler();
+
+	}
 
 }
 
@@ -452,7 +548,7 @@ void xbeeTxRx_UpdateWarnings(SXbeeDiagnostics *diagnosticsPtr) {
 		/* Test if the remaining duration is zero */
 		if (0U == diagnosticsPtr->redWarningDuration) {
 
-			/* Deactivate the green warning */
+			/* Deactivate the red warning */
 			diagnosticsPtr->redWarningActive = false;
 
 		}
@@ -474,7 +570,7 @@ BaseType_t xbeeTxRx_SendSubscriptionToCanGtkp(uint32_t ids[], size_t count) {
 	/* Write subscription to sdioSubscriptionQueue */
 	for (uint32_t i = 0; i < count; i += 1UL) {
 
-		ret = xQueueSend(sdioSubQueueHandle, ids + i, 0);
+		ret = xQueueSend(canSubQueueHandle, ids + i, 0);
 		/* Send the frame to the queue */
 		if (pdPASS != ret) {
 

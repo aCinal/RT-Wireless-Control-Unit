@@ -19,16 +19,16 @@ void btRx_HandleMessage(void) {
 
 	static SCanFrame canFrame = { .EDataDirection = TX }; /* CAN frame structure */
 
-	static uint8_t uartRxBuff[R3TP_VER0_FRAME_SIZE]; /* UART Rx buffer */
+	static uint8_t rxBuffTable[R3TP_VER0_FRAME_SIZE]; /* UART Rx buffer */
 	/* Listen for the message */
-	(void) HAL_UART_Receive_DMA(&BT_UART_HANDLE, uartRxBuff,
+	(void) HAL_UART_Receive_DMA(&BT_UART_HANDLE, rxBuffTable,
 	R3TP_VER0_FRAME_SIZE);
 
 	/* Wait for notification from ISR/message received callback */
 	if (0UL < ulTaskNotifyTake(pdTRUE, 0)) {
 
 		/* Validate the VER */
-		if (R3TP_VER0_VER_BYTE != uartRxBuff[0]) {
+		if (R3TP_VER0_VER_BYTE != rxBuffTable[0]) {
 
 			/* Log the error */
 			LOGERROR("Invalid VER/RES/SEQ in btRx\r\n");
@@ -37,9 +37,9 @@ void btRx_HandleMessage(void) {
 		}
 
 		/* Validate the END SEQ */
-		if ((R3TP_END_SEQ_LOW_BYTE != uartRxBuff[R3TP_VER0_FRAME_SIZE - 2U])
+		if ((R3TP_END_SEQ_LOW_BYTE != rxBuffTable[R3TP_VER0_FRAME_SIZE - 2U])
 				|| (R3TP_END_SEQ_HIGH_BYTE
-						!= uartRxBuff[R3TP_VER0_FRAME_SIZE - 1U])) {
+						!= rxBuffTable[R3TP_VER0_FRAME_SIZE - 1U])) {
 
 			/* Log the error */
 			LOGERROR("Invalid END SEQ in btRx\r\n");
@@ -49,11 +49,11 @@ void btRx_HandleMessage(void) {
 
 		static uint16_t readCrc; /* Buffer for the transmitted CRC */
 		/* Read the CHECKSUM field - note that the CRC is transmitted as little endian */
-		readCrc = _join16bits(uartRxBuff[3], uartRxBuff[2]);
+		readCrc = _join16bits(rxBuffTable[3], rxBuffTable[2]);
 
 		/* Clear the CHECKSUM field */
-		uartRxBuff[2] = 0x00U;
-		uartRxBuff[3] = 0x00U;
+		rxBuffTable[2] = 0x00U;
+		rxBuffTable[3] = 0x00U;
 
 		/* Calculate the CRC */
 		uint16_t calculatedCrc;
@@ -63,7 +63,7 @@ void btRx_HandleMessage(void) {
 			/* Calculate the CRC */
 			calculatedCrc =
 					_bits0_15(
-							HAL_CRC_Calculate(&hcrc, (uint32_t* )uartRxBuff, R3TP_VER0_FRAME_SIZE / 4U));
+							HAL_CRC_Calculate(&hcrc, (uint32_t* )rxBuffTable, R3TP_VER0_FRAME_SIZE / 4U));
 
 			/* Release crcMutex */
 			(void) osMutexRelease(crcMutexHandle);
@@ -87,10 +87,10 @@ void btRx_HandleMessage(void) {
 		}
 
 		/* Read the CAN ID - note that the CAN ID is transmitted as little endian */
-		canFrame.UHeader.Tx.StdId = _join32bits(uartRxBuff[7], uartRxBuff[6],
-				uartRxBuff[5], uartRxBuff[4]);
+		canFrame.UHeader.Tx.StdId = _join32bits(rxBuffTable[7], rxBuffTable[6],
+				rxBuffTable[5], rxBuffTable[4]);
 		/* Read the Data Length Code */
-		canFrame.UHeader.Tx.DLC = (uint32_t) uartRxBuff[8];
+		canFrame.UHeader.Tx.DLC = (uint32_t) rxBuffTable[8];
 		if (CAN_PAYLOAD_SIZE < canFrame.UHeader.Tx.DLC) {
 
 			/* Log the error */
@@ -102,7 +102,7 @@ void btRx_HandleMessage(void) {
 		/* Read the payload */
 		for (uint8_t i = 0; i < canFrame.UHeader.Tx.DLC; i += 1U) {
 
-			canFrame.PayloadTable[i] = uartRxBuff[9U + i];
+			canFrame.PayloadTable[i] = rxBuffTable[9U + i];
 
 		}
 

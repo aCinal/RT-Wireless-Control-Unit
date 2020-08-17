@@ -25,26 +25,29 @@ extern osMessageQId sdioSubQueueHandle;
 extern osMessageQId xbeeInternalMailQueueHandle;
 extern osMutexId crcMutexHandle;
 
-#define WCU_CAN_ID_TELEMETRY_DIAG		(uint32_t)(0x733UL)				/* CAN ID: _733_TELEMETRY_DIAG */
+#define WCU_CAN_ID_TELEMETRY_DIAG		(uint32_t)(0x733UL)		/* CAN ID: _733_TELEMETRY_DIAG */
 
-#define TELEMETRY_STATE_BIT				(uint8_t)(0x80U)
-#define TELEMETRY_WARNING_BIT			(uint8_t)(0x40U)
-#define TELEMETRY_PIT_BIT				(uint8_t)(0x20U)
+#define TELEMETRY_STATE_BIT				(uint8_t)(0x80U)		/* Telemetry_State bit of the TELEMETRY_DIAG CAN frame */
+#define TELEMETRY_WARNING_BIT			(uint8_t)(0x40U)		/* Telemetry_Warning bit of the TELEMETRY_DIAG CAN frame */
+#define TELEMETRY_PIT_BIT				(uint8_t)(0x20U)		/* Telemetry_Pit bit of the TELEMETRY_DIAG CAN frame */
+
+#define XBEE_GT_DEFAULT					(uint16_t)(0x0CE4U)		/* XBEE Pro Guard Times default value */
+#define XBEE_GT_DESIRED					(uint16_t)(0x000AU)		/* XBEE Pro Guard Times desired value */
 
 /**
  * @brief Internal messages enumeration for internal communication between xbeeTxRx task and callbacks
  */
 typedef enum EXbeeInternalMail {
 
-	XBEE_INTERNAL_PERIOD_ELAPSED = 0,
+	EXbeeInternalMail_PeriodElapsed = 0,
 
-	XBEE_INTERNAL_R3TP_VER1_HEADER_RECEIVED,
+	EXbeeInternalMail_R3tpVer1HeaderReceived,
 
-	XBEE_INTERNAL_R3TP_VER1_MESSAGE_RECEIVED,
+	EXbeeInternalMail_R3tpVer1MessageReceived,
 
-	XBEE_INTERNAL_R3TP_VER2_MESSAGE_RECEIVED,
+	EXbeeInternalMail_R3tpVer2MessageReceived,
 
-	XBEE_INTERNAL_UNKNOWN_PROTOCOL
+	EXbeeInternalMail_UnknownProtocol
 
 } EXbeeInternalMail;
 

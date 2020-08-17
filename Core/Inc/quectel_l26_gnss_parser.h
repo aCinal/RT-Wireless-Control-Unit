@@ -38,21 +38,21 @@
 /* Exported typedefs ------------------------------------------------------------*/
 typedef float float32_t; /* 32-bit floating point variable typedef */
 typedef double float64_t; /* 64-bit floating point variable typedef */
-typedef uint8_t NMEASentencesRxFlagsTypedef; /* Typedef for storing flags corresponding to received NMEA sentences */
+typedef uint8_t TNmeaSentencesRxFlags; /* Typedef for storing flags corresponding to received NMEA sentences */
 
 /**
  * @brief GNSS data structure
  */
-typedef struct {
+typedef struct SGnssData {
 	float64_t Latitude; /* Latitude in format 'ddmm.mmmm' (degree and minutes) */
 	enum {
-		GNSS_LATITUDE_NORTH = 0x00000000UL, GNSS_LATITUDE_SOUTH
-	} LatDir; /* Latitude direction */
+		ELatDir_LatitudeNorth = 0x00000000UL, ELatDir_LatitudeSouth
+	} ELatDir; /* Latitude direction */
 
 	float64_t Longitude; /* Longitude in format 'dddmm.mmmm' (degree and minutes) */
 	enum {
-		GNSS_LONGITUDE_EAST = 0x00000000UL, GNSS_LONGITUDE_WEST
-	} LonDir; /* Longitude direction */
+		ELonDir_LongitudeEast = 0x00000000UL, ELonDir_LongitudeWest
+	} ELonDir; /* Longitude direction */
 
 	float32_t Altitude; /* Altitude in meters */
 
@@ -66,39 +66,40 @@ typedef struct {
 	uint8_t SatellitesInViewGLONASS; /* Number of GLONASS satellites in view */
 	uint8_t SatellitesInViewGPS; /* Number of GPS satellites in view */
 	enum {
-		GNSS_FixStatus_NoFix = 1U, GNSS_FixStatus_2DFix, GNSS_FixStatus_3DFix
-	} FixStatus; /* --GSA sentence fix status */
+		EFixStatus_NoFix = 1U, EFixStatus_2DFix, EFixStatus_3DFix
+	} EFixStatus; /* --GSA sentence fix status */
 
-	NMEASentencesRxFlagsTypedef SentencesReceived; /* Sentences received flags */
+	TNmeaSentencesRxFlags SentencesReceived; /* Sentences received flags */
 
-} GnssDataTypedef;
+} SGnssData;
 
 /**
  * @brief NMEA parser status typedef
  */
-typedef enum {
-	NMEA_ERROR_NONE = 0U,
-	NMEA_ERROR_INVALID_LENGTH,
-	NMEA_ERROR_INVALID_FORMAT,
-	NMEA_ERROR_INVALID_CHECKSUM,
-	NMEA_ERROR_INVALID_ID,
-	NMEA_ERROR_INVALID_DATA
-} NmeaParserStatusTypedef;
+typedef enum ENmeaParserStatus {
+	ENmeaParserStatus_OK = 0,
+	ENmeaParserStatus_InvalidFormat,
+	ENmeaParserStatus_InvalidChecksum,
+	ENmeaParserStatus_InvalidId,
+	ENmeaParserStatus_InvalidData,
+} ENmeaParserStatus;
 
 /**
  * @brief GNSS data status typedef
  */
-typedef enum {
-	GNSS_DATA_READY = 0U, GNSS_DATA_PENDING, GNSS_DATA_ERROR
-} GnssDataStatusTypedef;\
+typedef enum EGnssDataStatus {
+	EGnssDataStatus_Ready = 0,
+	EGnssDataStatus_Pending,
+	EGnssDataStatus_Error
+} EGnssDataStatus;
 
 /**
  * @brief --GSV sentence talker ID typedef
  */
-typedef enum {
-	GSV_TALKER_ID_GP = 0U,
-	GSV_TALKER_ID_GL
-} GsvTalkerIdTypedef;
+typedef enum EGsvTalkerIdTypedef {
+	EGsvTalkerId_GP = 0,
+	EGsvTalkerId_GL
+} EGsvTalkerId;
 
 /* Exported function prototypes -----------------------------------------------*/
 
@@ -107,7 +108,7 @@ typedef enum {
  * @param pData Pointer to the GNSS data structure
  * @retval bool True if all sentences were received and the data is complete, false otherwise
  */
-bool isDataComplete(GnssDataTypedef *pData);
+bool isDataComplete(SGnssData *pData);
 
 /**
  * @brief Tries parsing the Quectel L26 message
@@ -115,7 +116,7 @@ bool isDataComplete(GnssDataTypedef *pData);
  * @param[in] pMessage Pointer to the message
  * @param[in] length Length of the message
  */
-GnssDataStatusTypedef parseMessage(GnssDataTypedef *pDataBuff,
+EGnssDataStatus parseMessage(SGnssData *pDataBuff,
 		const char *pMessage, size_t length);
 
 /**
@@ -123,9 +124,9 @@ GnssDataStatusTypedef parseMessage(GnssDataTypedef *pDataBuff,
  * @param[out] pDataBuff Pointer to the GNSS data structure where the parsed data will be stored
  * @param[in] pSentence Pointer to the NMEA sentence
  * @param[in] length Length of the sentence
- * @retval NmeaParserStatusTypedef Error code
+ * @retval ENmeaParserStatus Error code
  */
-NmeaParserStatusTypedef parseNmeaSentence(GnssDataTypedef *pDataBuff,
+ENmeaParserStatus parseNmeaSentence(SGnssData *pDataBuff,
 		const char *pSentence, size_t length);
 
 /**
@@ -133,36 +134,36 @@ NmeaParserStatusTypedef parseNmeaSentence(GnssDataTypedef *pDataBuff,
  * @param[out] pDataBuff Pointer to the GNSS data structure where the parsed data will be stored
  * @param[in] pPayload Pointer to the sentence payload
  * @param[in] length Length of the payload
- * @retval NmeaParserStatusTypedef Error code
+ * @retval ENmeaParserStatus Error code
  */
-NmeaParserStatusTypedef _NmeaParseRmcPayload(GnssDataTypedef *pDataBuff, const char *pPayload, size_t length);
+ENmeaParserStatus _NmeaParseRmcPayload(SGnssData *pDataBuff, const char *pPayload, size_t length);
 
 /**
  * @brief Parses the payload of an NMEA GPVTG sentence
  * @param[out] pDataBuff Pointer to the GNSS data structure where the parsed data will be stored
  * @param[in] pPayload Pointer to the sentence payload
  * @param[in] length Length of the payload
- * @retval NmeaParserStatusTypedef Error code
+ * @retval ENmeaParserStatus Error code
  */
-NmeaParserStatusTypedef _NmeaParseVtgPayload(GnssDataTypedef *pDataBuff, const char *pPayload, size_t length);
+ENmeaParserStatus _NmeaParseVtgPayload(SGnssData *pDataBuff, const char *pPayload, size_t length);
 
 /**
  * @brief Parses the payload of an NMEA GPGGA sentence
  * @param[out] pDataBuff Pointer to the GNSS data structure where the parsed data will be stored
  * @param[in] pPayload Pointer to the sentence payload
  * @param[in] length Length of the payload
- * @retval NmeaParserStatusTypedef Error code
+ * @retval ENmeaParserStatus Error code
  */
-NmeaParserStatusTypedef _NmeaParseGgaPayload(GnssDataTypedef *pDataBuff, const char *pPayload, size_t length);
+ENmeaParserStatus _NmeaParseGgaPayload(SGnssData *pDataBuff, const char *pPayload, size_t length);
 
 /**
  * @brief Parses the payload of an NMEA --GSA sentence
  * @param[out] pDataBuff Pointer to the GNSS data structure where the parsed data will be stored
  * @param[in] pPayload Pointer to the sentence payload
  * @param[in] length Length of the payload
- * @retval NmeaParserStatusTypedef Error code
+ * @retval ENmeaParserStatus Error code
  */
-NmeaParserStatusTypedef _NmeaParseGsaPayload(GnssDataTypedef *pDataBuff, const char *pPayload, size_t length);
+ENmeaParserStatus _NmeaParseGsaPayload(SGnssData *pDataBuff, const char *pPayload, size_t length);
 
 /**
  * @brief Parses the payload of an NMEA --GSV sentence
@@ -170,27 +171,27 @@ NmeaParserStatusTypedef _NmeaParseGsaPayload(GnssDataTypedef *pDataBuff, const c
  * @param[in] pPayload Pointer to the sentence payload
  * @param[in] length Length of the payload
  * @param[in] talkerId The --GSV sentence talker ID
- * @retval NmeaParserStatusTypedef Error code
+ * @retval ENmeaParserStatus Error code
  */
-NmeaParserStatusTypedef _NmeaParseGsvPayload(GnssDataTypedef *pDataBuff, const char *pPayload, size_t length, GsvTalkerIdTypedef talkerId);
+ENmeaParserStatus _NmeaParseGsvPayload(SGnssData *pDataBuff, const char *pPayload, size_t length, EGsvTalkerId talkerId);
 
 /**
  * @brief Parses the payload of an NMEA --GLL sentence
  * @param[out] pDataBuff Pointer to the GNSS data structure where the parsed data will be stored
  * @param[in] pPayload Pointer to the sentence payload
  * @param[in] length Length of the payload
- * @retval NmeaParserStatusTypedef Error code
+ * @retval ENmeaParserStatus Error code
  */
-NmeaParserStatusTypedef _NmeaParseGllPayload(GnssDataTypedef *pDataBuff, const char *pPayload, size_t length);
+ENmeaParserStatus _NmeaParseGllPayload(SGnssData *pDataBuff, const char *pPayload, size_t length);
 
 /**
  * @brief Parses the payload of an NMEA GPTXT sentence
  * @param[out] pDataBuff Pointer to the GNSS data structure where the parsed data will be stored
  * @param[in] pPayload Pointer to the sentence payload
  * @param[in] length Length of the payload
- * @retval NmeaParserStatusTypedef Error code
+ * @retval ENmeaParserStatus Error code
  */
-NmeaParserStatusTypedef _NmeaParseTxtPayload(GnssDataTypedef *pDataBuff, const char *pPayload, size_t length);
+ENmeaParserStatus _NmeaParseTxtPayload(SGnssData *pDataBuff, const char *pPayload, size_t length);
 
 /**
  * @brief Normalizes the coordinate (longitude/latitude) as degrees multiplied by 1,000,000

@@ -16,9 +16,9 @@
  */
 void sdioGtkp_HandleLogger(void) {
 
-	char *errorLogBuff; /* Buffer for the pointer to the error message */
+	char *errorMessagePtr; /* Buffer for the pointer to the error message */
 
-	if (pdPASS == xQueueReceive(sdioLogQueueHandle, &errorLogBuff, 0)) {
+	if (pdPASS == xQueueReceive(sdioLogQueueHandle, &errorMessagePtr, 0)) {
 
 		FIL errorLogFile; /* Error log file object structure */
 
@@ -28,13 +28,13 @@ void sdioGtkp_HandleLogger(void) {
 
 			UINT bytesWritten; /* Buffer for the number of bytes written */
 			/* Write the error message to the file */
-			(void) f_write(&errorLogFile, errorLogBuff, strlen(errorLogBuff),
+			(void) f_write(&errorLogFile, errorMessagePtr, strlen(errorMessagePtr),
 					&bytesWritten);
 			/* Close the file */
 			(void) f_close(&errorLogFile);
 			/* Free the allocated memory */
-			vPortFree(errorLogBuff);
-			errorLogBuff = NULL;
+			vPortFree(errorMessagePtr);
+			errorMessagePtr = NULL;
 
 		}
 

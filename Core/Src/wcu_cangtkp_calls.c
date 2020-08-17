@@ -61,21 +61,11 @@ void canGtkp_HandleOutbox(void) {
 	/* Check for outgoing messages */
 	if (pdPASS == xQueueReceive(canTxQueueHandle, &frameBuff, 0)) {
 
-		/* Validate the DataDirection member */
-		if (TX == frameBuff.EDataDirection) {
+		static uint32_t dummy; /* Buffer for the CAN Tx mailbox used */
 
-			static uint32_t dummy; /* CAN Tx mailbox */
-
-			/* Send the message */
-			(void) HAL_CAN_AddTxMessage(&hcan1, &frameBuff.UHeader.Tx,
-					frameBuff.PayloadTable, &dummy);
-
-		} else {
-
-			/* Log the error */
-			LOGERROR("Invalid DataDirection in canGtkp\r\n");
-
-		}
+		/* Send the message */
+		(void) HAL_CAN_AddTxMessage(&hcan1, &frameBuff.UHeader.Tx,
+				frameBuff.PayloadTable, &dummy);
 
 	}
 

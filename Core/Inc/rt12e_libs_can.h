@@ -43,7 +43,7 @@ typedef struct {
 /**
  * @brief Shifts the bits of an 11-bit CAN standard ID to align with the filter bank register field mapping
  */
-#define alignCanIdWithFilterFieldMapping(id) ((uint32_t)(id << 5))
+#define AlignCanIdWithFilterFieldMapping(id) ((uint32_t)(id << 5))
 
 /* Exported function prototypes -----------------------------------------------*/
 /**

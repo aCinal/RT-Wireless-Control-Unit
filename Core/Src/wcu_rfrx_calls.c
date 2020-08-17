@@ -15,7 +15,7 @@
  */
 void rfRx_HandleMessage(void) {
 
-	static uint8_t spiRxBuff[WCU_RFRX_SPI_RX_BUFF_SIZE]; /* SPI Rx buffer */
+	static uint8_t rxBuffTable[WCU_RFRX_SPI_RX_BUFF_SIZE]; /* SPI Rx buffer */
 
 	/* Poll the DR pin until it is set high */
 	if (GPIO_PIN_SET == HAL_GPIO_ReadPin(RF_DR_GPIO_Port, RF_DR_Pin)) {
@@ -33,7 +33,7 @@ void rfRx_HandleMessage(void) {
 		WCU_RFRX_SPI_TX_TIMEOUT);
 
 		/* Receive the payload */
-		(void) HAL_SPI_Receive_DMA(&hspi1, spiRxBuff,
+		(void) HAL_SPI_Receive_DMA(&hspi1, rxBuffTable,
 		WCU_RFRX_SPI_RX_BUFF_SIZE);
 
 		/* Assert the payload was received */

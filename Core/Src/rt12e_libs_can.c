@@ -49,25 +49,29 @@ void setCanFilterList(CAN_HandleTypeDef *hcan, uint32_t ids[], uint32_t count) {
 			case 0:
 
 				filterConfig.FilterIdHigh =
-						alignCanIdWithFilterFieldMapping(ids[i]);
+						AlignCanIdWithFilterFieldMapping(ids[i]);
 				break;
 
 			case 1:
 
 				filterConfig.FilterIdLow =
-						alignCanIdWithFilterFieldMapping(ids[i]);
+						AlignCanIdWithFilterFieldMapping(ids[i]);
 				break;
 
 			case 2:
 
 				filterConfig.FilterMaskIdHigh =
-						alignCanIdWithFilterFieldMapping(ids[i]);
+						AlignCanIdWithFilterFieldMapping(ids[i]);
 				break;
 
 			case 3:
 
 				filterConfig.FilterMaskIdLow =
-						alignCanIdWithFilterFieldMapping(ids[i]);
+						AlignCanIdWithFilterFieldMapping(ids[i]);
+				break;
+
+			default:
+
 				break;
 
 			}

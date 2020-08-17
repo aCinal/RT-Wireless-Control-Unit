@@ -39,20 +39,20 @@ void gnssRx_HandleMessage(void);
  * @param pData Pointer to the GNSS data structure
  * @retval None
  */
-void gnssRx_Send_GPS_POS(GnssDataTypedef *pData);
+void gnssRx_Send_GPS_POS(SGnssData *pData);
 
 /**
  * @brief Sends _GPS_POS CAN frame
  * @param pData Pointer to the GNSS data structure
  * @retval None
  */
-void gnssRx_Send_GPS_POS2(GnssDataTypedef *pData);
+void gnssRx_Send_GPS_POS2(SGnssData *pData);
 
 /**
  * @brief Sends _GPS_POS CAN frame
  * @param pData Pointer to the GNSS data structure
  * @retval None
  */
-void gnssRx_Send_GPS_STATUS(GnssDataTypedef *pData);
+void gnssRx_Send_GPS_STATUS(SGnssData *pData);
 
 #endif /* __WCU_GNSSRX_CALLS_H_ */

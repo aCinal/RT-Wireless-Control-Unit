@@ -46,7 +46,8 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 
-#define _1SEC_TIM TIM7 /* Alias for the TIM7 timer instance */
+#define TIM_1s_INSTANCE	TIM7	/* Alias for the TIM7 timer instance */
+#define TIM_1s_HANDLE	htim7	/* Alias for the TIM7 timer handle */
 
 /* USER CODE END PD */
 
@@ -857,7 +858,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 			case R3TP_VER1_VER_BYTE:
 
 				/* Set the message */
-				mail = XBEE_INTERNAL_R3TP_VER1_HEADER_RECEIVED;
+				mail = EXbeeInternalMail_R3tpVer1HeaderReceived;
 				/* Update the flag to listen for the rest of the transmission */
 				rxStatus = HEADER_RECEIVED;
 				break;
@@ -865,13 +866,13 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 			case R3TP_VER2_VER_BYTE:
 
 				/* Set the message */
-				mail = XBEE_INTERNAL_R3TP_VER2_MESSAGE_RECEIVED;
+				mail = EXbeeInternalMail_R3tpVer2MessageReceived;
 				break;
 
 			default:
 
 				/* Set the message */
-				mail = XBEE_INTERNAL_UNKNOWN_PROTOCOL;
+				mail = EXbeeInternalMail_UnknownProtocol;
 				break;
 
 			}
@@ -879,7 +880,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 		} else {
 
 			/* Set the message */
-			mail = XBEE_INTERNAL_R3TP_VER1_MESSAGE_RECEIVED;
+			mail = EXbeeInternalMail_R3tpVer1MessageReceived;
 			/* Update the flag - the entire transmission was received */
 			rxStatus = PENDING;
 
@@ -1145,6 +1146,9 @@ void StartXbeeTxRxTask(void const *argument) {
 	(void) HAL_UART_Receive_DMA(&XBEE_UART_HANDLE, rxBuffTable,
 			R3TP_HEADER_SIZE);
 
+	/* Start the timer */
+	HAL_TIM_Base_Start_IT(&TIM_1s_HANDLE);
+
 	/* Infinite loop */
 	for (;;) {
 
@@ -1180,10 +1184,10 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 	}
 	/* USER CODE BEGIN Callback 1 */
 
-	if (_1SEC_TIM == htim->Instance) {
+	if (TIM_1s_INSTANCE == htim->Instance) {
 
 		/* Notify the xbeeTxRx task */
-		EXbeeInternalMail mail = XBEE_INTERNAL_PERIOD_ELAPSED;
+		EXbeeInternalMail mail = EXbeeInternalMail_PeriodElapsed;
 		xQueueSendFromISR(xbeeInternalMailQueueHandle, &mail, NULL);
 
 	}

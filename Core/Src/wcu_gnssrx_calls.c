@@ -19,7 +19,7 @@ void gnssRx_DeviceConfig(void) {
 	vTaskDelay(pdMS_TO_TICKS(1000));
 
 	/* Send packet 220 PMTK_SET_POS_FIX - set position fix interval to 100 ms */
-	const char PMTK_SET_POS_FIX[] = "$PMTK220,100*1F\r";
+	const char PMTK_SET_POS_FIX[] = "$PMTK220,100*1F\r\n";
 	if (HAL_OK
 			!= HAL_UART_Transmit(&GNSS_UART_HANDLE, (uint8_t*) PMTK_SET_POS_FIX,
 					sizeof(PMTK_SET_POS_FIX), 1000)) {
@@ -29,7 +29,7 @@ void gnssRx_DeviceConfig(void) {
 	}
 
 	/* Send packet 353 PMTK_API_SET_GNSS_SEARCH_MODE - configure the receiver to start searching GPS and GLONASS satellites */
-	const char PMTK_API_SET_GNSS_SEARCH_MODE[] = "$PMTK353,1,1,0,0,0*2B\r";
+	const char PMTK_API_SET_GNSS_SEARCH_MODE[] = "$PMTK353,1,1,0,0,0*2B\r\n";
 	if (HAL_OK
 			!= HAL_UART_Transmit(&GNSS_UART_HANDLE,
 					(uint8_t*) PMTK_API_SET_GNSS_SEARCH_MODE,
@@ -47,20 +47,20 @@ void gnssRx_DeviceConfig(void) {
  */
 void gnssRx_HandleMessage(void) {
 
-	static uint8_t uartRxBuff[WCU_GNSSRX_UART_RX_BUFF_SIZE]; /* UART Rx buffer */
+	static uint8_t rxBuffTable[WCU_GNSSRX_UART_RX_BUFF_SIZE]; /* UART Rx buffer */
 	/* Listen for the message */
-	(void) HAL_UART_Receive_DMA(&GNSS_UART_HANDLE, uartRxBuff,
+	(void) HAL_UART_Receive_DMA(&GNSS_UART_HANDLE, rxBuffTable,
 	WCU_GNSSRX_UART_RX_BUFF_SIZE);
 
 	/* Wait for notification from ISR/message received callback */
 	if (0UL < ulTaskNotifyTake(pdTRUE, 0)) {
 
-		static GnssDataTypedef dataBuff; /* GNSS data buffer */
+		static SGnssData dataBuff; /* GNSS data buffer */
 		/* Try parsing the message */
-		switch (parseMessage(&dataBuff, (char*) uartRxBuff,
+		switch (parseMessage(&dataBuff, (char*) rxBuffTable,
 		WCU_GNSSRX_UART_RX_BUFF_SIZE)) {
 
-		case GNSS_DATA_READY: /* If the data is ready */
+		case EGnssDataStatus_Ready: /* If the data is ready */
 
 			/* Send the data to CAN */
 			gnssRx_Send_GPS_POS(&dataBuff);
@@ -71,14 +71,18 @@ void gnssRx_HandleMessage(void) {
 			(void) memset(&dataBuff, 0x00, sizeof(dataBuff));
 			break;
 
-		case GNSS_DATA_PENDING: /* If the data is not complete */
+		case EGnssDataStatus_Pending: /* If the data is not complete */
 
 			break;
 
-		case GNSS_DATA_ERROR: /* If the parser failed */
+		case EGnssDataStatus_Error: /* If the parser failed */
 
 			/* Log the error */
 			LOGERROR("parseMessage failed in gnssRx\r\n");
+			break;
+
+		default:
+
 			break;
 
 		}
@@ -92,7 +96,7 @@ void gnssRx_HandleMessage(void) {
  * @param pData Pointer to the GNSS data structure
  * @retval None
  */
-void gnssRx_Send_GPS_POS(GnssDataTypedef *pData) {
+void gnssRx_Send_GPS_POS(SGnssData *pData) {
 
 	SCanFrame canFrame = { .EDataDirection = TX }; /* CAN frame structure */
 
@@ -104,14 +108,14 @@ void gnssRx_Send_GPS_POS(GnssDataTypedef *pData) {
 	canFrame.UHeader.Tx.TransmitGlobalTime = DISABLE;
 
 	/* Write the longitude to the frame payload */
-	int32_t longitude = normalizeCoordinate(pData->Longitude, pData->LonDir);
+	int32_t longitude = normalizeCoordinate(pData->Longitude, pData->ELonDir);
 	canFrame.PayloadTable[0] = _bits24_31(longitude);
 	canFrame.PayloadTable[1] = _bits16_23(longitude);
 	canFrame.PayloadTable[2] = _bits8_15(longitude);
 	canFrame.PayloadTable[3] = _bits0_7(longitude);
 
 	/* Write the latitude to the frame payload */
-	int32_t latitude = normalizeCoordinate(pData->Latitude, pData->LatDir);
+	int32_t latitude = normalizeCoordinate(pData->Latitude, pData->ELatDir);
 	canFrame.PayloadTable[4] = _bits24_31(latitude);
 	canFrame.PayloadTable[5] = _bits16_23(longitude);
 	canFrame.PayloadTable[6] = _bits8_15(longitude);
@@ -128,7 +132,7 @@ void gnssRx_Send_GPS_POS(GnssDataTypedef *pData) {
  * @param pData Pointer to the GNSS data structure
  * @retval None
  */
-void gnssRx_Send_GPS_POS2(GnssDataTypedef *pData) {
+void gnssRx_Send_GPS_POS2(SGnssData *pData) {
 
 	SCanFrame canFrame = { .EDataDirection = TX }; /* CAN frame structure */
 
@@ -165,7 +169,7 @@ void gnssRx_Send_GPS_POS2(GnssDataTypedef *pData) {
  * @param pData Pointer to the GNSS data structure
  * @retval None
  */
-void gnssRx_Send_GPS_STATUS(GnssDataTypedef *pData) {
+void gnssRx_Send_GPS_STATUS(SGnssData *pData) {
 
 	SCanFrame canFrame = { .EDataDirection = TX }; /* CAN frame structure */
 
@@ -182,7 +186,7 @@ void gnssRx_Send_GPS_STATUS(GnssDataTypedef *pData) {
 	/* Clear two most significant bits */
 	canFrame.PayloadTable[0] &= 0b00111111;
 	/* Use two most significant bits of the first byte to store fix status flags */
-	canFrame.PayloadTable[0] |= (uint8_t) pData->FixStatus << 6U;
+	canFrame.PayloadTable[0] |= (uint8_t) pData->EFixStatus << 6U;
 
 	/* Write the satellites in use count to the frame payload */
 	canFrame.PayloadTable[1] = pData->SatellitesInUse;
