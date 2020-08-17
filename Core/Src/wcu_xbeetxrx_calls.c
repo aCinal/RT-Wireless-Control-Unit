@@ -15,7 +15,7 @@
 /**
  * @brief Guard Times parameter of XBEE Pro
  */
-static uint16_t g_GT = XBEE_GT_DEFAULT;
+static uint16_t gGT = XBEE_GT_DEFAULT;
 
 /**
  * @brief Returns the length of the string not counting the NULL character
@@ -71,7 +71,7 @@ void xbeeTxRx_DeviceConfig(void) {
 
 	/* Set the Guard Times global variable */
 	/* The desired value is hard-coded because it is also contained in the SET_GL command string */
-	g_GT = 0x000AU;
+	gGT = 0x000AU;
 
 }
 
@@ -413,7 +413,7 @@ void xbeeTxRx_HandleDriverWarning(uint8_t rxBuffTable[],
 void xbeeTxRx_PollForRssi(uint8_t *rssiPtr) {
 
 	/* Wait the guard time */
-	vTaskDelay(pdMS_TO_TICKS(g_GT));
+	vTaskDelay(pdMS_TO_TICKS(gGT));
 
 	/* Enter command mode */
 	const uint8_t ENTER_COMMAND_MODE[] = "+++";
@@ -429,7 +429,7 @@ void xbeeTxRx_PollForRssi(uint8_t *rssiPtr) {
 	}
 
 	/* Wait the guard time */
-	vTaskDelay(pdMS_TO_TICKS(g_GT));
+	vTaskDelay(pdMS_TO_TICKS(gGT));
 
 	/* Request RSSI */
 	const uint8_t REQUEST_RSSI[] = "ATDB\r";
