@@ -10,17 +10,58 @@
 #include "rt12e_libs_can.h"
 #include "rt12e_libs_generic.h"
 #include "rt12e_libs_r3tp.h"
+#include "rt12e_libs_uartcircularbuffer.h"
 #include <string.h>
+
+/**
+ * @brief Circular buffer structure
+ */
+SUartCircularBuffer gXbeeTxRxCircularBuffer;
+
+/**
+ * @brief Telemetry diagnostics structure
+ */
+typedef struct STelemetryDiagnostics {
+
+	bool greenWarningActive; /* Fleg set when the green warning is active */
+
+	uint8_t greenWarningDuration; /* Buffer for the green warning's duration */
+
+	bool redWarningActive; /* Flag set when the red warning is active */
+
+	uint8_t redWarningDuration; /* Buffer for the red warning's duration */
+
+	uint8_t rssi; /* Buffer for the RSSI value */
+
+} STelemetryDiagnostics;
+
+#define CIRCULAR_BUFFER_SIZE			2 * R3TP_MAX_FRAME_SIZE	/* UART circular buffer size */
+#define CAN_ID_TELEMETRY_DIAG			(uint32_t)(0x733UL)		/* CAN ID: _733_TELEMETRY_DIAG */
+#define TELEMETRY_STATE_BIT				(uint8_t)(0x80U)		/* Telemetry_State bit of the TELEMETRY_DIAG CAN frame */
+#define TELEMETRY_WARNING_BIT			(uint8_t)(0x40U)		/* Telemetry_Warning bit of the TELEMETRY_DIAG CAN frame */
+#define TELEMETRY_PIT_BIT				(uint8_t)(0x20U)		/* Telemetry_Pit bit of the TELEMETRY_DIAG CAN frame */
+#define XBEE_GT_DEFAULT					(uint16_t)(0x0CE4U)		/* XBEE Pro Guard Times default value */
+#define XBEE_GT_DESIRED					(uint16_t)(0x000AU)		/* XBEE Pro Guard Times desired value */
+
+/**
+ * @brief Returns the length of the string not counting the NULL character
+ */
+#define StaticStrlen(str) (uint32_t)(sizeof(str) - 1U)
 
 /**
  * @brief Guard Times parameter of XBEE Pro
  */
 static uint16_t gGT = XBEE_GT_DEFAULT;
 
-/**
- * @brief Returns the length of the string not counting the NULL character
- */
-#define StaticStrlen(str) (uint32_t)(sizeof(str) - 1U)
+static void xbeeTxRx_CircularBufferIdleCallback(void);
+static void xbeeTxRx_HandleNewSubscription(uint8_t rxBuffTable[]);
+static void xbeeTxRx_HandleDriverWarning(uint8_t rxBuffTable[], STelemetryDiagnostics *diagnosticsPtr);
+static void xbeeTxRx_SendDiagnostics(STelemetryDiagnostics *diagnosticsPtr);
+static void xbeeTxRx_UpdateWarnings(STelemetryDiagnostics *diagnosticsPtr);
+static void xbeeTxRx_PollForRssi(uint8_t *rssiPtr);
+static BaseType_t xbeeTxRx_SendSubscriptionToCanGtkp(uint32_t ids[], size_t count);
+static BaseType_t xbeeTxRx_SendSubscriptionToSdioGtkp(uint32_t ids[], size_t count);
+void Error_Handler(void);
 
 /**
  * @brief Configures the XBEE Pro device
@@ -76,74 +117,67 @@ void xbeeTxRx_DeviceConfig(void) {
 }
 
 /**
+ * @brief Starts listening for incoming UART transmissions
+ * @retval EUartCircularBufferStatus Error code
+ */
+EUartCircularBufferStatus xbeeTxRx_StartCircularBufferIdleDetectionRx(void) {
+
+	static uint8_t buff[CIRCULAR_BUFFER_SIZE]; /* Circular buffer */
+
+	/* Configure the circular buffer structure */
+	gXbeeTxRxCircularBuffer.BufferPtr = buff;
+	gXbeeTxRxCircularBuffer.BufferSize = CIRCULAR_BUFFER_SIZE;
+	gXbeeTxRxCircularBuffer.Callback = &xbeeTxRx_CircularBufferIdleCallback;
+	gXbeeTxRxCircularBuffer.PeriphHandlePtr = &XBEE_UART_HANDLE;
+
+	/* Start listening */
+	return uartCircularBuffer_start(&gXbeeTxRxCircularBuffer);
+
+}
+
+/**
  * @brief Handles internal messages
- * @param rxBuffTable UART Rx Buffer
  * @retval None
  */
-void xbeeTxRx_HandleInternalMail(uint8_t rxBuffTable[]) {
+void xbeeTxRx_HandleInternalMail(void) {
 
-	EXbeeInternalMail mail;
+	static uint8_t rxBuffTable[R3TP_MAX_FRAME_SIZE]; /* UART Rx buffer */
+	static EXbeeInternalMail mail; /* Internal mail buffer */
+
 	/* Wait for messages */
 	if (pdPASS == xQueueReceive(xbeeInternalMailQueueHandle, &mail, 0)) {
 
-		static SXbeeDiagnostics diagnostics;
-
-		uint32_t ver1FrameNum; /* Buffer for the number of frames in an incoming subscription */
+		static STelemetryDiagnostics diagnostics;
 
 		switch (mail) {
 
-		case EXbeeInternalMail_R3tpVer1HeaderReceived:
+		case EXbeeInternalMail_MessageReceived:
 
-			/* Read the number of frames in the payload */
-			ver1FrameNum = _join32bits(rxBuffTable[7], rxBuffTable[6],
-					rxBuffTable[5], rxBuffTable[4]);
+			/* Read the data from the circular buffer */
+			(void) uartCircularBuffer_read(&gXbeeTxRxCircularBuffer, rxBuffTable, R3TP_MAX_FRAME_SIZE);
 
-			/* Assert the payload won't overflow the buffer */
-			if (ver1FrameNum > R3TP_VER1_MAX_FRAME_NUM) {
+			/* Identify the protocol version */
+			switch(rxBuffTable[0]) {
 
-				/* Log the error */
-				LOGERROR("Invalid FRAME NUM in xbeeTxRx\r\n");
-				/* Assert the invalid message won't raise any more interrupts */
-				IGNORE_REST_OF_THE_MESSAGE();
-				/* Listen for the next message */
-				(void) HAL_UART_Receive_DMA(&XBEE_UART_HANDLE, rxBuffTable,
-				R3TP_HEADER_SIZE);
+			case R3TP_VER1_VER_BYTE:
+
+				xbeeTxRx_HandleNewSubscription(rxBuffTable);
+				break;
+
+			case R3TP_VER2_VER_BYTE:
+
+				xbeeTxRx_HandleDriverWarning(rxBuffTable, &diagnostics);
+				break;
+
+			default:
+
+				LOGERROR("Invalid protocol version in xbeeTxRx\r\n");
 				break;
 
 			}
 
-			/* Listen for the rest of the message */
-			(void) HAL_UART_Receive_DMA(&XBEE_UART_HANDLE,
-					R3TP_VER1_PAYLOAD_BEGIN(rxBuffTable),
-					(R3TP_VER1_MESSAGE_LENGTH(
-							ver1FrameNum) - R3TP_HEADER_SIZE));
-			break;
-
-		case EXbeeInternalMail_R3tpVer1MessageReceived:
-
-			/* Handle the new subscription */
-			xbeeTxRx_HandleNewSubscription(rxBuffTable);
-
 			/* Poll the device for the RSSI value */
 			xbeeTxRx_PollForRssi(&diagnostics.rssi);
-
-			/* Listen for the next message */
-			(void) HAL_UART_Receive_DMA(&XBEE_UART_HANDLE, rxBuffTable,
-			R3TP_HEADER_SIZE);
-			break;
-
-		case EXbeeInternalMail_R3tpVer2MessageReceived:
-
-			/* Handle the driver warning */
-			xbeeTxRx_HandleDriverWarning(rxBuffTable, &diagnostics);
-
-			/* Poll the device for the RSSI value */
-			xbeeTxRx_PollForRssi(&diagnostics.rssi);
-
-			/* Listen for the next message */
-			(void) HAL_UART_Receive_DMA(&XBEE_UART_HANDLE, rxBuffTable,
-			R3TP_HEADER_SIZE);
-			break;
 
 		case EXbeeInternalMail_PeriodElapsed:
 
@@ -151,14 +185,6 @@ void xbeeTxRx_HandleInternalMail(uint8_t rxBuffTable[]) {
 			xbeeTxRx_SendDiagnostics(&diagnostics);
 			/* Update the diagnostics structure */
 			xbeeTxRx_UpdateWarnings(&diagnostics);
-			break;
-
-		case EXbeeInternalMail_UnknownProtocol:
-
-			/* Log the error */
-			LOGERROR("Invalid VER byte in xbeeTxRx\r\n");
-			/* Assert the invalid message won't raise any more interrupts */
-			IGNORE_REST_OF_THE_MESSAGE();
 			break;
 
 		default:
@@ -247,15 +273,36 @@ void xbeeTxRx_HandleOutgoingR3tpComms(void) {
 }
 
 /**
+ * @brief Function registered as callback for idle line callback in the circular buffer implementation
+ * @retval None
+ */
+static void xbeeTxRx_CircularBufferIdleCallback(void) {
+
+	/* Notify the xbeeTxRx task */
+	EXbeeInternalMail mail = EXbeeInternalMail_MessageReceived;
+	(void) xQueueSendFromISR(xbeeInternalMailQueueHandle, &mail, NULL);
+
+}
+
+/**
  * @brief Handles the new telemetry subscription
  * @param rxBuffTable UART Rx Buffer
  * @retval None
  */
-void xbeeTxRx_HandleNewSubscription(uint8_t rxBuffTable[]) {
+static void xbeeTxRx_HandleNewSubscription(uint8_t rxBuffTable[]) {
 
 	/* Read the number of frames in the payload */
 	uint32_t frameNum = _join32bits(rxBuffTable[7], rxBuffTable[6],
 			rxBuffTable[5], rxBuffTable[4]);
+
+	/* Assert the payload won't overflow the buffer */
+	if (frameNum > R3TP_VER1_MAX_FRAME_NUM) {
+
+		/* Log the error */
+		LOGERROR("Invalid FRAME NUM in xbeeTxRx\r\n");
+		return;
+
+	}
 
 	/* Validate the END SEQ field */
 	if ((R3TP_END_SEQ_LOW_BYTE
@@ -333,8 +380,8 @@ void xbeeTxRx_HandleNewSubscription(uint8_t rxBuffTable[]) {
  * @param[out] diagnosticsPtr Pointer to the diagnostics structure
  * @retval None
  */
-void xbeeTxRx_HandleDriverWarning(uint8_t rxBuffTable[],
-		SXbeeDiagnostics *diagnosticsPtr) {
+static void xbeeTxRx_HandleDriverWarning(uint8_t rxBuffTable[],
+		STelemetryDiagnostics *diagnosticsPtr) {
 
 	/* Validate the END SEQ */
 	if ((R3TP_END_SEQ_LOW_BYTE != rxBuffTable[R3TP_VER2_FRAME_SIZE - 2U])
@@ -410,10 +457,13 @@ void xbeeTxRx_HandleDriverWarning(uint8_t rxBuffTable[],
  * @param[out] rssiPtr Address where the received RSSI value will be stored
  * @retval None
  */
-void xbeeTxRx_PollForRssi(uint8_t *rssiPtr) {
+static void xbeeTxRx_PollForRssi(uint8_t *rssiPtr) {
 
 	/* Wait the guard time */
 	vTaskDelay(pdMS_TO_TICKS(gGT));
+
+	/* Stop the data to the circular buffer */
+	uartCircularBuffer_stop(&gXbeeTxRxCircularBuffer);
 
 	/* Enter command mode */
 	const uint8_t ENTER_COMMAND_MODE[] = "+++";
@@ -462,6 +512,9 @@ void xbeeTxRx_PollForRssi(uint8_t *rssiPtr) {
 
 	}
 
+	/* Resume the data to the circular buffer */
+	uartCircularBuffer_start(&gXbeeTxRxCircularBuffer);
+
 }
 
 /**
@@ -469,7 +522,7 @@ void xbeeTxRx_PollForRssi(uint8_t *rssiPtr) {
  * @param diagnosticsPtr Pointer to the diagnostics structure
  * @retval None
  */
-void xbeeTxRx_SendDiagnostics(SXbeeDiagnostics *diagnosticsPtr) {
+static void xbeeTxRx_SendDiagnostics(STelemetryDiagnostics *diagnosticsPtr) {
 
 	SCanFrame canFrame = { .EDataDirection = TX }; /* CAN frame structure */
 
@@ -477,7 +530,7 @@ void xbeeTxRx_SendDiagnostics(SXbeeDiagnostics *diagnosticsPtr) {
 	canFrame.UHeader.Tx.DLC = 2;
 	canFrame.UHeader.Tx.IDE = CAN_ID_STD;
 	canFrame.UHeader.Tx.RTR = CAN_RTR_DATA;
-	canFrame.UHeader.Tx.StdId = WCU_CAN_ID_TELEMETRY_DIAG;
+	canFrame.UHeader.Tx.StdId = CAN_ID_TELEMETRY_DIAG;
 	canFrame.UHeader.Tx.TransmitGlobalTime = DISABLE;
 
 	/* Write the RSSI to the frame payload */
@@ -521,7 +574,7 @@ void xbeeTxRx_SendDiagnostics(SXbeeDiagnostics *diagnosticsPtr) {
  * @param diagnosticsPtr Pointer to the diagnostics structure
  * @retval None
  */
-void xbeeTxRx_UpdateWarnings(SXbeeDiagnostics *diagnosticsPtr) {
+static void xbeeTxRx_UpdateWarnings(STelemetryDiagnostics *diagnosticsPtr) {
 
 	/* Test if the green warning is active */
 	if (diagnosticsPtr->greenWarningActive) {
@@ -563,7 +616,7 @@ void xbeeTxRx_UpdateWarnings(SXbeeDiagnostics *diagnosticsPtr) {
  * @param count Length of the ids array
  * @retval BaseType_t pdPASS if the subscription was successfully forwarded to the gatekeeper, errQUEUE_FULL otherwise
  */
-BaseType_t xbeeTxRx_SendSubscriptionToCanGtkp(uint32_t ids[], size_t count) {
+static BaseType_t xbeeTxRx_SendSubscriptionToCanGtkp(uint32_t ids[], size_t count) {
 
 	BaseType_t ret = pdPASS; /* Buffer for xQueueSend return value */
 
@@ -597,7 +650,7 @@ BaseType_t xbeeTxRx_SendSubscriptionToCanGtkp(uint32_t ids[], size_t count) {
  * @param count Length of the ids array
  * @retval BaseType_t pdPASS if the subscription was successfully forwarded to the gatekeeper, errQUEUE_FULL otherwise
  */
-BaseType_t xbeeTxRx_SendSubscriptionToSdioGtkp(uint32_t ids[], size_t count) {
+static BaseType_t xbeeTxRx_SendSubscriptionToSdioGtkp(uint32_t ids[], size_t count) {
 
 	BaseType_t ret = pdPASS; /* Buffer for xQueueSend return value */
 

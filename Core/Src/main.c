@@ -33,8 +33,7 @@
 #include "wcu_rfrx_calls.h"
 #include "wcu_diagnostic_calls.h"
 #include "wcu_xbeetxrx_calls.h"
-#include "rt12e_libs_generic.h"
-#include "rt12e_libs_r3tp.h"
+#include "rt12e_libs_uartcircularbuffer.h"
 
 /* USER CODE END Includes */
 
@@ -95,7 +94,6 @@ UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
 UART_HandleTypeDef huart3;
 DMA_HandleTypeDef hdma_uart4_rx;
-DMA_HandleTypeDef hdma_uart4_tx;
 DMA_HandleTypeDef hdma_usart1_rx;
 DMA_HandleTypeDef hdma_usart3_rx;
 
@@ -732,9 +730,6 @@ static void MX_DMA_Init(void)
   /* DMA1_Stream2_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Stream2_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA1_Stream2_IRQn);
-  /* DMA1_Stream4_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Stream4_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(DMA1_Stream4_IRQn);
   /* DMA2_Stream0_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA2_Stream0_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA2_Stream0_IRQn);
@@ -855,7 +850,6 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 
 		/* Notify the btRx task */
 		vTaskNotifyGiveFromISR(btRxHandle, NULL);
-		return;
 
 	}
 
@@ -863,56 +857,12 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 
 		/* Notify the gnssRx task */
 		vTaskNotifyGiveFromISR(gnssRxHandle, NULL);
-		return;
 
 	}
 
 	if (XBEE_UART_INSTANCE == huart->Instance) {
 
-		static enum {
-			PENDING = 0, HEADER_RECEIVED
-		} rxStatus = PENDING;
-
-		EXbeeInternalMail mail; /* Buffer for the message to the xbeeTxRx task */
-
-		/* If no header was received */
-		if(PENDING == rxStatus) {
-
-			/* Validate the protocol version byte */
-			switch(huart->pRxBuffPtr[0]) {
-			case R3TP_VER1_VER_BYTE:
-
-				/* Set the message */
-				mail = EXbeeInternalMail_R3tpVer1HeaderReceived;
-				/* Update the flag to listen for the rest of the transmission */
-				rxStatus = HEADER_RECEIVED;
-				break;
-
-			case R3TP_VER2_VER_BYTE:
-
-				/* Set the message */
-				mail = EXbeeInternalMail_R3tpVer2MessageReceived;
-				break;
-
-			default:
-
-				/* Set the message */
-				mail = EXbeeInternalMail_UnknownProtocol;
-				break;
-
-			}
-
-		} else {
-
-			/* Set the message */
-			mail = EXbeeInternalMail_R3tpVer1MessageReceived;
-			/* Update the flag - the entire transmission was received */
-			rxStatus = PENDING;
-
-		}
-
-		/* Send the message to the xbeeTxRx task */
-		(void) xQueueSendFromISR(xbeeInternalMailQueueHandle, &mail, NULL);
+		/* Handled by the circular buffer idle line callback */
 
 	}
 
@@ -1174,10 +1124,8 @@ void StartXbeeTxRxTask(void const * argument)
 	/* Configure the device */
 	xbeeTxRx_DeviceConfig();
 
-	static uint8_t rxBuffTable[R3TP_MAX_FRAME_SIZE ];
-	/* Listen for the header of an R3TP message */
-	(void) HAL_UART_Receive_DMA(&XBEE_UART_HANDLE, rxBuffTable,
-			R3TP_HEADER_SIZE);
+	/* Start listening for incoming data */
+	xbeeTxRx_StartCircularBufferIdleDetectionRx();
 
 	/* Start the timer */
 	HAL_TIM_Base_Start_IT(&TIM_1s_HANDLE);
@@ -1186,7 +1134,7 @@ void StartXbeeTxRxTask(void const * argument)
 	for (;;) {
 
 		/* Listen for internal communication */
-		xbeeTxRx_HandleInternalMail(rxBuffTable);
+		xbeeTxRx_HandleInternalMail();
 
 		/* Poll the queue for CAN frames to send */
 		xbeeTxRx_HandleOutgoingR3tpComms();

@@ -31,17 +31,17 @@
 /**
  * @brief Returns bits 8-15 (second least significant byte) of a value
  */
-#define _bits8_15(x) (0xFF & (x << 8))
+#define _bits8_15(x) (0xFF & (x >> 8))
 
 /**
  * @brief Returns bits 8-15 (third least significant byte) of a value
  */
-#define _bits16_23(x) (0xFF & (x << 16))
+#define _bits16_23(x) (0xFF & (x >> 16))
 
 /**
  * @brief Returns bits 8-15 (fourth least significant byte) of a value
  */
-#define _bits24_31(x) (0xFF & (x << 24))
+#define _bits24_31(x) (0xFF & (x >> 24))
 
 
 #endif /* __RT12E_LIBS_GENERIC_H_ */
