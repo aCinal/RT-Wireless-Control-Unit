@@ -58,9 +58,9 @@ EUartCircularBufferStatus uartCircularBuffer_start(SUartCircularBuffer *rbPtr);
 /**
  * @brief Disables interrupts and stops the data transfer
  * @param rbPtr Pointer to the circular buffer structure
- * @retval None
+ * @retval EUartCircularBufferStatus Error code
  */
-void uartCircularBuffer_stop(SUartCircularBuffer *rbPtr);
+EUartCircularBufferStatus uartCircularBuffer_stop(SUartCircularBuffer *rbPtr);
 
 /**
  * @brief ISR callback

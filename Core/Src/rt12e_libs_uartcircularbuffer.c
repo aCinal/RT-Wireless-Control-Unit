@@ -47,11 +47,31 @@ EUartCircularBufferStatus uartCircularBuffer_start(SUartCircularBuffer *rbPtr) {
 /**
  * @brief Disables interrupts and stops the data transfer
  * @param rbPtr Pointer to the circular buffer structure
- * @retval None
+ * @retval EUartCircularBufferStatus Error code
  */
-void uartCircularBuffer_stop(SUartCircularBuffer *rbPtr) {
+EUartCircularBufferStatus uartCircularBuffer_stop(SUartCircularBuffer *rbPtr) {
 
-	HAL_UART_Abort(rbPtr->PeriphHandlePtr);
+	EUartCircularBufferStatus ret = EUartCircularBufferStatus_OK; /* Return value */
+
+	/* Assert valid parameters */
+	if(NULL != rbPtr) {
+
+		/* Disable the idle line detection interrupt */
+		__HAL_UART_DISABLE_IT(rbPtr->PeriphHandlePtr, UART_IT_IDLE);
+		/* Abort the data transfer */
+		if(HAL_OK != HAL_UART_Abort(rbPtr->PeriphHandlePtr)) {
+
+			ret = EUartCircularBufferStatus_HalError;
+
+		}
+
+	} else {
+
+		ret = EUartCircularBufferStatus_InvalidParams;
+
+	}
+
+	return ret;
 
 }
 
