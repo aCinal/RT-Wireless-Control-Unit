@@ -5,27 +5,60 @@
  */
 
 #include "wcu_btrx_calls.h"
+
 #include "wcu_base.h"
 #include "rt12e_libs_can.h"
 #include "rt12e_libs_generic.h"
 #include "rt12e_libs_r3tp.h"
+#include "rt12e_libs_uartcircularbuffer.h"
+
+#include "cmsis_os.h"
+
+/**
+ * @brief Circular buffer structure
+ */
+SUartCircularBuffer gBtRxCircularBuffer;
+
+extern osThreadId btRxHandle;
+extern osMutexId crcMutexHandle;
+extern CRC_HandleTypeDef hcrc;
+
+#define BTRX_CIRCULAR_BUFFER_SIZE	(uint32_t)(50)	/* UART circular buffer size */
+
+static void btRx_CircularBufferIdleCallback(void);
+
+/**
+ * @brief Starts listening for incoming UART transmissions
+ * @retval EUartCircularBufferStatus Error code
+ */
+EUartCircularBufferStatus btRx_StartCircularBufferIdleDetectionRx(void) {
+
+	static uint8_t buff[BTRX_CIRCULAR_BUFFER_SIZE]; /* Circular buffer */
+
+	/* Configure the circular buffer structure */
+	gBtRxCircularBuffer.BufferPtr = buff;
+	gBtRxCircularBuffer.BufferSize = BTRX_CIRCULAR_BUFFER_SIZE;
+	gBtRxCircularBuffer.Callback = &btRx_CircularBufferIdleCallback;
+	gBtRxCircularBuffer.PeriphHandlePtr = &BT_UART_HANDLE;
+
+	/* Start listening */
+	return uartCircularBuffer_start(&gBtRxCircularBuffer);
+
+}
 
 
 /**
- * @brief Listens for and handles the BT message
+ * @brief Handles the BT message
  * @retval None
  */
 void btRx_HandleMessage(void) {
 
-	static SCanFrame canFrame = { .EDataDirection = TX }; /* CAN frame structure */
-
-	static uint8_t rxBuffTable[R3TP_VER0_FRAME_SIZE]; /* UART Rx buffer */
-	/* Listen for the message */
-	(void) HAL_UART_Receive_DMA(&BT_UART_HANDLE, rxBuffTable,
-	R3TP_VER0_FRAME_SIZE);
-
-	/* Wait for notification from ISR/message received callback */
+	/* Wait for notification from idle line detection callback */
 	if (0UL < ulTaskNotifyTake(pdTRUE, 0)) {
+
+		static uint8_t rxBuffTable[R3TP_VER0_FRAME_SIZE]; /* UART read buffer */
+		/* Read the data from the circular buffer */
+		uartCircularBuffer_read(&gBtRxCircularBuffer, rxBuffTable, R3TP_VER0_FRAME_SIZE);
 
 		/* Validate the VER */
 		if (R3TP_VER0_VER_BYTE != rxBuffTable[0]) {
@@ -86,6 +119,7 @@ void btRx_HandleMessage(void) {
 
 		}
 
+		static SCanFrame canFrame = { .EDataDirection = TX }; /* CAN frame structure */
 		/* Read the CAN ID - note that the CAN ID is transmitted as little endian */
 		canFrame.UHeader.Tx.StdId = _join32bits(rxBuffTable[7], rxBuffTable[6],
 				rxBuffTable[5], rxBuffTable[4]);
@@ -114,5 +148,16 @@ void btRx_HandleMessage(void) {
 		ADDTOCANTXQUEUE(&canFrame, "btRx failed to send to canTxQueue\r\n");
 
 	}
+
+}
+
+/**
+ * @brief Function registered as callback for idle line callback in the circular buffer implementation
+ * @retval None
+ */
+static void btRx_CircularBufferIdleCallback(void) {
+
+	/* Notify the btRx task */
+	vTaskNotifyGiveFromISR(btRxHandle, NULL);
 
 }

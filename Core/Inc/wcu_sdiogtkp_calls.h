@@ -7,13 +7,7 @@
 #ifndef __WCU_SDIOGTKP_CALLS_H_
 #define __WCU_SDIOGTKP_CALLS_H_
 
-#include "cmsis_os.h"
-
-extern osMessageQId sdioSubQueueHandle;
-extern osMessageQId sdioLogQueueHandle;
-
-#define WCU_SDIOGTKP_LOGFILE_PATH					("ERRLOG.TXT")			/* Error log file path */
-#define WCU_SDIOGTKP_SUBFILE_PATH					("SUBSCR")				/* Subscription file path */
+#include <inttypes.h>
 
 /**
  * @brief Handles the error logger

@@ -13,9 +13,6 @@ extern SPI_HandleTypeDef hspi1;
 #define RF_SPI_HANDLE hspi1
 #define RF_SPI_INSTANCE SPI1
 
-#define WCU_RFRX_SPI_RX_BUFF_SIZE	32UL	/* SPI Rx buffer size */
-#define WCU_RFRX_SPI_TX_TIMEOUT		50		/* SPI Tx timeout */
-
 /**
  * @brief Listens for and handles the RF message
  * @retval None

@@ -10,6 +10,8 @@
 #include "rt12e_libs_generic.h"
 #include <math.h>
 
+#define CAN_ID_WCU_DIAG		(uint32_t)(0x733UL)		/* CAN ID: _733_WCU_DIAG */
+
 /**
  * @brief Runs diagnostics on the MCU and transmits the data via CAN bus
  */
@@ -21,7 +23,7 @@ void diagnostic_RunDiagnostics(void) {
 	canFrame.UHeader.Tx.DLC = 4;
 	canFrame.UHeader.Tx.IDE = CAN_ID_STD;
 	canFrame.UHeader.Tx.RTR = CAN_RTR_DATA;
-	canFrame.UHeader.Tx.StdId = WCU_CAN_ID_WCU_DIAG;
+	canFrame.UHeader.Tx.StdId = CAN_ID_WCU_DIAG;
 	canFrame.UHeader.Tx.TransmitGlobalTime = DISABLE;
 
 	static uint16_t temperatureSensorAdcBuff; /* Buffer for the result of the temperature sensor ADC conversion */

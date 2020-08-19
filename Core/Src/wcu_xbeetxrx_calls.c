@@ -5,12 +5,14 @@
  */
 
 #include "wcu_xbeetxrx_calls.h"
+
 #include "wcu_base.h"
-#include "main.h"
 #include "rt12e_libs_can.h"
 #include "rt12e_libs_generic.h"
 #include "rt12e_libs_r3tp.h"
 #include "rt12e_libs_uartcircularbuffer.h"
+
+#include "main.h"
 #include <string.h>
 
 /**
@@ -35,13 +37,22 @@ typedef struct STelemetryDiagnostics {
 
 } STelemetryDiagnostics;
 
-#define CIRCULAR_BUFFER_SIZE			2 * R3TP_MAX_FRAME_SIZE	/* UART circular buffer size */
-#define CAN_ID_TELEMETRY_DIAG			(uint32_t)(0x733UL)		/* CAN ID: _733_TELEMETRY_DIAG */
-#define TELEMETRY_STATE_BIT				(uint8_t)(0x80U)		/* Telemetry_State bit of the TELEMETRY_DIAG CAN frame */
-#define TELEMETRY_WARNING_BIT			(uint8_t)(0x40U)		/* Telemetry_Warning bit of the TELEMETRY_DIAG CAN frame */
-#define TELEMETRY_PIT_BIT				(uint8_t)(0x20U)		/* Telemetry_Pit bit of the TELEMETRY_DIAG CAN frame */
-#define XBEE_GT_DEFAULT					(uint16_t)(0x0CE4U)		/* XBEE Pro Guard Times default value */
-#define XBEE_GT_DESIRED					(uint16_t)(0x000AU)		/* XBEE Pro Guard Times desired value */
+extern CRC_HandleTypeDef hcrc;
+extern osThreadId canGtkpHandle;
+extern osThreadId sdioGtkpHandle;
+extern osMessageQId canRxQueueHandle;
+extern osMessageQId canSubQueueHandle;
+extern osMessageQId sdioSubQueueHandle;
+extern osMessageQId xbeeInternalMailQueueHandle;
+extern osMutexId crcMutexHandle;
+
+#define XBEETXRX_CIRCULAR_BUFFER_SIZE	(uint32_t)(2 * R3TP_MAX_FRAME_SIZE)	/* UART circular buffer size */
+#define CAN_ID_TELEMETRY_DIAG			(uint32_t)(0x733UL)					/* CAN ID: _733_TELEMETRY_DIAG */
+#define TELEMETRY_STATE_BIT				(uint8_t)(0x80U)					/* Telemetry_State bit of the TELEMETRY_DIAG CAN frame */
+#define TELEMETRY_WARNING_BIT			(uint8_t)(0x40U)					/* Telemetry_Warning bit of the TELEMETRY_DIAG CAN frame */
+#define TELEMETRY_PIT_BIT				(uint8_t)(0x20U)					/* Telemetry_Pit bit of the TELEMETRY_DIAG CAN frame */
+#define XBEE_GT_DEFAULT					(uint16_t)(0x0CE4U)					/* XBEE Pro Guard Times default value */
+#define XBEE_GT_DESIRED					(uint16_t)(0x000AU)					/* XBEE Pro Guard Times desired value */
 
 /**
  * @brief Returns the length of the string not counting the NULL character
@@ -122,11 +133,11 @@ void xbeeTxRx_DeviceConfig(void) {
  */
 EUartCircularBufferStatus xbeeTxRx_StartCircularBufferIdleDetectionRx(void) {
 
-	static uint8_t buff[CIRCULAR_BUFFER_SIZE]; /* Circular buffer */
+	static uint8_t buff[XBEETXRX_CIRCULAR_BUFFER_SIZE]; /* Circular buffer */
 
 	/* Configure the circular buffer structure */
 	gXbeeTxRxCircularBuffer.BufferPtr = buff;
-	gXbeeTxRxCircularBuffer.BufferSize = CIRCULAR_BUFFER_SIZE;
+	gXbeeTxRxCircularBuffer.BufferSize = XBEETXRX_CIRCULAR_BUFFER_SIZE;
 	gXbeeTxRxCircularBuffer.Callback = &xbeeTxRx_CircularBufferIdleCallback;
 	gXbeeTxRxCircularBuffer.PeriphHandlePtr = &XBEE_UART_HANDLE;
 
@@ -147,7 +158,7 @@ void xbeeTxRx_HandleInternalMail(void) {
 	/* Wait for messages */
 	if (pdPASS == xQueueReceive(xbeeInternalMailQueueHandle, &mail, 0)) {
 
-		static STelemetryDiagnostics diagnostics;
+		static STelemetryDiagnostics diagnostics; /* Diagnostics structure */
 
 		switch (mail) {
 
@@ -178,6 +189,7 @@ void xbeeTxRx_HandleInternalMail(void) {
 
 			/* Poll the device for the RSSI value */
 			xbeeTxRx_PollForRssi(&diagnostics.rssi);
+			break;
 
 		case EXbeeInternalMail_PeriodElapsed:
 

@@ -5,9 +5,33 @@
  */
 
 #include "wcu_gnssrx_calls.h"
+
 #include "wcu_base.h"
+#include "quectel_l26_gnss_parser.h"
 #include "rt12e_libs_can.h"
 #include "rt12e_libs_generic.h"
+
+#include "cmsis_os.h"
+
+/**
+ * @brief Circular buffer structure
+ */
+SUartCircularBuffer gGnssRxCircularBuffer;
+
+extern osThreadId gnssRxHandle;
+
+#define CAN_ID_GPS_POS					(uint32_t)(0x500UL)		/* CAN ID: _500_GPS_POS */
+#define CAN_ID_GPS_POS2					(uint32_t)(0x501UL)		/* CAN ID: _501_GPS_POS2 */
+#define CAN_ID_GPS_STATUS				(uint32_t)(0x502UL)		/* CAN ID: _502_GPS_STATUS */
+
+#define GNSSRX_READ_BUFFER_SIZE			(uint32_t)(10)			/* Read buffer size */
+#define GNSSRX_CIRCULAR_BUFFER_SIZE		(uint32_t)(100)			/* UART circular buffer size */
+
+static void gnssRx_CircularBufferIdleCallback(void);
+static void gnssRx_Send_GPS_POS(SGnssData *pData);
+static void gnssRx_Send_GPS_POS2(SGnssData *pData);
+static void gnssRx_Send_GPS_STATUS(SGnssData *pData);
+void Error_Handler(void);
 
 /**
  * @brief Configures the Quectel L26 device
@@ -42,23 +66,42 @@ void gnssRx_DeviceConfig(void) {
 }
 
 /**
+ * @brief Starts listening for incoming UART transmissions
+ * @retval EUartCircularBufferStatus Error code
+ */
+EUartCircularBufferStatus gnssRx_StartCircularBufferIdleDetectionRx(void) {
+
+
+	static uint8_t buff[GNSSRX_CIRCULAR_BUFFER_SIZE]; /* Circular buffer */
+
+	/* Configure the circular buffer structure */
+	gGnssRxCircularBuffer.BufferPtr = buff;
+	gGnssRxCircularBuffer.BufferSize = GNSSRX_CIRCULAR_BUFFER_SIZE;
+	gGnssRxCircularBuffer.Callback = &gnssRx_CircularBufferIdleCallback;
+	gGnssRxCircularBuffer.PeriphHandlePtr = &GNSS_UART_HANDLE;
+
+	/* Start listening */
+	return uartCircularBuffer_start(&gGnssRxCircularBuffer);
+
+}
+
+/**
  * @brief Listens for and handles the GNSS message
  * @retval None
  */
 void gnssRx_HandleMessage(void) {
 
-	static uint8_t rxBuffTable[WCU_GNSSRX_UART_RX_BUFF_SIZE]; /* UART Rx buffer */
-	/* Listen for the message */
-	(void) HAL_UART_Receive_DMA(&GNSS_UART_HANDLE, rxBuffTable,
-	WCU_GNSSRX_UART_RX_BUFF_SIZE);
-
-	/* Wait for notification from ISR/message received callback */
+	/* Wait for notification from idle line detection callback */
 	if (0UL < ulTaskNotifyTake(pdTRUE, 0)) {
+
+		static uint8_t rxBuffTable[GNSSRX_READ_BUFFER_SIZE]; /* UART read buffer */
+		/* Read the data from the circular buffer */
+		uartCircularBuffer_read(&gGnssRxCircularBuffer, rxBuffTable, GNSSRX_READ_BUFFER_SIZE);
 
 		static SGnssData dataBuff; /* GNSS data buffer */
 		/* Try parsing the message */
 		switch (parseMessage(&dataBuff, (char*) rxBuffTable,
-		WCU_GNSSRX_UART_RX_BUFF_SIZE)) {
+				GNSSRX_READ_BUFFER_SIZE)) {
 
 		case EGnssDataStatus_Ready: /* If the data is ready */
 
@@ -92,11 +135,22 @@ void gnssRx_HandleMessage(void) {
 }
 
 /**
+ * @brief Function registered as callback for idle line callback in the circular buffer implementation
+ * @retval None
+ */
+static void gnssRx_CircularBufferIdleCallback(void) {
+
+	/* Notify the gnssRx task */
+	vTaskNotifyGiveFromISR(gnssRxHandle, NULL);
+
+}
+
+/**
  * @brief Sends _GPS_POS CAN frame
  * @param pData Pointer to the GNSS data structure
  * @retval None
  */
-void gnssRx_Send_GPS_POS(SGnssData *pData) {
+static void gnssRx_Send_GPS_POS(SGnssData *pData) {
 
 	SCanFrame canFrame = { .EDataDirection = TX }; /* CAN frame structure */
 
@@ -104,7 +158,7 @@ void gnssRx_Send_GPS_POS(SGnssData *pData) {
 	canFrame.UHeader.Tx.DLC = 8;
 	canFrame.UHeader.Tx.IDE = CAN_ID_STD;
 	canFrame.UHeader.Tx.RTR = CAN_RTR_DATA;
-	canFrame.UHeader.Tx.StdId = WCU_CAN_ID_GPS_POS;
+	canFrame.UHeader.Tx.StdId = CAN_ID_GPS_POS;
 	canFrame.UHeader.Tx.TransmitGlobalTime = DISABLE;
 
 	/* Write the longitude to the frame payload */
@@ -132,7 +186,7 @@ void gnssRx_Send_GPS_POS(SGnssData *pData) {
  * @param pData Pointer to the GNSS data structure
  * @retval None
  */
-void gnssRx_Send_GPS_POS2(SGnssData *pData) {
+static void gnssRx_Send_GPS_POS2(SGnssData *pData) {
 
 	SCanFrame canFrame = { .EDataDirection = TX }; /* CAN frame structure */
 
@@ -140,7 +194,7 @@ void gnssRx_Send_GPS_POS2(SGnssData *pData) {
 	canFrame.UHeader.Tx.DLC = 6;
 	canFrame.UHeader.Tx.IDE = CAN_ID_STD;
 	canFrame.UHeader.Tx.RTR = CAN_RTR_DATA;
-	canFrame.UHeader.Tx.StdId = WCU_CAN_ID_GPS_POS2;
+	canFrame.UHeader.Tx.StdId = CAN_ID_GPS_POS2;
 	canFrame.UHeader.Tx.TransmitGlobalTime = DISABLE;
 
 	/* Write the speed to the frame payload */
@@ -169,7 +223,7 @@ void gnssRx_Send_GPS_POS2(SGnssData *pData) {
  * @param pData Pointer to the GNSS data structure
  * @retval None
  */
-void gnssRx_Send_GPS_STATUS(SGnssData *pData) {
+static void gnssRx_Send_GPS_STATUS(SGnssData *pData) {
 
 	SCanFrame canFrame = { .EDataDirection = TX }; /* CAN frame structure */
 
@@ -177,7 +231,7 @@ void gnssRx_Send_GPS_STATUS(SGnssData *pData) {
 	canFrame.UHeader.Tx.DLC = 8;
 	canFrame.UHeader.Tx.IDE = CAN_ID_STD;
 	canFrame.UHeader.Tx.RTR = CAN_RTR_DATA;
-	canFrame.UHeader.Tx.StdId = WCU_CAN_ID_GPS_STATUS;
+	canFrame.UHeader.Tx.StdId = CAN_ID_GPS_STATUS;
 	canFrame.UHeader.Tx.TransmitGlobalTime = DISABLE;
 
 	/* Write the satellites visible count to the frame payload */

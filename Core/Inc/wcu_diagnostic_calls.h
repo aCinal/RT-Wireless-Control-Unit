@@ -13,12 +13,6 @@ extern ADC_HandleTypeDef hadc1;
 #define DIAGNOSTIC_ADC_HANDLE hadc1
 #define DIAGNOSTIC_ADC_INSTANCE	ADC1
 
-extern UART_HandleTypeDef huart4;
-#define XBEE_UART_HANDLE huart4
-#define XBEE_UART_INSTANCE UART4
-
-#define WCU_CAN_ID_WCU_DIAG		(uint32_t)(0x733UL)		/* CAN ID: _733_WCU_DIAG */
-
 /**
  * @brief Runs diagnostics on the MCU and transmits the data via CAN bus
  */

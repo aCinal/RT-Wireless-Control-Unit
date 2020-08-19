@@ -8,6 +8,14 @@
 #include "wcu_base.h"
 #include "rt12e_libs_can.h"
 #include "rt12e_libs_r3tp.h"
+#include "stm32f4xx_hal.h"
+#include "cmsis_os.h"
+
+extern CAN_HandleTypeDef hcan1;
+extern osMessageQId canTxQueueHandle;
+extern osMessageQId canRxQueueHandle;
+extern osMessageQId canSubQueueHandle;
+extern osMessageQId sdioSubQueueHandle;
 
 /**
  * @brief Waits for SDIO gatekeeper to test if there is a valid telemetry subscription stored on the SD card

@@ -9,6 +9,13 @@
 #include "fatfs.h"
 #include "rt12e_libs_generic.h"
 #include "rt12e_libs_r3tp.h"
+#include "cmsis_os.h"
+
+extern osMessageQId sdioSubQueueHandle;
+extern osMessageQId sdioLogQueueHandle;
+
+#define WCU_SDIOGTKP_LOGFILE_PATH					("ERRLOG.TXT")			/* Error log file path */
+#define WCU_SDIOGTKP_SUBFILE_PATH					("SUBSCR")				/* Subscription file path */
 
 /**
  * @brief Handles the error logger

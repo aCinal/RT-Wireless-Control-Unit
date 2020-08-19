@@ -19,7 +19,7 @@ EUartCircularBufferStatus uartCircularBuffer_start(SUartCircularBuffer *rbPtr) {
 	if ((NULL != rbPtr) && (NULL != rbPtr->PeriphHandlePtr)
 			&& (NULL != rbPtr->BufferPtr) && (0 < rbPtr->BufferSize)) {
 
-		/* Set the head and tail */
+		/* Reset the head and tail */
 		rbPtr->Head = 0;
 		rbPtr->Tail = 0;
 
@@ -93,8 +93,8 @@ void uartCircularBuffer_irqHandlerCallback(SUartCircularBuffer *rbPtr) {
 			/* Clear the idle flag */
 			__HAL_UART_CLEAR_IDLEFLAG(rbPtr->PeriphHandlePtr);
 
-			/* Update the buffer tail */
-			rbPtr->Tail = rbPtr->BufferSize - rbPtr->PeriphHandlePtr->hdmarx->Instance->NDTR;
+			/* Update the head */
+			rbPtr->Head = rbPtr->BufferSize - rbPtr->PeriphHandlePtr->hdmarx->Instance->NDTR;
 
 			/* Callback */
 			if (NULL != rbPtr->Callback) {
@@ -130,17 +130,17 @@ EUartCircularBufferStatus uartCircularBuffer_read(SUartCircularBuffer *rbPtr, ui
 		if (rbPtr->Head != rbPtr->Tail) {
 
 			/* Test if the ring buffer has overflown */
-			if (rbPtr->Tail > rbPtr->Head) {
+			if (rbPtr->Head > rbPtr->Tail) {
 
 				/* Assert no overflow in the destination buffer */
 				size_t len =
-						((rbPtr->Tail - rbPtr->Head) < dstBuffSize) ?
-								(rbPtr->Tail - rbPtr->Head) : dstBuffSize;
+						((rbPtr->Head - rbPtr->Tail) < dstBuffSize) ?
+								(rbPtr->Head - rbPtr->Tail) : dstBuffSize;
 
 				/* Transfer the data */
 				for (size_t i = 0; i < len; i += 1UL) {
 
-					dstBuffPtr[i] = rbPtr->BufferPtr[rbPtr->Head + i];
+					dstBuffPtr[i] = rbPtr->BufferPtr[rbPtr->Tail + i];
 
 				}
 
@@ -148,20 +148,20 @@ EUartCircularBufferStatus uartCircularBuffer_read(SUartCircularBuffer *rbPtr, ui
 
 				/* Assert no overflow in the destination buffer from the upper part of the ring buffer */
 				size_t lenUpperBuffer =
-						((rbPtr->BufferSize - rbPtr->Head) < dstBuffSize) ?
-								(rbPtr->BufferSize - rbPtr->Head) : dstBuffSize;
+						((rbPtr->BufferSize - rbPtr->Tail) < dstBuffSize) ?
+								(rbPtr->BufferSize - rbPtr->Tail) : dstBuffSize;
 
 				/* Transfer the data from the upper part of the ring buffer */
 				for (size_t i = 0; i < lenUpperBuffer; i += 1UL) {
 
-					dstBuffPtr[i] = rbPtr->BufferPtr[rbPtr->Head + i];
+					dstBuffPtr[i] = rbPtr->BufferPtr[rbPtr->Tail + i];
 
 				}
 
 				/* Assert no overflow in the destination buffer from the lower part of the ring buffer */
 				size_t lenLowerBuffer =
-						(rbPtr->Tail < (dstBuffSize - lenUpperBuffer)) ?
-								rbPtr->Tail : (dstBuffSize - lenUpperBuffer);
+						(rbPtr->Head < (dstBuffSize - lenUpperBuffer)) ?
+								rbPtr->Head : (dstBuffSize - lenUpperBuffer);
 
 				/* Transfer the data from the lower part of the ring buffer */
 				for (size_t i = 0; i < lenLowerBuffer; i += 1UL) {
@@ -172,8 +172,8 @@ EUartCircularBufferStatus uartCircularBuffer_read(SUartCircularBuffer *rbPtr, ui
 
 			}
 
-			/* Update the head */
-			rbPtr->Head = rbPtr->Tail;
+			/* Update the tail */
+			rbPtr->Tail = rbPtr->Head;
 
 		} else {
 

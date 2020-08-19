@@ -13,21 +13,9 @@
 #include "cmsis_os.h"
 #include <stdbool.h>
 
-extern CRC_HandleTypeDef hcrc;
-
 extern UART_HandleTypeDef huart4;
-#define XBEE_UART_HANDLE huart4
-#define XBEE_UART_INSTANCE UART4
-
-extern osThreadId canGtkpHandle;
-extern osThreadId sdioGtkpHandle;
-extern osMessageQId canRxQueueHandle;
-extern osMessageQId canSubQueueHandle;
-extern osMessageQId sdioSubQueueHandle;
-extern osMessageQId xbeeInternalMailQueueHandle;
-extern osMutexId crcMutexHandle;
-
-#include "rt12e_libs_r3tp.h"
+#define XBEE_UART_HANDLE	(huart4)
+#define XBEE_UART_INSTANCE	(UART4)
 
 /**
  * @brief Internal messages enumeration for internal communication between xbeeTxRx task and callbacks
