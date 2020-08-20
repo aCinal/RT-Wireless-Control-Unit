@@ -9,26 +9,26 @@
 
 /**
  * @brief Enables interrupts and starts the data transfer to the ring buffer
- * @param rbPtr Pointer to the circular buffer structure
+ * @param cirbufPtr Pointer to the circular buffer structure
  * @retval EUartUartCircularBufferStatus Error code
  */
-EUartCircularBufferStatus uartCircularBuffer_start(SUartCircularBuffer *rbPtr) {
+EUartCircularBufferStatus uartCircularBuffer_start(SUartCircularBuffer *cirbufPtr) {
 
 	EUartCircularBufferStatus ret = EUartCircularBufferStatus_OK; /* Return value */
 
-	if ((NULL != rbPtr) && (NULL != rbPtr->PeriphHandlePtr)
-			&& (NULL != rbPtr->BufferPtr) && (0 < rbPtr->BufferSize)) {
+	if ((NULL != cirbufPtr) && (NULL != cirbufPtr->PeriphHandlePtr)
+			&& (NULL != cirbufPtr->BufferPtr) && (0 < cirbufPtr->BufferSize)) {
 
 		/* Reset the head and tail */
-		rbPtr->Head = 0;
-		rbPtr->Tail = 0;
+		cirbufPtr->Head = 0;
+		cirbufPtr->Tail = 0;
 
 		/* Enable interrupts on idle line */
-		__HAL_UART_ENABLE_IT(rbPtr->PeriphHandlePtr, UART_IT_IDLE);
+		__HAL_UART_ENABLE_IT(cirbufPtr->PeriphHandlePtr, UART_IT_IDLE);
 
 		/* Start receving */
-		if(HAL_OK != HAL_UART_Receive_DMA(rbPtr->PeriphHandlePtr, rbPtr->BufferPtr,
-				rbPtr->BufferSize)) {
+		if(HAL_OK != HAL_UART_Receive_DMA(cirbufPtr->PeriphHandlePtr, cirbufPtr->BufferPtr,
+				cirbufPtr->BufferSize)) {
 
 			ret = EUartCircularBufferStatus_HalError;
 
@@ -46,20 +46,20 @@ EUartCircularBufferStatus uartCircularBuffer_start(SUartCircularBuffer *rbPtr) {
 
 /**
  * @brief Disables interrupts and stops the data transfer
- * @param rbPtr Pointer to the circular buffer structure
+ * @param cirbufPtr Pointer to the circular buffer structure
  * @retval EUartCircularBufferStatus Error code
  */
-EUartCircularBufferStatus uartCircularBuffer_stop(SUartCircularBuffer *rbPtr) {
+EUartCircularBufferStatus uartCircularBuffer_stop(SUartCircularBuffer *cirbufPtr) {
 
 	EUartCircularBufferStatus ret = EUartCircularBufferStatus_OK; /* Return value */
 
 	/* Assert valid parameters */
-	if(NULL != rbPtr) {
+	if(NULL != cirbufPtr) {
 
 		/* Disable the idle line detection interrupt */
-		__HAL_UART_DISABLE_IT(rbPtr->PeriphHandlePtr, UART_IT_IDLE);
+		__HAL_UART_DISABLE_IT(cirbufPtr->PeriphHandlePtr, UART_IT_IDLE);
 		/* Abort the data transfer */
-		if(HAL_OK != HAL_UART_Abort(rbPtr->PeriphHandlePtr)) {
+		if(HAL_OK != HAL_UART_Abort(cirbufPtr->PeriphHandlePtr)) {
 
 			ret = EUartCircularBufferStatus_HalError;
 
@@ -78,28 +78,28 @@ EUartCircularBufferStatus uartCircularBuffer_stop(SUartCircularBuffer *rbPtr) {
 /**
  * @brief ISR callback
  * @note This function must be called from the USARTx_IRQHandler
- * @param rbPtr Pointer to the circular buffer structure
+ * @param cirbufPtr Pointer to the circular buffer structure
  * @retval None
  */
-void uartCircularBuffer_irqHandlerCallback(SUartCircularBuffer *rbPtr) {
+void uartCircularBuffer_irqHandlerCallback(SUartCircularBuffer *cirbufPtr) {
 
 	/* Assert valid parameters */
-	if(NULL != rbPtr) {
+	if(NULL != cirbufPtr) {
 
 		/* Assert idle line detection interrupt is on and the line is idle */
-		if (__HAL_UART_GET_IT_SOURCE(rbPtr->PeriphHandlePtr, UART_IT_IDLE) && __HAL_UART_GET_FLAG(rbPtr->PeriphHandlePtr,
+		if (__HAL_UART_GET_IT_SOURCE(cirbufPtr->PeriphHandlePtr, UART_IT_IDLE) && __HAL_UART_GET_FLAG(cirbufPtr->PeriphHandlePtr,
 				UART_FLAG_IDLE)) {
 
 			/* Clear the idle flag */
-			__HAL_UART_CLEAR_IDLEFLAG(rbPtr->PeriphHandlePtr);
+			__HAL_UART_CLEAR_IDLEFLAG(cirbufPtr->PeriphHandlePtr);
 
 			/* Update the head */
-			rbPtr->Head = rbPtr->BufferSize - rbPtr->PeriphHandlePtr->hdmarx->Instance->NDTR;
+			cirbufPtr->Head = cirbufPtr->BufferSize - cirbufPtr->PeriphHandlePtr->hdmarx->Instance->NDTR;
 
 			/* Callback */
-			if (NULL != rbPtr->Callback) {
+			if (NULL != cirbufPtr->Callback) {
 
-				rbPtr->Callback();
+				cirbufPtr->Callback();
 
 			}
 
@@ -111,36 +111,36 @@ void uartCircularBuffer_irqHandlerCallback(SUartCircularBuffer *rbPtr) {
 
 /**
  * @brief Moves the data from the ring buffer to the destination
- * @param rbPtr Pointer to the circular buffer structure
+ * @param cirbufPtr Pointer to the circular buffer structure
  * @param dstBuffPtr Destination address
  * @param dstBuffSize Size of the destination buffer
  * @retval EUartCircularBufferStatus Error code
  */
-EUartCircularBufferStatus uartCircularBuffer_read(SUartCircularBuffer *rbPtr, uint8_t *dstBuffPtr,
+EUartCircularBufferStatus uartCircularBuffer_read(SUartCircularBuffer *cirbufPtr, uint8_t *dstBuffPtr,
 		size_t dstBuffSize) {
 
 	EUartCircularBufferStatus ret = EUartCircularBufferStatus_OK; /* Return value */
 
 	/* Assert valid parameters */
-	if ((NULL != rbPtr) && (NULL != dstBuffPtr) && (dstBuffSize > 0)) {
+	if ((NULL != cirbufPtr) && (NULL != dstBuffPtr) && (dstBuffSize > 0)) {
 
 		/* Disable interrupts */
-		__HAL_UART_DISABLE_IT(rbPtr->PeriphHandlePtr, UART_IT_IDLE);
+		__HAL_UART_DISABLE_IT(cirbufPtr->PeriphHandlePtr, UART_IT_IDLE);
 
-		if (rbPtr->Head != rbPtr->Tail) {
+		if (cirbufPtr->Head != cirbufPtr->Tail) {
 
 			/* Test if the ring buffer has overflown */
-			if (rbPtr->Head > rbPtr->Tail) {
+			if (cirbufPtr->Head > cirbufPtr->Tail) {
 
 				/* Assert no overflow in the destination buffer */
 				size_t len =
-						((rbPtr->Head - rbPtr->Tail) < dstBuffSize) ?
-								(rbPtr->Head - rbPtr->Tail) : dstBuffSize;
+						((cirbufPtr->Head - cirbufPtr->Tail) < dstBuffSize) ?
+								(cirbufPtr->Head - cirbufPtr->Tail) : dstBuffSize;
 
 				/* Transfer the data */
 				for (size_t i = 0; i < len; i += 1UL) {
 
-					dstBuffPtr[i] = rbPtr->BufferPtr[rbPtr->Tail + i];
+					dstBuffPtr[i] = cirbufPtr->BufferPtr[cirbufPtr->Tail + i];
 
 				}
 
@@ -148,32 +148,32 @@ EUartCircularBufferStatus uartCircularBuffer_read(SUartCircularBuffer *rbPtr, ui
 
 				/* Assert no overflow in the destination buffer from the upper part of the ring buffer */
 				size_t lenUpperBuffer =
-						((rbPtr->BufferSize - rbPtr->Tail) < dstBuffSize) ?
-								(rbPtr->BufferSize - rbPtr->Tail) : dstBuffSize;
+						((cirbufPtr->BufferSize - cirbufPtr->Tail) < dstBuffSize) ?
+								(cirbufPtr->BufferSize - cirbufPtr->Tail) : dstBuffSize;
 
 				/* Transfer the data from the upper part of the ring buffer */
 				for (size_t i = 0; i < lenUpperBuffer; i += 1UL) {
 
-					dstBuffPtr[i] = rbPtr->BufferPtr[rbPtr->Tail + i];
+					dstBuffPtr[i] = cirbufPtr->BufferPtr[cirbufPtr->Tail + i];
 
 				}
 
 				/* Assert no overflow in the destination buffer from the lower part of the ring buffer */
 				size_t lenLowerBuffer =
-						(rbPtr->Head < (dstBuffSize - lenUpperBuffer)) ?
-								rbPtr->Head : (dstBuffSize - lenUpperBuffer);
+						(cirbufPtr->Head < (dstBuffSize - lenUpperBuffer)) ?
+								cirbufPtr->Head : (dstBuffSize - lenUpperBuffer);
 
 				/* Transfer the data from the lower part of the ring buffer */
 				for (size_t i = 0; i < lenLowerBuffer; i += 1UL) {
 
-					dstBuffPtr[lenUpperBuffer + i] = rbPtr->BufferPtr[i];
+					dstBuffPtr[lenUpperBuffer + i] = cirbufPtr->BufferPtr[i];
 
 				}
 
 			}
 
 			/* Update the tail */
-			rbPtr->Tail = rbPtr->Head;
+			cirbufPtr->Tail = cirbufPtr->Head;
 
 		} else {
 
@@ -182,7 +182,7 @@ EUartCircularBufferStatus uartCircularBuffer_read(SUartCircularBuffer *rbPtr, ui
 		}
 
 		/* Enable interrupts */
-		__HAL_UART_ENABLE_IT(rbPtr->PeriphHandlePtr, UART_IT_IDLE);
+		__HAL_UART_ENABLE_IT(cirbufPtr->PeriphHandlePtr, UART_IT_IDLE);
 
 	} else {
 

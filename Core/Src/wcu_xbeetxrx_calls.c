@@ -401,8 +401,12 @@ static void xbeeTxRx_HandleDriverWarning(uint8_t rxBuffTable[],
 
 	}
 
-	/* Read the CRC */
+	/* Read the CHECKSUM field - note that the CRC is transmitted as little endian */
 	uint16_t readCrc = _join16bits(rxBuffTable[3], rxBuffTable[2]);
+
+	/* Clear the CHECKSUM field */
+	rxBuffTable[2] = 0x00U;
+	rxBuffTable[3] = 0x00U;
 
 	/* Calculate the CRC */
 	uint16_t calculatedCrc;

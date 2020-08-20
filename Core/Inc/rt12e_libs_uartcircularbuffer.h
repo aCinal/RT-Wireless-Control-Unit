@@ -50,34 +50,34 @@ typedef struct SCircularBuffer {
 /* Exported function prototypes -----------------------------------------------*/
 /**
  * @brief Enables interrupts and starts the data transfer to the ring buffer
- * @param rbPtr Pointer to the circular buffer structure
+ * @param cirbufPtr Pointer to the circular buffer structure
  * @retval EUartCircularBufferStatus Error code
  */
-EUartCircularBufferStatus uartCircularBuffer_start(SUartCircularBuffer *rbPtr);
+EUartCircularBufferStatus uartCircularBuffer_start(SUartCircularBuffer *cirbufPtr);
 
 /**
  * @brief Disables interrupts and stops the data transfer
- * @param rbPtr Pointer to the circular buffer structure
+ * @param cirbufPtr Pointer to the circular buffer structure
  * @retval EUartCircularBufferStatus Error code
  */
-EUartCircularBufferStatus uartCircularBuffer_stop(SUartCircularBuffer *rbPtr);
+EUartCircularBufferStatus uartCircularBuffer_stop(SUartCircularBuffer *cirbufPtr);
 
 /**
  * @brief ISR callback
  * @note This function must be called from the USARTx_IRQHandler
- * @param rbPtr Pointer to the circular buffer structure
+ * @param cirbufPtr Pointer to the circular buffer structure
  * @retval None
  */
-void uartCircularBuffer_irqHandlerCallback(SUartCircularBuffer *rbPtr);
+void uartCircularBuffer_irqHandlerCallback(SUartCircularBuffer *cirbufPtr);
 
 /**
  * @brief Moves the data from the ring buffer to the destination
- * @param rbPtr Pointer to the circular buffer structure
+ * @param cirbufPtr Pointer to the circular buffer structure
  * @param dstBuffPtr Destination address
  * @param dstBuffSize Size of the destination buffer
  * @retval EUartCircularBufferStatus Error code
  */
-EUartCircularBufferStatus uartCircularBuffer_read(SUartCircularBuffer *rbPtr,
+EUartCircularBufferStatus uartCircularBuffer_read(SUartCircularBuffer *cirbufPtr,
 		uint8_t *dstBuffPtr, size_t dstBuffSize);
 
 #endif /* __RT12E_LIBS_UARTCIRCULARBUFFER_H_ */
