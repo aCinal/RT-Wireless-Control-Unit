@@ -18,6 +18,7 @@
  * @brief Structure facilitating communication with the CAN peripheral gatekeeper
  */
 typedef struct {
+
 	/**
 	 * @brief Member specifying the data direction and, by extension, type of the Header member
 	 */
@@ -37,6 +38,7 @@ typedef struct {
 	 * @brief CAN frame data
 	 */
 	uint8_t PayloadTable[CAN_PAYLOAD_SIZE];
+
 } SCanFrame;
 
 /* Exported macro ------------------------------------------------------------*/

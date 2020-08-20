@@ -25,11 +25,7 @@ SUartCircularBuffer gXbeeTxRxCircularBuffer;
  */
 typedef struct STelemetryDiagnostics {
 
-	bool greenWarningActive; /* Fleg set when the green warning is active */
-
 	uint8_t greenWarningDuration; /* Buffer for the green warning's duration */
-
-	bool redWarningActive; /* Flag set when the red warning is active */
 
 	uint8_t redWarningDuration; /* Buffer for the red warning's duration */
 
@@ -444,15 +440,13 @@ static void xbeeTxRx_HandleDriverWarning(uint8_t rxBuffTable[],
 
 	case R3TP_GREEN_WARNING_BYTE :
 
-		/* Set the green warning */
-		diagnosticsPtr->greenWarningActive = true;
+		/* Set the green warning duration */
 		diagnosticsPtr->greenWarningDuration = rxBuffTable[5];
 		break;
 
 	case R3TP_RED_WARNING_BYTE :
 
-		/* Set the red warning */
-		diagnosticsPtr->redWarningActive = true;
+		/* Set the red warning duration */
 		diagnosticsPtr->redWarningDuration = rxBuffTable[5];
 		break;
 
@@ -474,7 +468,7 @@ static void xbeeTxRx_PollForRssi(uint8_t *rssiPtr) {
 	/* Wait the guard time */
 	vTaskDelay(pdMS_TO_TICKS(gGT));
 
-	/* Stop the data to the circular buffer */
+	/* Stop the data transfer to the circular buffer */
 	uartCircularBuffer_stop(&gXbeeTxRxCircularBuffer);
 
 	/* Enter command mode */
@@ -524,7 +518,7 @@ static void xbeeTxRx_PollForRssi(uint8_t *rssiPtr) {
 
 	}
 
-	/* Resume the data to the circular buffer */
+	/* Resume the data transfer to the circular buffer */
 	uartCircularBuffer_start(&gXbeeTxRxCircularBuffer);
 
 }
@@ -560,16 +554,16 @@ static void xbeeTxRx_SendDiagnostics(STelemetryDiagnostics *diagnosticsPtr) {
 
 	}
 
-	/* Test if the green warning flag is set */
-	if (diagnosticsPtr->greenWarningActive) {
+	/* Test if the green warning is active */
+	if (0U < diagnosticsPtr->greenWarningDuration) {
 
 		/* Set the Telemetry_Pit flag */
 		SET_BIT(canFrame.PayloadTable[1], TELEMETRY_PIT_BIT);
 
 	}
 
-	/* Test if the red warning flag is set */
-	if (diagnosticsPtr->redWarningActive) {
+	/* Test if the red warning is active */
+	if (0U < diagnosticsPtr->redWarningDuration) {
 
 		/* Set the Telemetry_Warning flag */
 		SET_BIT(canFrame.PayloadTable[1], TELEMETRY_WARNING_BIT);
@@ -589,34 +583,18 @@ static void xbeeTxRx_SendDiagnostics(STelemetryDiagnostics *diagnosticsPtr) {
 static void xbeeTxRx_UpdateWarnings(STelemetryDiagnostics *diagnosticsPtr) {
 
 	/* Test if the green warning is active */
-	if (diagnosticsPtr->greenWarningActive) {
+	if (0U < diagnosticsPtr->greenWarningDuration) {
 
 		/* Decrement the warning duration counter */
 		diagnosticsPtr->greenWarningDuration -= 1U;
 
-		/* Test if the remaining duration is zero */
-		if (0U == diagnosticsPtr->greenWarningDuration) {
-
-			/* Deactivate the green warning */
-			diagnosticsPtr->greenWarningActive = false;
-
-		}
-
 	}
 
 	/* Test if the red warning is active */
-	if (diagnosticsPtr->redWarningActive) {
+	if (0U < diagnosticsPtr->redWarningDuration) {
 
 		/* Decrement the warning duration counter */
 		diagnosticsPtr->redWarningDuration -= 1U;
-
-		/* Test if the remaining duration is zero */
-		if (0U == diagnosticsPtr->redWarningDuration) {
-
-			/* Deactivate the red warning */
-			diagnosticsPtr->redWarningActive = false;
-
-		}
 
 	}
 

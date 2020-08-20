@@ -13,6 +13,30 @@
 #define WCU_RFRX_SPI_TX_TIMEOUT		50		/* SPI Tx timeout */
 
 /**
+ * @brief Configures the nRF905 device
+ * @retval None
+ */
+void rfRx_DeviceConfig(void) {
+
+	/* Set CSN low to start configuring the device */
+	HAL_GPIO_WritePin(RF_SPI1_CSN_GPIO_Port, RF_SPI1_CSN_Pin, GPIO_PIN_RESET);
+
+	/*
+	 * TODO:
+	 */
+
+	/* Power up the chip by driving PWR_UP high */
+	HAL_GPIO_WritePin(RF_PWR_UP_GPIO_Port, RF_PWR_UP_Pin, GPIO_PIN_SET);
+
+	/* Select ShockBurst(TM) RX mode by driving TX_EN low */
+	HAL_GPIO_WritePin(RF_TX_EN_GPIO_Port, RF_TX_EN_Pin, GPIO_PIN_RESET);
+
+	/* Enable the chip for receive by driving TRX_CE high */
+	HAL_GPIO_WritePin(RF_TRX_CE_GPIO_Port, RF_TRX_CE_Pin, GPIO_PIN_SET);
+
+}
+
+/**
  * @brief Listens for and handles the RF message
  * @retval None
  */
@@ -58,26 +82,3 @@ void rfRx_HandleMessage(void) {
 
 }
 
-/**
- * @brief Configures the nRF905 device
- * @retval None
- */
-void rfRx_DeviceConfig(void) {
-
-	/* Set CSN low to start configuring the device */
-	HAL_GPIO_WritePin(RF_SPI1_CSN_GPIO_Port, RF_SPI1_CSN_Pin, GPIO_PIN_RESET);
-
-	/*
-	 * TODO:
-	 */
-
-	/* Power up the chip by driving PWR_UP high */
-	HAL_GPIO_WritePin(RF_PWR_UP_GPIO_Port, RF_PWR_UP_Pin, GPIO_PIN_SET);
-
-	/* Select ShockBurst(TM) RX mode by driving TX_EN low */
-	HAL_GPIO_WritePin(RF_TX_EN_GPIO_Port, RF_TX_EN_Pin, GPIO_PIN_RESET);
-
-	/* Enable the chip for receive by driving TRX_CE high */
-	HAL_GPIO_WritePin(RF_TRX_CE_GPIO_Port, RF_TRX_CE_Pin, GPIO_PIN_SET);
-
-}

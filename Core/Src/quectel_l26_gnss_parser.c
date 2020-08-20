@@ -51,19 +51,23 @@ EGnssDataStatus parseMessage(SGnssData *pDataBuff,
 			SentenceBuffer[SentenceLength - 1UL] = pMessage[i];
 			/* Test for buffer overflow */
 			if (NMEA_PARSER_SENTENCE_BUFFER_SIZE <= SentenceLength) {
+
 				/* Reset the counter */
 				SentenceLength = 0;
 				return EGnssDataStatus_Error;
+
 			}
 
 		} else {
 
 			/* Search for the start character */
 			if ('$' == pMessage[i]) {
+
 				/* Increment the length counter */
 				SentenceLength += 1UL;
 				/* Save the start character */
 				SentenceBuffer[SentenceLength - 1UL] = pMessage[i];
+
 			}
 
 		}
@@ -84,6 +88,7 @@ EGnssDataStatus parseMessage(SGnssData *pDataBuff,
 					/* Reset the counter */
 					SentenceLength = 0;
 					return EGnssDataStatus_Error;
+
 
 				}
 				/* Reset the counter */

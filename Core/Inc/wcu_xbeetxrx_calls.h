@@ -11,7 +11,6 @@
 
 #include "stm32f4xx_hal.h"
 #include "cmsis_os.h"
-#include <stdbool.h>
 
 extern UART_HandleTypeDef huart4;
 #define XBEE_UART_HANDLE	(huart4)
