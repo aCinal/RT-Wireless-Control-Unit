@@ -16,22 +16,22 @@
 /**
  * @brief API functions return value enumeration
  */
-typedef enum EUartCircularBufferStatus {
+typedef enum EUartCirBufRet {
 
-	EUartCircularBufferStatus_OK = 0, /* No error */
+	EUartCirBufRet_OK = 0, /* No error */
 
-	EUartCircularBufferStatus_InvalidParams, /* Invalid function parameters */
+	EUartCirBufRet_InvalidParams, /* Invalid function parameters */
 
-	EUartCircularBufferStatus_HalError, /* HAL error */
+	EUartCirBufRet_HalError, /* HAL error */
 
-	EUartCircularBufferStatus_BufferEmpty /* Ring buffer empty */
+	EUartCirBufRet_BufferEmpty /* Ring buffer empty */
 
-} EUartCircularBufferStatus;
+} EUartCirBufRet;
 
 /**
- * @brief Ring buffer structure
+ * @brief Circular buffer structure
  */
-typedef struct SCircularBuffer {
+typedef struct SUartCirBuf {
 
 	uint8_t *BufferPtr; /* Pointer to the buffer */
 
@@ -45,39 +45,39 @@ typedef struct SCircularBuffer {
 
 	void (*Callback)(void); /* Callback */
 
-} SUartCircularBuffer;
+} SUartCirBuf;
 
 /* Exported function prototypes -----------------------------------------------*/
 /**
  * @brief Enables interrupts and starts the data transfer to the ring buffer
- * @param cirbufPtr Pointer to the circular buffer structure
- * @retval EUartCircularBufferStatus Error code
+ * @param cirBufPtr Pointer to the circular buffer structure
+ * @retval EUartCirBufRet Error code
  */
-EUartCircularBufferStatus uartCircularBuffer_start(SUartCircularBuffer *cirbufPtr);
+EUartCirBufRet uartCirBuf_start(SUartCirBuf *cirBufPtr);
 
 /**
  * @brief Disables interrupts and stops the data transfer
- * @param cirbufPtr Pointer to the circular buffer structure
- * @retval EUartCircularBufferStatus Error code
+ * @param cirBufPtr Pointer to the circular buffer structure
+ * @retval EUartCirBufRet Error code
  */
-EUartCircularBufferStatus uartCircularBuffer_stop(SUartCircularBuffer *cirbufPtr);
+EUartCirBufRet uartCirBuf_stop(SUartCirBuf *cirBufPtr);
 
 /**
  * @brief ISR callback
  * @note This function must be called from the USARTx_IRQHandler
- * @param cirbufPtr Pointer to the circular buffer structure
+ * @param cirBufPtr Pointer to the circular buffer structure
  * @retval None
  */
-void uartCircularBuffer_irqHandlerCallback(SUartCircularBuffer *cirbufPtr);
+void uartCirBuf_irqHandlerCallback(SUartCirBuf *cirBufPtr);
 
 /**
  * @brief Moves the data from the ring buffer to the destination
- * @param cirbufPtr Pointer to the circular buffer structure
+ * @param cirBufPtr Pointer to the circular buffer structure
  * @param dstBuffPtr Destination address
  * @param dstBuffSize Size of the destination buffer
- * @retval EUartCircularBufferStatus Error code
+ * @retval EUartCirBufRet Error code
  */
-EUartCircularBufferStatus uartCircularBuffer_read(SUartCircularBuffer *cirbufPtr,
+EUartCirBufRet uartCirBuf_read(SUartCirBuf *cirBufPtr,
 		uint8_t *dstBuffPtr, size_t dstBuffSize);
 
 #endif /* __RT12E_LIBS_UARTCIRCULARBUFFER_H_ */

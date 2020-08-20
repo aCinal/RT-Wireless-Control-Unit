@@ -102,8 +102,8 @@ osThreadId iwdgGtkpHandle;
 osThreadId btRxHandle;
 osThreadId gnssRxHandle;
 osThreadId rfRxHandle;
-osThreadId diagnosticHandle;
 osThreadId xbeeTxRxHandle;
+osThreadId diagnosticHandle;
 osMessageQId canTxQueueHandle;
 osMessageQId canRxQueueHandle;
 osMessageQId canSubQueueHandle;
@@ -136,8 +136,8 @@ void StartIwdgGtkpTask(void const * argument);
 void StartBtRxTask(void const * argument);
 void StartGnssRxTask(void const * argument);
 void StartRfRxTask(void const * argument);
-void StartDiagnosticTask(void const * argument);
 void StartXbeeTxRxTask(void const * argument);
+void StartDiagnosticTask(void const * argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -264,13 +264,13 @@ int main(void)
   osThreadDef(rfRx, StartRfRxTask, osPriorityNormal, 0, 128);
   rfRxHandle = osThreadCreate(osThread(rfRx), NULL);
 
-  /* definition and creation of diagnostic */
-  osThreadDef(diagnostic, StartDiagnosticTask, osPriorityNormal, 0, 128);
-  diagnosticHandle = osThreadCreate(osThread(diagnostic), NULL);
-
   /* definition and creation of xbeeTxRx */
   osThreadDef(xbeeTxRx, StartXbeeTxRxTask, osPriorityNormal, 0, 128);
   xbeeTxRxHandle = osThreadCreate(osThread(xbeeTxRx), NULL);
+
+  /* definition and creation of diagnostic */
+  osThreadDef(diagnostic, StartDiagnosticTask, osPriorityNormal, 0, 128);
+  diagnosticHandle = osThreadCreate(osThread(diagnostic), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
 	/* add threads, ... */
@@ -850,11 +850,11 @@ void StartCanGtkpTask(void const * argument)
 {
   /* USER CODE BEGIN 5 */
 
-	/* Start the CAN module */
-	(void) HAL_CAN_Start(&hcan1);
-
 	/* Wait for SDIO gatekeeper to test if there is a valid telemetry subscription stored on the SD card */
 	canGtkp_WaitSubscriptionFromSdioGtkp();
+
+	/* Start the CAN module */
+	(void) HAL_CAN_Start(&hcan1);
 
 	/* Infinite loop */
 	for (;;) {
@@ -1060,31 +1060,6 @@ void StartRfRxTask(void const * argument)
   /* USER CODE END StartRfRxTask */
 }
 
-/* USER CODE BEGIN Header_StartDiagnosticTask */
-/**
- * @brief Function implementing the diagnostic thread.
- * @param argument: Not used
- * @retval None
- */
-/* USER CODE END Header_StartDiagnosticTask */
-void StartDiagnosticTask(void const * argument)
-{
-  /* USER CODE BEGIN StartDiagnosticTask */
-
-	/* Infinite loop */
-	for (;;) {
-
-		/* Run diagnostics */
-		diagnostic_RunDiagnostics();
-
-		/* Delay one second */
-		vTaskDelay(pdMS_TO_TICKS(1000));
-
-	}
-
-  /* USER CODE END StartDiagnosticTask */
-}
-
 /* USER CODE BEGIN Header_StartXbeeTxRxTask */
 /**
  * @brief Function implementing the xbeeTxRx thread.
@@ -1122,6 +1097,31 @@ void StartXbeeTxRxTask(void const * argument)
 	}
 
   /* USER CODE END StartXbeeTxRxTask */
+}
+
+/* USER CODE BEGIN Header_StartDiagnosticTask */
+/**
+ * @brief Function implementing the diagnostic thread.
+ * @param argument: Not used
+ * @retval None
+ */
+/* USER CODE END Header_StartDiagnosticTask */
+void StartDiagnosticTask(void const * argument)
+{
+  /* USER CODE BEGIN StartDiagnosticTask */
+
+	/* Infinite loop */
+	for (;;) {
+
+		/* Run diagnostics */
+		diagnostic_RunDiagnostics();
+
+		/* Delay one second */
+		vTaskDelay(pdMS_TO_TICKS(1000));
+
+	}
+
+  /* USER CODE END StartDiagnosticTask */
 }
 
 /**

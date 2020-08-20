@@ -12,17 +12,17 @@
 #include <stdbool.h>
 
 /* Exported defines ------------------------------------------------------------*/
-#define NMEA_PARSER_SENTENCE_BUFFER_SIZE	(512U)		/* Message parser sentence buffer size */
-#define NMEA_PARSER_DATAFIELD_BUFFER_SIZE	(11U)		/* Sentence parser data field buffer size */
+#define NMEA_PARSER_SENTENCE_BUFFER_SIZE	(uint32_t)(64UL)	/* Message parser sentence buffer size */
+#define NMEA_PARSER_DATAFIELD_BUFFER_SIZE	(uint32_t)(11UL)	/* Sentence parser data field buffer size */
 
-#define NMEA_RMC_RECEIVED					(0x01U)		/* --RMC NMEA sentence received flag */
-#define NMEA_VTG_RECEIVED					(0x02U)		/* GPVTG NMEA sentence received flag */
-#define NMEA_GGA_RECEIVED					(0x04U)		/* GPGGA NMEA sentence received flag */
-#define NMEA_GSA_RECEIVED					(0x08U)		/* --GSA NMEA sentence received flag */
-#define NMEA_GPGSV_RECEIVED					(0x10U)		/* GPGSV NMEA sentence received flag */
-#define NMEA_GLGSV_RECEIVED					(0x20U)		/* GLGSV NMEA sentence received flag */
-#define NMEA_GLL_RECEIVED					(0x40U)		/* --GLL NMEA sentence received flag */
-#define NMEA_TXT_RECEIVED					(0x80U)		/* GPTXT NMEA sentence received flag */
+#define NMEA_RMC_RECEIVED					(uint8_t)(0x01U)	/* --RMC NMEA sentence received flag */
+#define NMEA_VTG_RECEIVED					(uint8_t)(0x02U)	/* GPVTG NMEA sentence received flag */
+#define NMEA_GGA_RECEIVED					(uint8_t)(0x04U)	/* GPGGA NMEA sentence received flag */
+#define NMEA_GSA_RECEIVED					(uint8_t)(0x08U)	/* --GSA NMEA sentence received flag */
+#define NMEA_GPGSV_RECEIVED					(uint8_t)(0x10U)	/* GPGSV NMEA sentence received flag */
+#define NMEA_GLGSV_RECEIVED					(uint8_t)(0x20U)	/* GLGSV NMEA sentence received flag */
+#define NMEA_GLL_RECEIVED					(uint8_t)(0x40U)	/* --GLL NMEA sentence received flag */
+#define NMEA_TXT_RECEIVED					(uint8_t)(0x80U)	/* GPTXT NMEA sentence received flag */
 
 /* Exported macros ------------------------------------------------------------*/
 /**
@@ -128,70 +128,6 @@ EGnssDataStatus parseMessage(SGnssData *pDataBuff,
  */
 ENmeaParserStatus parseNmeaSentence(SGnssData *pDataBuff,
 		const char *pSentence, size_t length);
-
-/**
- * @brief Parses the payload of an NMEA --RMC sentence
- * @param[out] pDataBuff Pointer to the GNSS data structure where the parsed data will be stored
- * @param[in] pPayload Pointer to the sentence payload
- * @param[in] length Length of the payload
- * @retval ENmeaParserStatus Error code
- */
-ENmeaParserStatus _NmeaParseRmcPayload(SGnssData *pDataBuff, const char *pPayload, size_t length);
-
-/**
- * @brief Parses the payload of an NMEA GPVTG sentence
- * @param[out] pDataBuff Pointer to the GNSS data structure where the parsed data will be stored
- * @param[in] pPayload Pointer to the sentence payload
- * @param[in] length Length of the payload
- * @retval ENmeaParserStatus Error code
- */
-ENmeaParserStatus _NmeaParseVtgPayload(SGnssData *pDataBuff, const char *pPayload, size_t length);
-
-/**
- * @brief Parses the payload of an NMEA GPGGA sentence
- * @param[out] pDataBuff Pointer to the GNSS data structure where the parsed data will be stored
- * @param[in] pPayload Pointer to the sentence payload
- * @param[in] length Length of the payload
- * @retval ENmeaParserStatus Error code
- */
-ENmeaParserStatus _NmeaParseGgaPayload(SGnssData *pDataBuff, const char *pPayload, size_t length);
-
-/**
- * @brief Parses the payload of an NMEA --GSA sentence
- * @param[out] pDataBuff Pointer to the GNSS data structure where the parsed data will be stored
- * @param[in] pPayload Pointer to the sentence payload
- * @param[in] length Length of the payload
- * @retval ENmeaParserStatus Error code
- */
-ENmeaParserStatus _NmeaParseGsaPayload(SGnssData *pDataBuff, const char *pPayload, size_t length);
-
-/**
- * @brief Parses the payload of an NMEA --GSV sentence
- * @param[out] pDataBuff Pointer to the GNSS data structure where the parsed data will be stored
- * @param[in] pPayload Pointer to the sentence payload
- * @param[in] length Length of the payload
- * @param[in] talkerId The --GSV sentence talker ID
- * @retval ENmeaParserStatus Error code
- */
-ENmeaParserStatus _NmeaParseGsvPayload(SGnssData *pDataBuff, const char *pPayload, size_t length, EGsvTalkerId talkerId);
-
-/**
- * @brief Parses the payload of an NMEA --GLL sentence
- * @param[out] pDataBuff Pointer to the GNSS data structure where the parsed data will be stored
- * @param[in] pPayload Pointer to the sentence payload
- * @param[in] length Length of the payload
- * @retval ENmeaParserStatus Error code
- */
-ENmeaParserStatus _NmeaParseGllPayload(SGnssData *pDataBuff, const char *pPayload, size_t length);
-
-/**
- * @brief Parses the payload of an NMEA GPTXT sentence
- * @param[out] pDataBuff Pointer to the GNSS data structure where the parsed data will be stored
- * @param[in] pPayload Pointer to the sentence payload
- * @param[in] length Length of the payload
- * @retval ENmeaParserStatus Error code
- */
-ENmeaParserStatus _NmeaParseTxtPayload(SGnssData *pDataBuff, const char *pPayload, size_t length);
 
 /**
  * @brief Normalizes the coordinate (longitude/latitude) as degrees multiplied by 1,000,000

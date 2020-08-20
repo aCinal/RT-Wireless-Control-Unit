@@ -17,7 +17,7 @@
 /**
  * @brief Circular buffer structure
  */
-SUartCircularBuffer gBtRxCircularBuffer;
+SUartCirBuf gBtRxCircularBuffer;
 
 extern osThreadId btRxHandle;
 extern osMutexId crcMutexHandle;
@@ -29,9 +29,9 @@ static void btRx_CircularBufferIdleCallback(void);
 
 /**
  * @brief Starts listening for incoming UART transmissions
- * @retval EUartCircularBufferStatus Error code
+ * @retval EUartCirBufRet Error code
  */
-EUartCircularBufferStatus btRx_StartCircularBufferIdleDetectionRx(void) {
+EUartCirBufRet btRx_StartCircularBufferIdleDetectionRx(void) {
 
 	static uint8_t buff[BTRX_CIRCULAR_BUFFER_SIZE]; /* Circular buffer */
 
@@ -42,7 +42,7 @@ EUartCircularBufferStatus btRx_StartCircularBufferIdleDetectionRx(void) {
 	gBtRxCircularBuffer.PeriphHandlePtr = &BT_UART_HANDLE;
 
 	/* Start listening */
-	return uartCircularBuffer_start(&gBtRxCircularBuffer);
+	return uartCirBuf_start(&gBtRxCircularBuffer);
 
 }
 
@@ -58,7 +58,7 @@ void btRx_HandleMessage(void) {
 
 		static uint8_t rxBuffTable[R3TP_VER0_FRAME_SIZE]; /* UART read buffer */
 		/* Read the data from the circular buffer */
-		uartCircularBuffer_read(&gBtRxCircularBuffer, rxBuffTable, R3TP_VER0_FRAME_SIZE);
+		uartCirBuf_read(&gBtRxCircularBuffer, rxBuffTable, R3TP_VER0_FRAME_SIZE);
 
 		/* Validate the VER */
 		if (R3TP_VER0_VER_BYTE != rxBuffTable[0]) {

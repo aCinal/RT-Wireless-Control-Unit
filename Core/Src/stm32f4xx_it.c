@@ -46,9 +46,9 @@
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN PV */
 
-extern SUartCircularBuffer gGnssRxCircularBuffer;
-extern SUartCircularBuffer gBtRxCircularBuffer;
-extern SUartCircularBuffer gXbeeTxRxCircularBuffer;
+extern SUartCirBuf gGnssRxCircularBuffer;
+extern SUartCirBuf gBtRxCircularBuffer;
+extern SUartCirBuf gXbeeTxRxCircularBuffer;
 
 /* USER CODE END PV */
 
@@ -243,7 +243,7 @@ void USART1_IRQHandler(void)
   /* USER CODE BEGIN USART1_IRQn 0 */
 
 	/* Call the circular buffer handler */
-	uartCircularBuffer_irqHandlerCallback(&gBtRxCircularBuffer);
+	uartCirBuf_irqHandlerCallback(&gBtRxCircularBuffer);
 
   /* USER CODE END USART1_IRQn 0 */
   HAL_UART_IRQHandler(&huart1);
@@ -260,7 +260,7 @@ void USART3_IRQHandler(void)
   /* USER CODE BEGIN USART3_IRQn 0 */
 
 	/* Call the circular buffer handler */
-	uartCircularBuffer_irqHandlerCallback(&gGnssRxCircularBuffer);
+	uartCirBuf_irqHandlerCallback(&gGnssRxCircularBuffer);
 
   /* USER CODE END USART3_IRQn 0 */
   HAL_UART_IRQHandler(&huart3);
@@ -291,7 +291,7 @@ void UART4_IRQHandler(void)
   /* USER CODE BEGIN UART4_IRQn 0 */
 
 	/* Call the circular buffer handler */
-	uartCircularBuffer_irqHandlerCallback(&gXbeeTxRxCircularBuffer);
+	uartCirBuf_irqHandlerCallback(&gXbeeTxRxCircularBuffer);
 
   /* USER CODE END UART4_IRQn 0 */
   HAL_UART_IRQHandler(&huart4);

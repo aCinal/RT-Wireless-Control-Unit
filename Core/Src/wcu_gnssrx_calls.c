@@ -16,7 +16,7 @@
 /**
  * @brief Circular buffer structure
  */
-SUartCircularBuffer gGnssRxCircularBuffer;
+SUartCirBuf gGnssRxCircularBuffer;
 
 extern osThreadId gnssRxHandle;
 
@@ -24,8 +24,8 @@ extern osThreadId gnssRxHandle;
 #define CAN_ID_GPS_POS2					(uint32_t)(0x501UL)		/* CAN ID: _501_GPS_POS2 */
 #define CAN_ID_GPS_STATUS				(uint32_t)(0x502UL)		/* CAN ID: _502_GPS_STATUS */
 
-#define GNSSRX_READ_BUFFER_SIZE			(uint32_t)(10)			/* Read buffer size */
-#define GNSSRX_CIRCULAR_BUFFER_SIZE		(uint32_t)(100)			/* UART circular buffer size */
+#define GNSSRX_READ_BUFFER_SIZE			(uint32_t)(50)			/* Read buffer size */
+#define GNSSRX_CIRCULAR_BUFFER_SIZE		(uint32_t)(200)			/* UART circular buffer size */
 
 static void gnssRx_CircularBufferIdleCallback(void);
 static void gnssRx_Send_GPS_POS(SGnssData *pData);
@@ -67,10 +67,9 @@ void gnssRx_DeviceConfig(void) {
 
 /**
  * @brief Starts listening for incoming UART transmissions
- * @retval EUartCircularBufferStatus Error code
+ * @retval EUartCirBufRet Error code
  */
-EUartCircularBufferStatus gnssRx_StartCircularBufferIdleDetectionRx(void) {
-
+EUartCirBufRet gnssRx_StartCircularBufferIdleDetectionRx(void) {
 
 	static uint8_t buff[GNSSRX_CIRCULAR_BUFFER_SIZE]; /* Circular buffer */
 
@@ -81,7 +80,7 @@ EUartCircularBufferStatus gnssRx_StartCircularBufferIdleDetectionRx(void) {
 	gGnssRxCircularBuffer.PeriphHandlePtr = &GNSS_UART_HANDLE;
 
 	/* Start listening */
-	return uartCircularBuffer_start(&gGnssRxCircularBuffer);
+	return uartCirBuf_start(&gGnssRxCircularBuffer);
 
 }
 
@@ -96,7 +95,7 @@ void gnssRx_HandleMessage(void) {
 
 		static uint8_t rxBuffTable[GNSSRX_READ_BUFFER_SIZE]; /* UART read buffer */
 		/* Read the data from the circular buffer */
-		uartCircularBuffer_read(&gGnssRxCircularBuffer, rxBuffTable, GNSSRX_READ_BUFFER_SIZE);
+		uartCirBuf_read(&gGnssRxCircularBuffer, rxBuffTable, GNSSRX_READ_BUFFER_SIZE);
 
 		static SGnssData dataBuff; /* GNSS data buffer */
 		/* Try parsing the message */

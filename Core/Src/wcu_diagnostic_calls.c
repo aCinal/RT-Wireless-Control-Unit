@@ -30,6 +30,7 @@ void diagnostic_RunDiagnostics(void) {
 	/* Start the ADC */
 	(void) HAL_ADC_Start_DMA(&hadc1, (uint32_t*) &temperatureSensorAdcBuff, 1);
 
+	/* Wait for the conversion complete callback to notify the task */
 	if (0UL < ulTaskNotifyTake(pdTRUE,
 	portMAX_DELAY)) {
 

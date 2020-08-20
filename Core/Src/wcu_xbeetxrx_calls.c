@@ -18,7 +18,7 @@
 /**
  * @brief Circular buffer structure
  */
-SUartCircularBuffer gXbeeTxRxCircularBuffer;
+SUartCirBuf gXbeeTxRxCircularBuffer;
 
 /**
  * @brief Telemetry diagnostics structure
@@ -125,9 +125,9 @@ void xbeeTxRx_DeviceConfig(void) {
 
 /**
  * @brief Starts listening for incoming UART transmissions
- * @retval EUartCircularBufferStatus Error code
+ * @retval EUartCirBufRet Error code
  */
-EUartCircularBufferStatus xbeeTxRx_StartCircularBufferIdleDetectionRx(void) {
+EUartCirBufRet xbeeTxRx_StartCircularBufferIdleDetectionRx(void) {
 
 	static uint8_t buff[XBEETXRX_CIRCULAR_BUFFER_SIZE]; /* Circular buffer */
 
@@ -138,7 +138,7 @@ EUartCircularBufferStatus xbeeTxRx_StartCircularBufferIdleDetectionRx(void) {
 	gXbeeTxRxCircularBuffer.PeriphHandlePtr = &XBEE_UART_HANDLE;
 
 	/* Start listening */
-	return uartCircularBuffer_start(&gXbeeTxRxCircularBuffer);
+	return uartCirBuf_start(&gXbeeTxRxCircularBuffer);
 
 }
 
@@ -161,7 +161,7 @@ void xbeeTxRx_HandleInternalMail(void) {
 		case EXbeeInternalMail_MessageReceived:
 
 			/* Read the data from the circular buffer */
-			(void) uartCircularBuffer_read(&gXbeeTxRxCircularBuffer, rxBuffTable, R3TP_MAX_FRAME_SIZE);
+			(void) uartCirBuf_read(&gXbeeTxRxCircularBuffer, rxBuffTable, R3TP_MAX_FRAME_SIZE);
 
 			/* Identify the protocol version */
 			switch(rxBuffTable[0]) {
@@ -473,7 +473,7 @@ static void xbeeTxRx_PollForRssi(uint8_t *rssiPtr) {
 	vTaskDelay(pdMS_TO_TICKS(gGT));
 
 	/* Stop the data transfer to the circular buffer */
-	uartCircularBuffer_stop(&gXbeeTxRxCircularBuffer);
+	uartCirBuf_stop(&gXbeeTxRxCircularBuffer);
 
 	/* Enter command mode */
 	const uint8_t ENTER_COMMAND_MODE[] = "+++";
@@ -523,7 +523,7 @@ static void xbeeTxRx_PollForRssi(uint8_t *rssiPtr) {
 	}
 
 	/* Resume the data transfer to the circular buffer */
-	uartCircularBuffer_start(&gXbeeTxRxCircularBuffer);
+	uartCirBuf_start(&gXbeeTxRxCircularBuffer);
 
 }
 

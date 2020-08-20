@@ -23,9 +23,9 @@ void gnssRx_DeviceConfig(void);
 
 /**
  * @brief Starts listening for incoming UART transmissions
- * @retval EUartCircularBufferStatus Error code
+ * @retval EUartCirBufRet Error code
  */
-EUartCircularBufferStatus gnssRx_StartCircularBufferIdleDetectionRx(void);
+EUartCirBufRet gnssRx_StartCircularBufferIdleDetectionRx(void);
 
 /**
  * @brief Handles the GNSS message

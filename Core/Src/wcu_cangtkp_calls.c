@@ -38,11 +38,11 @@ void canGtkp_WaitSubscriptionFromSdioGtkp(void) {
 			for (uint32_t i = 0; i < nv; i += 1UL) {
 
 				if (pdPASS
-						!= xQueueReceive(sdioSubQueueHandle, subscription + i,
+						!= xQueueReceive(canSubQueueHandle, subscription + i,
 								0)) {
 
 					/* Log the error and return */
-					LOGERROR("canGtkp failed to receive from sdioSubQueue\r\n");
+					LOGERROR("canGtkp failed to receive from canSubQueue\r\n");
 					return;
 
 				}
@@ -69,7 +69,7 @@ void canGtkp_HandleOutbox(void) {
 	/* Check for outgoing messages */
 	if (pdPASS == xQueueReceive(canTxQueueHandle, &frameBuff, 0)) {
 
-		static uint32_t dummy; /* Buffer for the CAN Tx mailbox used */
+		uint32_t dummy; /* Buffer for the CAN Tx mailbox used */
 
 		/* Send the message */
 		(void) HAL_CAN_AddTxMessage(&hcan1, &frameBuff.UHeader.Tx,
