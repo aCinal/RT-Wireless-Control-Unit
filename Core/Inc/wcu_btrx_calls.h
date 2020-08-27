@@ -17,7 +17,7 @@ extern UART_HandleTypeDef huart1;
 
 /**
  * @brief Starts listening for incoming UART transmissions
- * @retval EUartCirBufRet Error code
+ * @retval EUartCirBufRet Status
  */
 EUartCirBufRet btRx_StartCircularBufferIdleDetectionRx(void);
 

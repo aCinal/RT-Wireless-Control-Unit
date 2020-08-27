@@ -13,19 +13,19 @@
  */
 #define UNUSED(x) ((void)x)
 
-static ENmeaParserStatus _NmeaParseRmcPayload(SGnssData *pDataBuff,
+static ENmeaParserRet _NmeaParseRmcPayload(SGnssData *pDataBuff,
 		const char *pPayload, size_t length);
-static ENmeaParserStatus _NmeaParseVtgPayload(SGnssData *pDataBuff,
+static ENmeaParserRet _NmeaParseVtgPayload(SGnssData *pDataBuff,
 		const char *pPayload, size_t length);
-static ENmeaParserStatus _NmeaParseGgaPayload(SGnssData *pDataBuff,
+static ENmeaParserRet _NmeaParseGgaPayload(SGnssData *pDataBuff,
 		const char *pPayload, size_t length);
-static ENmeaParserStatus _NmeaParseGsaPayload(SGnssData *pDataBuff,
+static ENmeaParserRet _NmeaParseGsaPayload(SGnssData *pDataBuff,
 		const char *pPayload, size_t length);
-static ENmeaParserStatus _NmeaParseGsvPayload(SGnssData *pDataBuff,
+static ENmeaParserRet _NmeaParseGsvPayload(SGnssData *pDataBuff,
 		const char *pPayload, size_t length, EGsvTalkerId talkerId);
-static ENmeaParserStatus _NmeaParseGllPayload(SGnssData *pDataBuff,
+static ENmeaParserRet _NmeaParseGllPayload(SGnssData *pDataBuff,
 		const char *pPayload, size_t length);
-static ENmeaParserStatus _NmeaParseTxtPayload(SGnssData *pDataBuff,
+static ENmeaParserRet _NmeaParseTxtPayload(SGnssData *pDataBuff,
 		const char *pPayload, size_t length);
 
 /**
@@ -96,7 +96,7 @@ EGnssDataStatus parseMessage(SGnssData *pDataBuff, const char *pMessage,
 					&& ('*' == SentenceBuffer[SentenceLength - 5UL])) {
 
 				/* Parse the received sentence */
-				if (ENmeaParserStatus_OK
+				if (ENmeaParserRet_OK
 						!= parseNmeaSentence(pDataBuff, SentenceBuffer,
 								SentenceLength)) {
 
@@ -125,9 +125,9 @@ EGnssDataStatus parseMessage(SGnssData *pDataBuff, const char *pMessage,
  * @param[out] pDataBuff Pointer to the GNSS data structure where the parsed data will be stored
  * @param[in] pSentence Pointer to the NMEA sentence
  * @param[in] length Length of the sentence
- * @retval ENmeaParserStatus Error code
+ * @retval ENmeaParserRet Status
  */
-ENmeaParserStatus parseNmeaSentence(SGnssData *pDataBuff, const char *pSentence,
+ENmeaParserRet parseNmeaSentence(SGnssData *pDataBuff, const char *pSentence,
 		size_t length) {
 
 	/* Retrieve the message ID */
@@ -151,7 +151,7 @@ ENmeaParserStatus parseNmeaSentence(SGnssData *pDataBuff, const char *pSentence,
 	/* Validate the checksum */
 	if (readChecksum != calculatedChecksum) {
 
-		return ENmeaParserStatus_InvalidChecksum;
+		return ENmeaParserRet_InvalidChecksum;
 
 	}
 
@@ -223,7 +223,7 @@ ENmeaParserStatus parseNmeaSentence(SGnssData *pDataBuff, const char *pSentence,
 
 	}
 
-	return ENmeaParserStatus_InvalidId;
+	return ENmeaParserRet_InvalidId;
 }
 
 /**
@@ -231,9 +231,9 @@ ENmeaParserStatus parseNmeaSentence(SGnssData *pDataBuff, const char *pSentence,
  * @param[out] pDataBuff Pointer to the GNSS data structure where the parsed data will be stored
  * @param[in] pPayload Pointer to the sentence payload
  * @param[in] length Length of the payload
- * @retval ENmeaParserStatus Error code
+ * @retval ENmeaParserRet Status
  */
-static ENmeaParserStatus _NmeaParseRmcPayload(SGnssData *pDataBuff,
+static ENmeaParserRet _NmeaParseRmcPayload(SGnssData *pDataBuff,
 		const char *pPayload, size_t length) {
 
 	char dataFieldBuffer[NMEA_PARSER_DATAFIELD_BUFFER_SIZE]; /* Buffer for the data field */
@@ -251,7 +251,7 @@ static ENmeaParserStatus _NmeaParseRmcPayload(SGnssData *pDataBuff,
 			bufferIndex += 1UL;
 			/* Test for buffer overflow */
 			if (bufferIndex >= NMEA_PARSER_DATAFIELD_BUFFER_SIZE) {
-				return ENmeaParserStatus_InvalidFormat;
+				return ENmeaParserRet_InvalidFormat;
 			}
 
 		} else {
@@ -268,7 +268,7 @@ static ENmeaParserStatus _NmeaParseRmcPayload(SGnssData *pDataBuff,
 
 				if ('A' != dataFieldBuffer[0]) {
 
-					return ENmeaParserStatus_InvalidData;
+					return ENmeaParserRet_InvalidData;
 
 				}
 				break;
@@ -294,7 +294,7 @@ static ENmeaParserStatus _NmeaParseRmcPayload(SGnssData *pDataBuff,
 
 				default:
 
-					return ENmeaParserStatus_InvalidData;
+					return ENmeaParserRet_InvalidData;
 
 				}
 				break;
@@ -320,7 +320,7 @@ static ENmeaParserStatus _NmeaParseRmcPayload(SGnssData *pDataBuff,
 
 				default:
 
-					return ENmeaParserStatus_InvalidData;
+					return ENmeaParserRet_InvalidData;
 
 				}
 				break;
@@ -349,7 +349,7 @@ static ENmeaParserStatus _NmeaParseRmcPayload(SGnssData *pDataBuff,
 
 	/* Set the flag */
 	pDataBuff->SentencesReceived |= NMEA_RMC_RECEIVED;
-	return ENmeaParserStatus_OK;
+	return ENmeaParserRet_OK;
 
 }
 
@@ -358,9 +358,9 @@ static ENmeaParserStatus _NmeaParseRmcPayload(SGnssData *pDataBuff,
  * @param[out] pDataBuff Pointer to the GNSS data structure where the parsed data will be stored
  * @param[in] pPayload Pointer to the sentence payload
  * @param[in] length Length of the payload
- * @retval ENmeaParserStatus Error code
+ * @retval ENmeaParserRet Status
  */
-static ENmeaParserStatus _NmeaParseVtgPayload(SGnssData *pDataBuff,
+static ENmeaParserRet _NmeaParseVtgPayload(SGnssData *pDataBuff,
 		const char *pPayload, size_t length) {
 
 	char dataFieldBuffer[NMEA_PARSER_DATAFIELD_BUFFER_SIZE]; /* Buffer for the data field */
@@ -380,7 +380,7 @@ static ENmeaParserStatus _NmeaParseVtgPayload(SGnssData *pDataBuff,
 			/* Test for buffer overflow */
 			if (bufferIndex >= NMEA_PARSER_DATAFIELD_BUFFER_SIZE) {
 
-				return ENmeaParserStatus_InvalidFormat;
+				return ENmeaParserRet_InvalidFormat;
 
 			}
 
@@ -419,7 +419,7 @@ static ENmeaParserStatus _NmeaParseVtgPayload(SGnssData *pDataBuff,
 
 	/* Set the flag */
 	pDataBuff->SentencesReceived |= NMEA_VTG_RECEIVED;
-	return ENmeaParserStatus_OK;
+	return ENmeaParserRet_OK;
 
 }
 
@@ -428,9 +428,9 @@ static ENmeaParserStatus _NmeaParseVtgPayload(SGnssData *pDataBuff,
  * @param[out] pDataBuff Pointer to the GNSS data structure where the parsed data will be stored
  * @param[in] pPayload Pointer to the sentence payload
  * @param[in] length Length of the payload
- * @retval ENmeaParserStatus Error code
+ * @retval ENmeaParserRet Status
  */
-static ENmeaParserStatus _NmeaParseGgaPayload(SGnssData *pDataBuff,
+static ENmeaParserRet _NmeaParseGgaPayload(SGnssData *pDataBuff,
 		const char *pPayload, size_t length) {
 
 	char dataFieldBuffer[NMEA_PARSER_DATAFIELD_BUFFER_SIZE]; /* Buffer for the data field */
@@ -450,7 +450,7 @@ static ENmeaParserStatus _NmeaParseGgaPayload(SGnssData *pDataBuff,
 			/* Test for buffer overflow */
 			if (bufferIndex >= NMEA_PARSER_DATAFIELD_BUFFER_SIZE) {
 
-				return ENmeaParserStatus_InvalidFormat;
+				return ENmeaParserRet_InvalidFormat;
 
 			}
 
@@ -490,7 +490,7 @@ static ENmeaParserStatus _NmeaParseGgaPayload(SGnssData *pDataBuff,
 
 	/* Set the flag */
 	pDataBuff->SentencesReceived |= NMEA_GGA_RECEIVED;
-	return ENmeaParserStatus_OK;
+	return ENmeaParserRet_OK;
 
 }
 
@@ -499,9 +499,9 @@ static ENmeaParserStatus _NmeaParseGgaPayload(SGnssData *pDataBuff,
  * @param[out] pDataBuff Pointer to the GNSS data structure where the parsed data will be stored
  * @param[in] pPayload Pointer to the sentence payload
  * @param[in] length Length of the payload
- * @retval ENmeaParserStatus Error code
+ * @retval ENmeaParserRet Status
  */
-static ENmeaParserStatus _NmeaParseGsaPayload(SGnssData *pDataBuff,
+static ENmeaParserRet _NmeaParseGsaPayload(SGnssData *pDataBuff,
 		const char *pPayload, size_t length) {
 
 	char dataFieldBuffer[NMEA_PARSER_DATAFIELD_BUFFER_SIZE]; /* Buffer for the data field */
@@ -521,7 +521,7 @@ static ENmeaParserStatus _NmeaParseGsaPayload(SGnssData *pDataBuff,
 			/* Test for buffer overflow */
 			if (bufferIndex >= NMEA_PARSER_DATAFIELD_BUFFER_SIZE) {
 
-				return ENmeaParserStatus_InvalidFormat;
+				return ENmeaParserRet_InvalidFormat;
 
 			}
 
@@ -551,7 +551,7 @@ static ENmeaParserStatus _NmeaParseGsaPayload(SGnssData *pDataBuff,
 
 				default:
 
-					return ENmeaParserStatus_InvalidData;
+					return ENmeaParserRet_InvalidData;
 
 				}
 				break;
@@ -576,7 +576,7 @@ static ENmeaParserStatus _NmeaParseGsaPayload(SGnssData *pDataBuff,
 
 	/* Set the flag */
 	pDataBuff->SentencesReceived |= NMEA_GSA_RECEIVED;
-	return ENmeaParserStatus_OK;
+	return ENmeaParserRet_OK;
 
 }
 
@@ -586,9 +586,9 @@ static ENmeaParserStatus _NmeaParseGsaPayload(SGnssData *pDataBuff,
  * @param[in] pPayload Pointer to the sentence payload
  * @param[in] length Length of the payload
  * @param[in] talkerId The --GSV sentence talker ID
- * @retval ENmeaParserStatus Error code
+ * @retval ENmeaParserRet Status
  */
-static ENmeaParserStatus _NmeaParseGsvPayload(SGnssData *pDataBuff,
+static ENmeaParserRet _NmeaParseGsvPayload(SGnssData *pDataBuff,
 		const char *pPayload, size_t length, EGsvTalkerId talkerId) {
 
 	char dataFieldBuffer[NMEA_PARSER_DATAFIELD_BUFFER_SIZE]; /* Buffer for the data field */
@@ -608,7 +608,7 @@ static ENmeaParserStatus _NmeaParseGsvPayload(SGnssData *pDataBuff,
 			/* Test for buffer overflow */
 			if (bufferIndex >= NMEA_PARSER_DATAFIELD_BUFFER_SIZE) {
 
-				return ENmeaParserStatus_InvalidFormat;
+				return ENmeaParserRet_InvalidFormat;
 
 			}
 
@@ -637,7 +637,7 @@ static ENmeaParserStatus _NmeaParseGsvPayload(SGnssData *pDataBuff,
 
 				default:
 
-					return ENmeaParserStatus_InvalidData;
+					return ENmeaParserRet_InvalidData;
 
 				}
 				break;
@@ -675,11 +675,11 @@ static ENmeaParserStatus _NmeaParseGsvPayload(SGnssData *pDataBuff,
 
 	default:
 
-		return ENmeaParserStatus_InvalidData;
+		return ENmeaParserRet_InvalidData;
 
 	}
 
-	return ENmeaParserStatus_OK;
+	return ENmeaParserRet_OK;
 
 }
 
@@ -688,9 +688,9 @@ static ENmeaParserStatus _NmeaParseGsvPayload(SGnssData *pDataBuff,
  * @param[out] pDataBuff Pointer to the GNSS data structure where the parsed data will be stored
  * @param[in] pPayload Pointer to the sentence payload
  * @param[in] length Length of the payload
- * @retval ENmeaParserStatus Error code
+ * @retval ENmeaParserRet Status
  */
-static ENmeaParserStatus _NmeaParseGllPayload(SGnssData *pDataBuff,
+static ENmeaParserRet _NmeaParseGllPayload(SGnssData *pDataBuff,
 		const char *pPayload, size_t length) {
 
 	/* Message not used */
@@ -700,7 +700,7 @@ static ENmeaParserStatus _NmeaParseGllPayload(SGnssData *pDataBuff,
 
 	/* Set the flag */
 	pDataBuff->SentencesReceived |= NMEA_GLL_RECEIVED;
-	return ENmeaParserStatus_OK;
+	return ENmeaParserRet_OK;
 
 }
 
@@ -709,9 +709,9 @@ static ENmeaParserStatus _NmeaParseGllPayload(SGnssData *pDataBuff,
  * @param[out] pDataBuff Pointer to the GNSS data structure where the parsed data will be stored
  * @param[in] pPayload Pointer to the sentence payload
  * @param[in] length Length of the payload
- * @retval ENmeaParserStatus Error code
+ * @retval ENmeaParserRet Status
  */
-static ENmeaParserStatus _NmeaParseTxtPayload(SGnssData *pDataBuff,
+static ENmeaParserRet _NmeaParseTxtPayload(SGnssData *pDataBuff,
 		const char *pPayload, size_t length) {
 
 	/* Message not used */
@@ -721,7 +721,7 @@ static ENmeaParserStatus _NmeaParseTxtPayload(SGnssData *pDataBuff,
 
 	/* Set the flag */
 	pDataBuff->SentencesReceived |= NMEA_TXT_RECEIVED;
-	return ENmeaParserStatus_OK;
+	return ENmeaParserRet_OK;
 
 }
 

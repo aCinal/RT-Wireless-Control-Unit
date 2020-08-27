@@ -14,7 +14,7 @@
  */
 EUartCirBufRet uartCirBuf_start(SUartCirBuf *cirBufPtr) {
 
-	EUartCirBufRet ret = EUartCirBufRet_OK; /* Return value */
+	EUartCirBufRet ret = EUartCirBufRet_Ok; /* Return value */
 
 	if ((NULL != cirBufPtr) && (NULL != cirBufPtr->PeriphHandlePtr)
 			&& (NULL != cirBufPtr->BufferPtr) && (0 < cirBufPtr->BufferSize)) {
@@ -52,7 +52,7 @@ EUartCirBufRet uartCirBuf_start(SUartCirBuf *cirBufPtr) {
  */
 EUartCirBufRet uartCirBuf_stop(SUartCirBuf *cirBufPtr) {
 
-	EUartCirBufRet ret = EUartCirBufRet_OK; /* Return value */
+	EUartCirBufRet ret = EUartCirBufRet_Ok; /* Return value */
 
 	/* Assert valid parameters */
 	if (NULL != cirBufPtr) {
@@ -122,7 +122,7 @@ void uartCirBuf_irqHandlerCallback(SUartCirBuf *cirBufPtr) {
 EUartCirBufRet uartCirBuf_read(SUartCirBuf *cirBufPtr, uint8_t *dstBuffPtr,
 		size_t dstBuffSize) {
 
-	EUartCirBufRet ret = EUartCirBufRet_OK; /* Return value */
+	EUartCirBufRet ret = EUartCirBufRet_Ok; /* Return value */
 
 	/* Assert valid parameters */
 	if ((NULL != cirBufPtr) && (NULL != dstBuffPtr) && (dstBuffSize > 0)) {

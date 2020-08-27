@@ -5,7 +5,7 @@
  */
 
 #include "wcu_sdiogtkp_calls.h"
-#include "wcu_base.h"
+#include "wcu_common.h"
 #include "fatfs.h"
 #include "rt12e_libs_generic.h"
 #include "rt12e_libs_r3tp.h"
@@ -15,8 +15,9 @@ extern osMessageQId canSubQueueHandle;
 extern osMessageQId sdioSubQueueHandle;
 extern osMessageQId sdioLogQueueHandle;
 
-#define WCU_SDIOGTKP_LOGFILE_PATH					("ERRLOG.TXT")			/* Error log file path */
-#define WCU_SDIOGTKP_SUBFILE_PATH					("SUBSCR")				/* Subscription file path */
+#define SDIOGTKP_LOGFILE_PATH					("ERRLOG.TXT")			/* Error log file path */
+#define SDIOGTKP_SUBFILE_PATH					("SUBSCR")				/* Subscription file path */
+#define NV_CANGTKP_SDIOGTKP_SUB_READ_FAIL		(29UL)					/* Value to notify canGtkp that reading subscription from SD card failed */
 
 /**
  * @brief Tries loading the telemetry subscription from the SD card and pushing it to an appropriate queue
@@ -28,13 +29,13 @@ uint32_t sdioGtkp_LoadTelemetrySubscription(void) {
 
 	/* Try opening the file */
 	if (FR_OK
-			!= f_open(&subscriptionFile, WCU_SDIOGTKP_SUBFILE_PATH,
+			!= f_open(&subscriptionFile, SDIOGTKP_SUBFILE_PATH,
 					FA_READ | FA_OPEN_EXISTING)) {
 
 		/* If failed to open the file */
 		/* Log the error and return */
-		LOGERROR("sdioGtkp failed to open the subscription file\r\n");
-		return WCU_NV_CANGTKP_SDIOGTKP_SUB_READ_FAIL;
+		LogError("sdioGtkp failed to open the subscription file\r\n");
+		return NV_CANGTKP_SDIOGTKP_SUB_READ_FAIL;
 
 	}
 
@@ -50,8 +51,8 @@ uint32_t sdioGtkp_LoadTelemetrySubscription(void) {
 		/* Cleanup */
 		(void) f_close(&subscriptionFile);
 		/* Log the error and return */
-		LOGERROR("sdioGtkp failed to read from the subscription file\r\n");
-		return WCU_NV_CANGTKP_SDIOGTKP_SUB_READ_FAIL;
+		LogError("sdioGtkp failed to read from the subscription file\r\n");
+		return NV_CANGTKP_SDIOGTKP_SUB_READ_FAIL;
 
 	}
 
@@ -64,8 +65,8 @@ uint32_t sdioGtkp_LoadTelemetrySubscription(void) {
 		/* Cleanup */
 		(void) f_close(&subscriptionFile);
 		/* Log the error and return */
-		LOGERROR("Invalid FRAME NUM in the subscription file\r\n");
-		return WCU_NV_CANGTKP_SDIOGTKP_SUB_READ_FAIL;
+		LogError("Invalid FRAME NUM in the subscription file\r\n");
+		return NV_CANGTKP_SDIOGTKP_SUB_READ_FAIL;
 
 	}
 
@@ -79,8 +80,8 @@ uint32_t sdioGtkp_LoadTelemetrySubscription(void) {
 			(void) f_close(&subscriptionFile);
 			(void) xQueueReset(canSubQueueHandle);
 			/* Log the error and return */
-			LOGERROR("sdioGtkp failed to read from the subscription file\r\n");
-			return WCU_NV_CANGTKP_SDIOGTKP_SUB_READ_FAIL;
+			LogError("sdioGtkp failed to read from the subscription file\r\n");
+			return NV_CANGTKP_SDIOGTKP_SUB_READ_FAIL;
 
 		}
 
@@ -91,8 +92,8 @@ uint32_t sdioGtkp_LoadTelemetrySubscription(void) {
 			(void) f_close(&subscriptionFile);
 			(void) xQueueReset(canSubQueueHandle);
 			/* Log the error and return */
-			LOGERROR("Invalid FRAME NUM in the subscription file\r\n");
-			return WCU_NV_CANGTKP_SDIOGTKP_SUB_READ_FAIL;
+			LogError("Invalid FRAME NUM in the subscription file\r\n");
+			return NV_CANGTKP_SDIOGTKP_SUB_READ_FAIL;
 
 		}
 
@@ -106,8 +107,8 @@ uint32_t sdioGtkp_LoadTelemetrySubscription(void) {
 			(void) f_close(&subscriptionFile);
 			(void) xQueueReset(canSubQueueHandle);
 			/* Log the error and return */
-			LOGERROR("sdioGtkp failed to send to canSubQueue\r\n");
-			return WCU_NV_CANGTKP_SDIOGTKP_SUB_READ_FAIL;
+			LogError("sdioGtkp failed to send to canSubQueue\r\n");
+			return NV_CANGTKP_SDIOGTKP_SUB_READ_FAIL;
 
 		}
 
@@ -133,7 +134,7 @@ void sdioGtkp_HandleLogger(void) {
 		FIL errorLogFile; /* Error log file object structure */
 
 		/* Try opening the file */
-		if (FR_OK == f_open(&errorLogFile, WCU_SDIOGTKP_LOGFILE_PATH,
+		if (FR_OK == f_open(&errorLogFile, SDIOGTKP_LOGFILE_PATH,
 		FA_WRITE | FA_OPEN_APPEND)) {
 
 			UINT bytesWritten; /* Buffer for the number of bytes written */
@@ -168,7 +169,7 @@ void sdioGtkp_HandleNewSubscription(void) {
 		if (28UL < nv) {
 
 			/* Log the error and continue */
-			LOGERROR("Invalid notification value in sdioGtkp\r\n");
+			LogError("Invalid notification value in sdioGtkp\r\n");
 			return;
 
 		}
@@ -176,11 +177,11 @@ void sdioGtkp_HandleNewSubscription(void) {
 		FIL subscriptionFile; /* Telemetry subscription file object structure */
 
 		/* Try opening the file */
-		if (FR_OK != f_open(&subscriptionFile, WCU_SDIOGTKP_SUBFILE_PATH,
+		if (FR_OK != f_open(&subscriptionFile, SDIOGTKP_SUBFILE_PATH,
 		FA_WRITE | FA_CREATE_ALWAYS)) {
 
 			/* Log the error and continue */
-			LOGERROR("sdioGtkp failed to open the subscription file\r\n");
+			LogError("sdioGtkp failed to open the subscription file\r\n");
 			return;
 
 		}
@@ -203,7 +204,7 @@ void sdioGtkp_HandleNewSubscription(void) {
 			if (pdPASS != xQueueReceive(sdioSubQueueHandle, &frameBuff, 0)) {
 
 				/* Log the error and break */
-				LOGERROR("sdioGtkp failed to receive from sdioSubQueue\r\n");
+				LogError("sdioGtkp failed to receive from sdioSubQueue\r\n");
 				break;
 
 			}

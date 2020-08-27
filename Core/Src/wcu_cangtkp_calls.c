@@ -5,7 +5,7 @@
  */
 
 #include "wcu_cangtkp_calls.h"
-#include "wcu_base.h"
+#include "wcu_common.h"
 #include "rt12e_libs_can.h"
 #include "rt12e_libs_r3tp.h"
 #include "stm32f4xx_hal.h"
@@ -42,7 +42,7 @@ void canGtkp_WaitSubscriptionFromSdioGtkp(void) {
 								0)) {
 
 					/* Log the error and return */
-					LOGERROR("canGtkp failed to receive from canSubQueue\r\n");
+					LogError("canGtkp failed to receive from canSubQueue\r\n");
 					return;
 
 				}
@@ -99,7 +99,7 @@ void canGtkp_HandleInbox(void) {
 		if (pdPASS != xQueueSend(canRxQueueHandle, &frameBuff, 0)) {
 
 			/* Log the error */
-			LOGERROR("canGtkp failed to send to canRxQueue\r\n");
+			LogError("canGtkp failed to send to canRxQueue\r\n");
 
 		}
 
@@ -126,7 +126,7 @@ void canGtkp_HandleNewSubscription(void) {
 					!= xQueueReceive(canSubQueueHandle, subscription + i, 0)) {
 
 				/* Log the error and continue */
-				LOGERROR("canGtkp failed to receive from canSubQueue\r\n");
+				LogError("canGtkp failed to receive from canSubQueue\r\n");
 				continue;
 
 			}

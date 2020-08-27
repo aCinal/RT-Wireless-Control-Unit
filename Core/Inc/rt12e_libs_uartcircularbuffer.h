@@ -18,7 +18,7 @@
  */
 typedef enum EUartCirBufRet {
 
-	EUartCirBufRet_OK = 0, /* No error */
+	EUartCirBufRet_Ok = 0, /* No error */
 
 	EUartCirBufRet_InvalidParams, /* Invalid function parameters */
 

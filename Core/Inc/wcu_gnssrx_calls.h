@@ -23,7 +23,7 @@ void gnssRx_DeviceConfig(void);
 
 /**
  * @brief Starts listening for incoming UART transmissions
- * @retval EUartCirBufRet Error code
+ * @retval EUartCirBufRet Status
  */
 EUartCirBufRet gnssRx_StartCircularBufferIdleDetectionRx(void);
 

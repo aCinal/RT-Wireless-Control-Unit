@@ -6,13 +6,15 @@
 
 #include "wcu_btrx_calls.h"
 
-#include "wcu_base.h"
+#include "wcu_common.h"
 #include "rt12e_libs_can.h"
 #include "rt12e_libs_generic.h"
 #include "rt12e_libs_r3tp.h"
 #include "rt12e_libs_uartcircularbuffer.h"
 
 #include "cmsis_os.h"
+
+#define BTRX_CIRCULAR_BUFFER_SIZE	(uint32_t)(50)	/* UART circular buffer size */
 
 /**
  * @brief Circular buffer structure
@@ -23,13 +25,11 @@ extern osThreadId btRxHandle;
 extern osMutexId crcMutexHandle;
 extern CRC_HandleTypeDef hcrc;
 
-#define BTRX_CIRCULAR_BUFFER_SIZE	(uint32_t)(50)	/* UART circular buffer size */
-
 static void btRx_CircularBufferIdleCallback(void);
 
 /**
  * @brief Starts listening for incoming UART transmissions
- * @retval EUartCirBufRet Error code
+ * @retval EUartCirBufRet Status
  */
 EUartCirBufRet btRx_StartCircularBufferIdleDetectionRx(void) {
 
@@ -64,7 +64,7 @@ void btRx_HandleMessage(void) {
 		if (R3TP_VER0_VER_BYTE != rxBuffTable[0]) {
 
 			/* Log the error */
-			LOGERROR("Invalid VER/RES/SEQ in btRx\r\n");
+			LogError("Invalid VER/RES/SEQ in btRx\r\n");
 			return;
 
 		}
@@ -75,7 +75,7 @@ void btRx_HandleMessage(void) {
 						!= rxBuffTable[R3TP_VER0_FRAME_SIZE - 1U])) {
 
 			/* Log the error */
-			LOGERROR("Invalid END SEQ in btRx\r\n");
+			LogError("Invalid END SEQ in btRx\r\n");
 			return;
 
 		}
@@ -105,7 +105,7 @@ void btRx_HandleMessage(void) {
 
 			/* If failed to acquire crcMutex */
 			/* Log the error */
-			LOGERROR("crcMutex timeout in btRx\r\n");
+			LogError("crcMutex timeout in btRx\r\n");
 			return;
 
 		}
@@ -114,7 +114,7 @@ void btRx_HandleMessage(void) {
 		if (readCrc != calculatedCrc) {
 
 			/* Log the error */
-			LOGERROR("Invalid CRC in btRx\r\n");
+			LogError("Invalid CRC in btRx\r\n");
 			return;
 
 		}
@@ -128,7 +128,7 @@ void btRx_HandleMessage(void) {
 		if (CAN_PAYLOAD_SIZE < canFrame.UHeader.Tx.DLC) {
 
 			/* Log the error */
-			LOGERROR("Invalid DLC in btRx\r\n");
+			LogError("Invalid DLC in btRx\r\n");
 			return;
 
 		}
@@ -145,7 +145,7 @@ void btRx_HandleMessage(void) {
 		canFrame.UHeader.Tx.TransmitGlobalTime = DISABLE;
 
 		/* Transmit the frame */
-		ADDTOCANTXQUEUE(&canFrame, "btRx failed to send to canTxQueue\r\n");
+		AddToCanTxQueue(&canFrame, "btRx failed to send to canTxQueue\r\n");
 
 	}
 

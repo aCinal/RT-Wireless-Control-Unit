@@ -29,7 +29,7 @@ typedef enum EXbeeInternalMail {
 
 /**
  * @brief Starts listening for incoming UART transmissions
- * @retval EUartCirBufRet Error code
+ * @retval EUartCirBufRet Status
  */
 EUartCirBufRet xbeeTxRx_StartCircularBufferIdleDetectionRx(void);
 

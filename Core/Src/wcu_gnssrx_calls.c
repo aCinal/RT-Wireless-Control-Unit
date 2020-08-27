@@ -6,19 +6,12 @@
 
 #include "wcu_gnssrx_calls.h"
 
-#include "wcu_base.h"
+#include "wcu_common.h"
 #include "quectel_l26_gnss_parser.h"
 #include "rt12e_libs_can.h"
 #include "rt12e_libs_generic.h"
 
 #include "cmsis_os.h"
-
-/**
- * @brief Circular buffer structure
- */
-SUartCirBuf gGnssRxCircularBuffer;
-
-extern osThreadId gnssRxHandle;
 
 #define CAN_ID_GPS_POS					(uint32_t)(0x500UL)		/* CAN ID: _500_GPS_POS */
 #define CAN_ID_GPS_POS2					(uint32_t)(0x501UL)		/* CAN ID: _501_GPS_POS2 */
@@ -27,11 +20,17 @@ extern osThreadId gnssRxHandle;
 #define GNSSRX_READ_BUFFER_SIZE			(uint32_t)(50)			/* Read buffer size */
 #define GNSSRX_CIRCULAR_BUFFER_SIZE		(uint32_t)(200)			/* UART circular buffer size */
 
+/**
+ * @brief Circular buffer structure
+ */
+SUartCirBuf gGnssRxCircularBuffer;
+
+extern osThreadId gnssRxHandle;
+
 static void gnssRx_CircularBufferIdleCallback(void);
 static void gnssRx_Send_GPS_POS(SGnssData *pData);
 static void gnssRx_Send_GPS_POS2(SGnssData *pData);
 static void gnssRx_Send_GPS_STATUS(SGnssData *pData);
-void Error_Handler(void);
 
 /**
  * @brief Configures the Quectel L26 device
@@ -48,7 +47,7 @@ void gnssRx_DeviceConfig(void) {
 			!= HAL_UART_Transmit(&GNSS_UART_HANDLE, (uint8_t*) PMTK_SET_POS_FIX,
 					sizeof(PMTK_SET_POS_FIX), 1000)) {
 
-		Error_Handler();
+		LogError("Failed to send PMTK_SET_POS_FIX string in gnssRx\r\n");
 
 	}
 
@@ -59,7 +58,7 @@ void gnssRx_DeviceConfig(void) {
 					(uint8_t*) PMTK_API_SET_GNSS_SEARCH_MODE,
 					sizeof(PMTK_API_SET_GNSS_SEARCH_MODE), 1000)) {
 
-		Error_Handler();
+		LogError("Failed to send PMTK_API_SET_GNSS_SEARCH_MODE string in gnssRx\r\n");
 
 	}
 
@@ -67,7 +66,7 @@ void gnssRx_DeviceConfig(void) {
 
 /**
  * @brief Starts listening for incoming UART transmissions
- * @retval EUartCirBufRet Error code
+ * @retval EUartCirBufRet Status
  */
 EUartCirBufRet gnssRx_StartCircularBufferIdleDetectionRx(void) {
 
@@ -120,7 +119,7 @@ void gnssRx_HandleMessage(void) {
 		case EGnssDataStatus_Error: /* If the parser failed */
 
 			/* Log the error */
-			LOGERROR("parseMessage failed in gnssRx\r\n");
+			LogError("parseMessage failed in gnssRx\r\n");
 			break;
 
 		default:
@@ -175,7 +174,7 @@ static void gnssRx_Send_GPS_POS(SGnssData *pData) {
 	canFrame.PayloadTable[7] = _bits0_7(longitude);
 
 	/* Transmit the frame */
-	ADDTOCANTXQUEUE(&canFrame,
+	AddToCanTxQueue(&canFrame,
 			"gnssRx_Send_GPS_POS failed to send to canTxQueue\r\n");
 
 }
@@ -212,7 +211,7 @@ static void gnssRx_Send_GPS_POS2(SGnssData *pData) {
 	canFrame.PayloadTable[5] = _bits0_7(altitude);
 
 	/* Transmit the frame */
-	ADDTOCANTXQUEUE(&canFrame,
+	AddToCanTxQueue(&canFrame,
 			"gnssRx_Send_GPS_POS2 failed to send to canTxQueue\r\n");
 
 }
@@ -257,7 +256,7 @@ static void gnssRx_Send_GPS_STATUS(SGnssData *pData) {
 	canFrame.PayloadTable[7] = 0xFF & (pData->Date >> 12U);
 
 	/* Transmit the frame */
-	ADDTOCANTXQUEUE(&canFrame,
+	AddToCanTxQueue(&canFrame,
 			"gnssRx_Send_GPS_STATUS failed to send to canTxQueue\r\n");
 
 }

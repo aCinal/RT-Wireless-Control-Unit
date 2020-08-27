@@ -25,7 +25,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
-#include "wcu_base.h"
+#include "wcu_common.h"
 #include "wcu_cangtkp_calls.h"
 #include "wcu_sdiogtkp_calls.h"
 #include "wcu_btrx_calls.h"
@@ -44,8 +44,19 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 
-#define TIM_1s_INSTANCE	TIM7	/* Alias for the TIM7 timer instance */
-#define TIM_1s_HANDLE	htim7	/* Alias for the TIM7 timer handle */
+#define WCU_DEFAULT_TASK_DELAY	(TickType_t)(10)			/* Default task delay */
+
+#define TIM_1s_INSTANCE			(TIM7)						/* Alias for the TIM7 timer instance */
+#define TIM_1s_HANDLE			(htim7)						/* Alias for the TIM7 timer handle */
+
+/**
+ * @brief Watchdog task notification values
+ */
+#define NV_IWDGGTKP_CANGTKP		(uint32_t)(0x00000001UL)	/* canGtkp task's unique notification value for checking in with the watchdog */
+#define NV_IWDGGTKP_BTRX		(uint32_t)(0x00000002UL)	/* btRx task's unique notification value for checking in with the watchdog */
+#define NV_IWDGGTKP_GNSSRX		(uint32_t)(0x00000004UL)	/* gnssRx task's unique notification value for checking in with the watchdog */
+#define NV_IWDGGTKP_RFRX		(uint32_t)(0x00000008UL)	/* rfRx task's unique notification value for checking in with the watchdog */
+#define NV_IWDGGTKP_XBEETXRX	(uint32_t)(0x00000010UL)	/* xbeeTxRx task's unique notification value for checking in with the watchdog */
 
 /* USER CODE END PD */
 
@@ -869,9 +880,9 @@ void StartCanGtkpTask(void const * argument)
 		canGtkp_HandleNewSubscription();
 
 		/* Report to watchdog */
-		WATCHDOG_CHECKIN(WCU_NV_IWDGGTKP_CANGTKP);
+		WATCHDOG_CHECKIN(NV_IWDGGTKP_CANGTKP);
 
-		vTaskDelay(WCU_DEFAULT_TASKDELAY);
+		vTaskDelay(WCU_DEFAULT_TASK_DELAY);
 
 	}
 
@@ -912,7 +923,7 @@ void StartSdioGtkpTask(void const * argument)
 		/* Listen for new telemetry subscription */
 		sdioGtkp_HandleNewSubscription();
 
-		vTaskDelay(WCU_DEFAULT_TASKDELAY);
+		vTaskDelay(WCU_DEFAULT_TASK_DELAY);
 
 	}
 
@@ -947,9 +958,9 @@ void StartIwdgGtkpTask(void const * argument)
 
 			/* If all tasks checked in */
 			if (nv
-					== (WCU_NV_IWDGGTKP_BTRX | WCU_NV_IWDGGTKP_XBEETXRX
-							| WCU_NV_IWDGGTKP_GNSSRX | WCU_NV_IWDGGTKP_RFRX
-							| WCU_NV_IWDGGTKP_CANGTKP)) {
+					== (NV_IWDGGTKP_BTRX | NV_IWDGGTKP_XBEETXRX
+							| NV_IWDGGTKP_GNSSRX | NV_IWDGGTKP_RFRX
+							| NV_IWDGGTKP_CANGTKP)) {
 
 				/* Refresh the counter */
 				(void) HAL_IWDG_Refresh(&hiwdg);
@@ -960,7 +971,7 @@ void StartIwdgGtkpTask(void const * argument)
 
 		}
 
-		vTaskDelay(WCU_DEFAULT_TASKDELAY);
+		vTaskDelay(WCU_DEFAULT_TASK_DELAY);
 
 	}
 
@@ -988,9 +999,9 @@ void StartBtRxTask(void const * argument)
 		btRx_HandleMessage();
 
 		/* Report to watchdog */
-		WATCHDOG_CHECKIN(WCU_NV_IWDGGTKP_BTRX);
+		WATCHDOG_CHECKIN(NV_IWDGGTKP_BTRX);
 
-		vTaskDelay(WCU_DEFAULT_TASKDELAY);
+		vTaskDelay(WCU_DEFAULT_TASK_DELAY);
 
 	}
 
@@ -1021,9 +1032,9 @@ void StartGnssRxTask(void const * argument)
 		gnssRx_HandleMessage();
 
 		/* Report to watchdog */
-		WATCHDOG_CHECKIN(WCU_NV_IWDGGTKP_GNSSRX);
+		WATCHDOG_CHECKIN(NV_IWDGGTKP_GNSSRX);
 
-		vTaskDelay(WCU_DEFAULT_TASKDELAY);
+		vTaskDelay(WCU_DEFAULT_TASK_DELAY);
 
 	}
 
@@ -1051,9 +1062,9 @@ void StartRfRxTask(void const * argument)
 		rfRx_HandleMessage();
 
 		/* Report to watchdog */
-		WATCHDOG_CHECKIN(WCU_NV_IWDGGTKP_RFRX);
+		WATCHDOG_CHECKIN(NV_IWDGGTKP_RFRX);
 
-		vTaskDelay(WCU_DEFAULT_TASKDELAY);
+		vTaskDelay(WCU_DEFAULT_TASK_DELAY);
 
 	}
 
@@ -1090,9 +1101,9 @@ void StartXbeeTxRxTask(void const * argument)
 		xbeeTxRx_HandleOutgoingR3tpComms();
 
 		/* Report to watchdog */
-		WATCHDOG_CHECKIN(WCU_NV_IWDGGTKP_XBEETXRX);
+		WATCHDOG_CHECKIN(NV_IWDGGTKP_XBEETXRX);
 
-		vTaskDelay(WCU_DEFAULT_TASKDELAY);
+		vTaskDelay(WCU_DEFAULT_TASK_DELAY);
 
 	}
 
@@ -1116,7 +1127,7 @@ void StartDiagnosticTask(void const * argument)
 		/* Run diagnostics */
 		diagnostic_RunDiagnostics();
 
-		/* Delay one second */
+		/* Sleep for one second */
 		vTaskDelay(pdMS_TO_TICKS(1000));
 
 	}

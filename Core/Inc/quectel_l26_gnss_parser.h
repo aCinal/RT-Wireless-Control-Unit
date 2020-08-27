@@ -76,13 +76,13 @@ typedef struct SGnssData {
 /**
  * @brief NMEA parser status typedef
  */
-typedef enum ENmeaParserStatus {
-	ENmeaParserStatus_OK = 0,
-	ENmeaParserStatus_InvalidFormat,
-	ENmeaParserStatus_InvalidChecksum,
-	ENmeaParserStatus_InvalidId,
-	ENmeaParserStatus_InvalidData,
-} ENmeaParserStatus;
+typedef enum ENmeaParserRet {
+	ENmeaParserRet_OK = 0,
+	ENmeaParserRet_InvalidFormat,
+	ENmeaParserRet_InvalidChecksum,
+	ENmeaParserRet_InvalidId,
+	ENmeaParserRet_InvalidData,
+} ENmeaParserRet;
 
 /**
  * @brief GNSS data status typedef
@@ -124,9 +124,9 @@ EGnssDataStatus parseMessage(SGnssData *pDataBuff,
  * @param[out] pDataBuff Pointer to the GNSS data structure where the parsed data will be stored
  * @param[in] pSentence Pointer to the NMEA sentence
  * @param[in] length Length of the sentence
- * @retval ENmeaParserStatus Error code
+ * @retval ENmeaParserRet Status
  */
-ENmeaParserStatus parseNmeaSentence(SGnssData *pDataBuff,
+ENmeaParserRet parseNmeaSentence(SGnssData *pDataBuff,
 		const char *pSentence, size_t length);
 
 /**

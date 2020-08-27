@@ -5,7 +5,7 @@
  */
 
 #include "wcu_diagnostic_calls.h"
-#include "wcu_base.h"
+#include "wcu_common.h"
 #include "rt12e_libs_can.h"
 #include "rt12e_libs_generic.h"
 #include <math.h>
@@ -33,8 +33,6 @@ void diagnostic_RunDiagnostics(void) {
 	/* Wait for the conversion complete callback to notify the task */
 	if (0UL < ulTaskNotifyTake(pdTRUE,
 	portMAX_DELAY)) {
-
-		typedef float float32_t; /* 32-bit floating-point type typedef */
 
 		/* Temperature sensor characteristics */
 		static const float32_t VDD = 3.3; /* Supply voltage */
@@ -64,7 +62,7 @@ void diagnostic_RunDiagnostics(void) {
 		canFrame.PayloadTable[3] = _bits0_7(mcuUptime);
 
 		/* Transmit the frame */
-		ADDTOCANTXQUEUE(&canFrame,
+		AddToCanTxQueue(&canFrame,
 				"diagnostic failed to send to canTxQueue\r\n");
 
 	}
