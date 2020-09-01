@@ -39,8 +39,8 @@ uint32_t sdioGtkp_LoadTelemetrySubscription(void) {
 
 	}
 
-	uint32_t frameNum; /* Buffer for the number of frames */
-	uint32_t frameBuff; /* Buffer for a subscription frame */
+	uint32_t frNum; /* Buffer for the number of frames */
+	uint32_t frBuf; /* Buffer for a subscription frame */
 	uint8_t temp[4]; /* Temporary buffer for four bytes to be read as a single 32-bit little endian value */
 	UINT bytesRead; /* Buffer for the number of bytes read */
 
@@ -57,10 +57,10 @@ uint32_t sdioGtkp_LoadTelemetrySubscription(void) {
 	}
 
 	/* Parse the number of frames */
-	frameNum = _join32bits(temp[3], temp[2], temp[1], temp[0]);
+	frNum = _join32bits(temp[3], temp[2], temp[1], temp[0]);
 
 	/* Validate the number of frames */
-	if (frameNum > R3TP_VER1_MAX_FRAME_NUM) {
+	if (frNum > R3TP_VER1_MAX_FRAME_NUM) {
 
 		/* Cleanup */
 		(void) f_close(&subscriptionFile);
@@ -71,7 +71,7 @@ uint32_t sdioGtkp_LoadTelemetrySubscription(void) {
 	}
 
 	/* Read the payload and push it to the queue */
-	for (uint32_t i = 0; i < frameNum; i += 1UL) {
+	for (uint32_t i = 0; i < frNum; i += 1UL) {
 
 		/* Try reading the frame */
 		if (FR_OK != f_read(&subscriptionFile, temp, 4, &bytesRead)) {
@@ -98,10 +98,10 @@ uint32_t sdioGtkp_LoadTelemetrySubscription(void) {
 		}
 
 		/* Parse the frame */
-		frameBuff = _join32bits(temp[3], temp[2], temp[1], temp[0]);
+		frBuf = _join32bits(temp[3], temp[2], temp[1], temp[0]);
 
 		/* Send the frame to the queue */
-		if (pdPASS != xQueueSend(canSubQueueHandle, &frameBuff, 0)) {
+		if (pdPASS != xQueueSend(canSubQueueHandle, &frBuf, 0)) {
 
 			/* Cleanup */
 			(void) f_close(&subscriptionFile);
@@ -117,7 +117,7 @@ uint32_t sdioGtkp_LoadTelemetrySubscription(void) {
 	/* Cleanup */
 	(void) f_close(&subscriptionFile);
 	/* Return the number of frames read */
-	return frameNum;
+	return frNum;
 
 }
 
@@ -186,7 +186,7 @@ void sdioGtkp_HandleNewSubscription(void) {
 
 		}
 
-		uint32_t frameBuff; /* Buffer for a subscription frame */
+		uint32_t frBuf; /* Buffer for a subscription frame */
 		uint8_t temp[4]; /* Temporary buffer to facilitate transmitting a 32-bit little endian value */
 		UINT bytesWritten; /* Buffer for the number of bytes written */
 
@@ -201,7 +201,7 @@ void sdioGtkp_HandleNewSubscription(void) {
 		/* Print the subscription to the file */
 		for (uint32_t i = 0; i < nv; i += 1UL) {
 
-			if (pdPASS != xQueueReceive(sdioSubQueueHandle, &frameBuff, 0)) {
+			if (pdPASS != xQueueReceive(sdioSubQueueHandle, &frBuf, 0)) {
 
 				/* Log the error and break */
 				LogError("sdioGtkp failed to receive from sdioSubQueue\r\n");
@@ -210,10 +210,10 @@ void sdioGtkp_HandleNewSubscription(void) {
 			}
 
 			/* Print the frame to the SD card */
-			temp[0] = _bits0_7(frameBuff);
-			temp[1] = _bits8_15(frameBuff);
-			temp[2] = _bits16_23(frameBuff);
-			temp[3] = _bits24_31(frameBuff);
+			temp[0] = _bits0_7(frBuf);
+			temp[1] = _bits8_15(frBuf);
+			temp[2] = _bits16_23(frBuf);
+			temp[3] = _bits24_31(frBuf);
 			(void) f_write(&subscriptionFile, temp, 4U, &bytesWritten);
 
 		}

@@ -212,16 +212,16 @@ static ETpmsDecoderRet rfRx_DecodeMessage(uint8_t buff[], STpmsData* tpmsData) {
 	/* Pressure check */
 	uint8_t pressureNonInverted = TPMS_SCRMBL_PRES_NONINVERTED(buff);
 	uint8_t pressureInverted = buff[7];
-	if(pressureNonInverted != ~pressureInverted) {
-
-		ret = ETpmsDecoderRet_PressureCheckError;
-
-	} else {
+	if(pressureNonInverted == ~pressureInverted) {
 
 		/* Read the TPMS ID */
 		tpmsData->Id = _join32bits(buff[0], buff[1], buff[2], buff[3]);
 		tpmsData->PressurePsi = TPMS_PRES_SCAL_FAC * pressureNonInverted + TPMS_PRES_OFFSET;
 		tpmsData->TemperatureC = TPMS_SCRMBL_TEMP(buff);
+
+	} else {
+
+		ret = ETpmsDecoderRet_PressureCheckError;
 
 	}
 

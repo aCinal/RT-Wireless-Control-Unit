@@ -64,16 +64,16 @@ void canGtkp_WaitSubscriptionFromSdioGtkp(void) {
  */
 void canGtkp_HandleOutbox(void) {
 
-	SCanFrame frameBuff; /* CAN frame buffer */
+	SCanFrame frBuf; /* CAN frame buffer */
 
 	/* Check for outgoing messages */
-	if (pdPASS == xQueueReceive(canTxQueueHandle, &frameBuff, 0)) {
+	if (pdPASS == xQueueReceive(canTxQueueHandle, &frBuf, 0)) {
 
 		uint32_t dummy; /* Buffer for the CAN Tx mailbox used */
 
 		/* Send the message */
-		(void) HAL_CAN_AddTxMessage(&hcan1, &frameBuff.UHeader.Tx,
-				frameBuff.PayloadTable, &dummy);
+		(void) HAL_CAN_AddTxMessage(&hcan1, &frBuf.UHeader.Tx,
+				frBuf.PayloadTable, &dummy);
 
 	}
 
@@ -85,18 +85,18 @@ void canGtkp_HandleOutbox(void) {
  */
 void canGtkp_HandleInbox(void) {
 
-	SCanFrame frameBuff; /* CAN frame buffer */
+	SCanFrame frBuf; /* CAN frame buffer */
 
 	/* Check for incoming messages */
 	if (0UL < HAL_CAN_GetRxFifoFillLevel(&hcan1, CAN_RX_FIFO0)) {
 
 		/* Receive the message */
-		(void) HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &frameBuff.UHeader.Rx,
-				frameBuff.PayloadTable);
+		(void) HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &frBuf.UHeader.Rx,
+				frBuf.PayloadTable);
 		/* Set the DataDirection member in the CAN frame struct */
-		frameBuff.EDataDirection = RX;
+		frBuf.EDataDirection = RX;
 		/* Send the frame to the telemetry queue */
-		if (pdPASS != xQueueSend(canRxQueueHandle, &frameBuff, 0)) {
+		if (pdPASS != xQueueSend(canRxQueueHandle, &frBuf, 0)) {
 
 			/* Log the error */
 			LogError("canGtkp failed to send to canRxQueue\r\n");

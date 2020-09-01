@@ -62,10 +62,10 @@ extern osMutexId crcMutexHandle;
 static uint16_t gGT = XBEE_GT_DEFAULT;
 
 static void xbeeTxRx_CircularBufferIdleCallback(void);
-static void xbeeTxRx_HandleNewSubscription(uint8_t rxBuffTable[]);
-static void xbeeTxRx_HandleDriverWarning(uint8_t rxBuffTable[], STelemetryDiagnostics *diagnosticsPtr);
-static void xbeeTxRx_SendDiagnostics(STelemetryDiagnostics *diagnosticsPtr);
-static void xbeeTxRx_UpdateWarnings(STelemetryDiagnostics *diagnosticsPtr);
+static void xbeeTxRx_HandleNewSubscription(uint8_t rxBufTbl[]);
+static void xbeeTxRx_HandleDriverWarning(uint8_t rxBufTbl[], STelemetryDiagnostics *diagPtr);
+static void xbeeTxRx_SendDiagnostics(STelemetryDiagnostics *diagPtr);
+static void xbeeTxRx_UpdateWarnings(STelemetryDiagnostics *diagPtr);
 static void xbeeTxRx_PollForRssi(uint8_t *rssiPtr);
 static BaseType_t xbeeTxRx_SendSubscriptionToCanGtkp(uint32_t ids[], size_t count);
 static BaseType_t xbeeTxRx_SendSubscriptionToSdioGtkp(uint32_t ids[], size_t count);
@@ -129,10 +129,10 @@ void xbeeTxRx_DeviceConfig(void) {
  */
 EUartCirBufRet xbeeTxRx_StartCircularBufferIdleDetectionRx(void) {
 
-	static uint8_t buff[XBEETXRX_CIRCULAR_BUFFER_SIZE]; /* Circular buffer */
+	static uint8_t cirBufTbl[XBEETXRX_CIRCULAR_BUFFER_SIZE]; /* Circular buffer */
 
 	/* Configure the circular buffer structure */
-	gXbeeTxRxCircularBuffer.BufferPtr = buff;
+	gXbeeTxRxCircularBuffer.BufferPtr = cirBufTbl;
 	gXbeeTxRxCircularBuffer.BufferSize = XBEETXRX_CIRCULAR_BUFFER_SIZE;
 	gXbeeTxRxCircularBuffer.Callback = &xbeeTxRx_CircularBufferIdleCallback;
 	gXbeeTxRxCircularBuffer.PeriphHandlePtr = &XBEE_UART_HANDLE;
@@ -148,7 +148,7 @@ EUartCirBufRet xbeeTxRx_StartCircularBufferIdleDetectionRx(void) {
  */
 void xbeeTxRx_HandleInternalMail(void) {
 
-	static uint8_t rxBuffTable[R3TP_MAX_FRAME_SIZE]; /* UART Rx buffer */
+	static uint8_t rxBufTbl[R3TP_MAX_FRAME_SIZE]; /* UART Rx buffer */
 	static EXbeeInternalMail mail; /* Internal mail buffer */
 
 	/* Wait for messages */
@@ -161,19 +161,19 @@ void xbeeTxRx_HandleInternalMail(void) {
 		case EXbeeInternalMail_MessageReceived:
 
 			/* Read the data from the circular buffer */
-			(void) uartCirBuf_read(&gXbeeTxRxCircularBuffer, rxBuffTable, R3TP_MAX_FRAME_SIZE);
+			(void) uartCirBuf_read(&gXbeeTxRxCircularBuffer, rxBufTbl, R3TP_MAX_FRAME_SIZE);
 
 			/* Identify the protocol version */
-			switch(rxBuffTable[0]) {
+			switch(rxBufTbl[0]) {
 
 			case R3TP_VER1_VER_BYTE:
 
-				xbeeTxRx_HandleNewSubscription(rxBuffTable);
+				xbeeTxRx_HandleNewSubscription(rxBufTbl);
 				break;
 
 			case R3TP_VER2_VER_BYTE:
 
-				xbeeTxRx_HandleDriverWarning(rxBuffTable, &diagnostics);
+				xbeeTxRx_HandleDriverWarning(rxBufTbl, &diagnostics);
 				break;
 
 			default:
@@ -211,10 +211,10 @@ void xbeeTxRx_HandleInternalMail(void) {
  */
 void xbeeTxRx_HandleOutgoingR3tpComms(void) {
 
-	SCanFrame frameBuff; /* Buffer for the CAN frame */
+	SCanFrame frBuf; /* Buffer for the CAN frame */
 
 	/* Listen on the canRxQueue for messages to send */
-	if (pdPASS == xQueueReceive(canRxQueueHandle, &frameBuff, 0)) {
+	if (pdPASS == xQueueReceive(canRxQueueHandle, &frBuf, 0)) {
 
 		static uint8_t txBuff[R3TP_VER0_FRAME_SIZE ]; /* UART Tx buffer */
 		/* Clear the buffer */
@@ -234,16 +234,16 @@ void xbeeTxRx_HandleOutgoingR3tpComms(void) {
 		txBuff[R3TP_VER0_FRAME_SIZE - 1U] = R3TP_END_SEQ_HIGH_BYTE;
 
 		/* Set CAN ID field - note that the CAN ID is transmitted as little endian */
-		txBuff[4] = _bits0_7(frameBuff.UHeader.Rx.StdId);
-		txBuff[5] = _bits8_15(frameBuff.UHeader.Rx.StdId);
+		txBuff[4] = _bits0_7(frBuf.UHeader.Rx.StdId);
+		txBuff[5] = _bits8_15(frBuf.UHeader.Rx.StdId);
 
 		/* Set the DLC field */
-		txBuff[8] = (uint8_t) frameBuff.UHeader.Rx.DLC;
+		txBuff[8] = (uint8_t) frBuf.UHeader.Rx.DLC;
 
 		/* Set the DATA field */
-		for (uint8_t i = 0; i < frameBuff.UHeader.Rx.DLC; i += 1U) {
+		for (uint8_t i = 0; i < frBuf.UHeader.Rx.DLC; i += 1U) {
 
-			txBuff[9U + i] = frameBuff.PayloadTable[i];
+			txBuff[9U + i] = frBuf.PayloadTable[i];
 
 		}
 
@@ -294,17 +294,17 @@ static void xbeeTxRx_CircularBufferIdleCallback(void) {
 
 /**
  * @brief Handles the new telemetry subscription
- * @param rxBuffTable UART Rx Buffer
+ * @param rxBufTbl UART Rx Buffer
  * @retval None
  */
-static void xbeeTxRx_HandleNewSubscription(uint8_t rxBuffTable[]) {
+static void xbeeTxRx_HandleNewSubscription(uint8_t rxBufTbl[]) {
 
 	/* Read the number of frames in the payload */
-	uint32_t frameNum = _join32bits(rxBuffTable[7], rxBuffTable[6],
-			rxBuffTable[5], rxBuffTable[4]);
+	uint32_t frNum = _join32bits(rxBufTbl[7], rxBufTbl[6],
+			rxBufTbl[5], rxBufTbl[4]);
 
 	/* Assert the payload won't overflow the buffer */
-	if (frameNum > R3TP_VER1_MAX_FRAME_NUM) {
+	if (frNum > R3TP_VER1_MAX_FRAME_NUM) {
 
 		/* Log the error */
 		LogError("Invalid FRAME NUM in xbeeTxRx\r\n");
@@ -314,9 +314,9 @@ static void xbeeTxRx_HandleNewSubscription(uint8_t rxBuffTable[]) {
 
 	/* Validate the END SEQ field */
 	if ((R3TP_END_SEQ_LOW_BYTE
-			!= rxBuffTable[R3TP_VER1_MESSAGE_LENGTH(frameNum) - 2U])
+			!= rxBufTbl[R3TP_VER1_MESSAGE_LENGTH(frNum) - 2U])
 			|| (R3TP_END_SEQ_HIGH_BYTE
-					!= rxBuffTable[R3TP_VER1_MESSAGE_LENGTH(frameNum) - 1U])) {
+					!= rxBufTbl[R3TP_VER1_MESSAGE_LENGTH(frNum) - 1U])) {
 
 		/* Log the error */
 		LogError("Invalid END SEQ in xbeeTxRx\r\n");
@@ -325,11 +325,11 @@ static void xbeeTxRx_HandleNewSubscription(uint8_t rxBuffTable[]) {
 	}
 
 	/* Read the CHECKSUM field - note that the CRC is transmitted as little endian */
-	uint16_t readCrc = _join16bits(rxBuffTable[3], rxBuffTable[2]);
+	uint16_t readCrc = _join16bits(rxBufTbl[3], rxBufTbl[2]);
 
 	/* Clear the CHECKSUM field */
-	rxBuffTable[2] = 0x00U;
-	rxBuffTable[3] = 0x00U;
+	rxBufTbl[2] = 0x00U;
+	rxBufTbl[3] = 0x00U;
 
 	/* Calculate the CRC */
 	uint16_t calculatedCrc;
@@ -339,7 +339,7 @@ static void xbeeTxRx_HandleNewSubscription(uint8_t rxBuffTable[]) {
 		/* Calculate the CRC */
 		calculatedCrc =
 				_bits0_15(
-						HAL_CRC_Calculate(&hcrc, (uint32_t*) rxBuffTable, R3TP_VER1_MESSAGE_LENGTH(frameNum) / 4U));
+						HAL_CRC_Calculate(&hcrc, (uint32_t*) rxBufTbl, R3TP_VER1_MESSAGE_LENGTH(frNum) / 4U));
 
 		/* Release crcMutex */
 		(void) osMutexRelease(crcMutexHandle);
@@ -364,36 +364,35 @@ static void xbeeTxRx_HandleNewSubscription(uint8_t rxBuffTable[]) {
 
 	uint32_t subscription[R3TP_VER1_MAX_FRAME_NUM ]; /* Buffer for telemetry subscription CAN IDs */
 	/* Read the payload */
-	for (uint32_t i = 0; i < frameNum; i += 1UL) {
+	for (uint32_t i = 0; i < frNum; i += 1UL) {
 
-		subscription[i] = _join32bits(
-				*(R3TP_VER1_PAYLOAD_BEGIN_OFFSET(rxBuffTable, 3U + 4U * i)),
-				*(R3TP_VER1_PAYLOAD_BEGIN_OFFSET(rxBuffTable, 2U + 4U * i)),
-				*(R3TP_VER1_PAYLOAD_BEGIN_OFFSET(rxBuffTable, 1U + 4U * i)),
-				*(R3TP_VER1_PAYLOAD_BEGIN_OFFSET(rxBuffTable, 4U * i)));
+		subscription[i] = _join32bits(R3TP_VER1_PAYLOAD(rxBufTbl)[3UL + 4UL * i],
+				R3TP_VER1_PAYLOAD(rxBufTbl)[2UL + 4UL * i],
+				R3TP_VER1_PAYLOAD(rxBufTbl)[1UL + 4UL * i],
+				R3TP_VER1_PAYLOAD(rxBufTbl)[4UL * i]);
 
 	}
 
 	/* Forward the subscription to the canGtkp task */
-	(void) xbeeTxRx_SendSubscriptionToCanGtkp(subscription, frameNum);
+	(void) xbeeTxRx_SendSubscriptionToCanGtkp(subscription, frNum);
 
 	/* Forward the subscription to the sdioGtkp task */
-	(void) xbeeTxRx_SendSubscriptionToSdioGtkp(subscription, frameNum);
+	(void) xbeeTxRx_SendSubscriptionToSdioGtkp(subscription, frNum);
 
 }
 
 /**
  * @brief Handles the driver warning
- * @param[in] rxBuffTable UART Rx Buffer
- * @param[out] diagnosticsPtr Pointer to the diagnostics structure
+ * @param[in] rxBufTbl UART Rx Buffer
+ * @param[out] diagPtr Pointer to the diagnostics structure
  * @retval None
  */
-static void xbeeTxRx_HandleDriverWarning(uint8_t rxBuffTable[],
-		STelemetryDiagnostics *diagnosticsPtr) {
+static void xbeeTxRx_HandleDriverWarning(uint8_t rxBufTbl[],
+		STelemetryDiagnostics *diagPtr) {
 
 	/* Validate the END SEQ */
-	if ((R3TP_END_SEQ_LOW_BYTE != rxBuffTable[R3TP_VER2_FRAME_SIZE - 2U])
-			|| (R3TP_END_SEQ_HIGH_BYTE != rxBuffTable[R3TP_VER2_FRAME_SIZE - 1U])) {
+	if ((R3TP_END_SEQ_LOW_BYTE != rxBufTbl[R3TP_VER2_FRAME_SIZE - 2U])
+			|| (R3TP_END_SEQ_HIGH_BYTE != rxBufTbl[R3TP_VER2_FRAME_SIZE - 1U])) {
 
 		/* Log the error and return */
 		LogError("Invalid END SEQ in xbeeTxRx\r\n");
@@ -402,11 +401,11 @@ static void xbeeTxRx_HandleDriverWarning(uint8_t rxBuffTable[],
 	}
 
 	/* Read the CHECKSUM field - note that the CRC is transmitted as little endian */
-	uint16_t readCrc = _join16bits(rxBuffTable[3], rxBuffTable[2]);
+	uint16_t readCrc = _join16bits(rxBufTbl[3], rxBufTbl[2]);
 
 	/* Clear the CHECKSUM field */
-	rxBuffTable[2] = 0x00U;
-	rxBuffTable[3] = 0x00U;
+	rxBufTbl[2] = 0x00U;
+	rxBufTbl[3] = 0x00U;
 
 	/* Calculate the CRC */
 	uint16_t calculatedCrc;
@@ -416,7 +415,7 @@ static void xbeeTxRx_HandleDriverWarning(uint8_t rxBuffTable[],
 		/* Calculate the CRC */
 		calculatedCrc =
 				_bits0_15(
-						HAL_CRC_Calculate(&hcrc, (uint32_t*) rxBuffTable, R3TP_VER2_FRAME_SIZE / 4U));
+						HAL_CRC_Calculate(&hcrc, (uint32_t*) rxBufTbl, R3TP_VER2_FRAME_SIZE / 4U));
 
 		/* Release crcMutex */
 		(void) osMutexRelease(crcMutexHandle);
@@ -440,18 +439,18 @@ static void xbeeTxRx_HandleDriverWarning(uint8_t rxBuffTable[],
 	}
 
 	/* Read the payload */
-	switch (rxBuffTable[4]) {
+	switch (rxBufTbl[4]) {
 
 	case R3TP_GREEN_WARNING_BYTE :
 
 		/* Set the green warning duration */
-		diagnosticsPtr->greenWarningDuration = rxBuffTable[5];
+		diagPtr->greenWarningDuration = rxBufTbl[5];
 		break;
 
 	case R3TP_RED_WARNING_BYTE :
 
 		/* Set the red warning duration */
-		diagnosticsPtr->redWarningDuration = rxBuffTable[5];
+		diagPtr->redWarningDuration = rxBufTbl[5];
 		break;
 
 	default:
@@ -529,10 +528,10 @@ static void xbeeTxRx_PollForRssi(uint8_t *rssiPtr) {
 
 /**
  * @brief Sends the telemetry diagnostic frame to the CAN bus
- * @param diagnosticsPtr Pointer to the diagnostics structure
+ * @param diagPtr Pointer to the diagnostics structure
  * @retval None
  */
-static void xbeeTxRx_SendDiagnostics(STelemetryDiagnostics *diagnosticsPtr) {
+static void xbeeTxRx_SendDiagnostics(STelemetryDiagnostics *diagPtr) {
 
 	SCanFrame canFrame = { .EDataDirection = TX }; /* CAN frame structure */
 
@@ -544,7 +543,7 @@ static void xbeeTxRx_SendDiagnostics(STelemetryDiagnostics *diagnosticsPtr) {
 	canFrame.UHeader.Tx.TransmitGlobalTime = DISABLE;
 
 	/* Write the RSSI to the frame payload */
-	canFrame.PayloadTable[0] = diagnosticsPtr->rssi;
+	canFrame.PayloadTable[0] = diagPtr->rssi;
 
 	/* Clear the status flags */
 	canFrame.PayloadTable[1] = 0x00;
@@ -559,7 +558,7 @@ static void xbeeTxRx_SendDiagnostics(STelemetryDiagnostics *diagnosticsPtr) {
 	}
 
 	/* Test if the green warning is active */
-	if (0U < diagnosticsPtr->greenWarningDuration) {
+	if (0U < diagPtr->greenWarningDuration) {
 
 		/* Set the Telemetry_Pit flag */
 		SET_BIT(canFrame.PayloadTable[1], TELEMETRY_PIT_BIT);
@@ -567,7 +566,7 @@ static void xbeeTxRx_SendDiagnostics(STelemetryDiagnostics *diagnosticsPtr) {
 	}
 
 	/* Test if the red warning is active */
-	if (0U < diagnosticsPtr->redWarningDuration) {
+	if (0U < diagPtr->redWarningDuration) {
 
 		/* Set the Telemetry_Warning flag */
 		SET_BIT(canFrame.PayloadTable[1], TELEMETRY_WARNING_BIT);
@@ -581,24 +580,24 @@ static void xbeeTxRx_SendDiagnostics(STelemetryDiagnostics *diagnosticsPtr) {
 
 /**
  * @brief Decrements the warning duration counters and updates the warning active flags
- * @param diagnosticsPtr Pointer to the diagnostics structure
+ * @param diagPtr Pointer to the diagnostics structure
  * @retval None
  */
-static void xbeeTxRx_UpdateWarnings(STelemetryDiagnostics *diagnosticsPtr) {
+static void xbeeTxRx_UpdateWarnings(STelemetryDiagnostics *diagPtr) {
 
 	/* Test if the green warning is active */
-	if (0U < diagnosticsPtr->greenWarningDuration) {
+	if (0U < diagPtr->greenWarningDuration) {
 
 		/* Decrement the warning duration counter */
-		diagnosticsPtr->greenWarningDuration -= 1U;
+		diagPtr->greenWarningDuration -= 1U;
 
 	}
 
 	/* Test if the red warning is active */
-	if (0U < diagnosticsPtr->redWarningDuration) {
+	if (0U < diagPtr->redWarningDuration) {
 
 		/* Decrement the warning duration counter */
-		diagnosticsPtr->redWarningDuration -= 1U;
+		diagPtr->redWarningDuration -= 1U;
 
 	}
 

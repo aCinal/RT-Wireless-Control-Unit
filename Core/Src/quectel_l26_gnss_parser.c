@@ -284,12 +284,12 @@ static ENmeaParserRet _NmeaParseRmcPayload(SGnssData *pDataBuff,
 
 				case 'N':
 
-					pDataBuff->ELatDir = ELatDir_LatitudeNorth;
+					pDataBuff->LatDir = ELatDir_LatitudeNorth;
 					break;
 
 				case 'S':
 
-					pDataBuff->ELatDir = ELatDir_LatitudeSouth;
+					pDataBuff->LatDir = ELatDir_LatitudeSouth;
 					break;
 
 				default:
@@ -310,12 +310,12 @@ static ENmeaParserRet _NmeaParseRmcPayload(SGnssData *pDataBuff,
 
 				case 'E':
 
-					pDataBuff->ELonDir = ELonDir_LongitudeEast;
+					pDataBuff->LonDir = ELonDir_LongitudeEast;
 					break;
 
 				case 'W':
 
-					pDataBuff->ELonDir = ELonDir_LongitudeWest;
+					pDataBuff->LonDir = ELonDir_LongitudeWest;
 					break;
 
 				default:
@@ -536,17 +536,17 @@ static ENmeaParserRet _NmeaParseGsaPayload(SGnssData *pDataBuff,
 
 				case '1':
 
-					pDataBuff->EFixStatus = EFixStatus_NoFix;
+					pDataBuff->FixStatus = EFixStatus_NoFix;
 					break;
 
 				case '2':
 
-					pDataBuff->EFixStatus = EFixStatus_2DFix;
+					pDataBuff->FixStatus = EFixStatus_2DFix;
 					break;
 
 				case '3':
 
-					pDataBuff->EFixStatus = EFixStatus_3DFix;
+					pDataBuff->FixStatus = EFixStatus_3DFix;
 					break;
 
 				default:

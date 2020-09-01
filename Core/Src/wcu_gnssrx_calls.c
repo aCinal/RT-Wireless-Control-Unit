@@ -28,9 +28,9 @@ SUartCirBuf gGnssRxCircularBuffer;
 extern osThreadId gnssRxHandle;
 
 static void gnssRx_CircularBufferIdleCallback(void);
-static void gnssRx_Send_GPS_POS(SGnssData *pData);
-static void gnssRx_Send_GPS_POS2(SGnssData *pData);
-static void gnssRx_Send_GPS_STATUS(SGnssData *pData);
+static void gnssRx_Send_GPS_POS(SGnssData *gnssDataPtr);
+static void gnssRx_Send_GPS_POS2(SGnssData *gnssDataPtr);
+static void gnssRx_Send_GPS_STATUS(SGnssData *gnssDataPtr);
 
 /**
  * @brief Configures the Quectel L26 device
@@ -70,10 +70,10 @@ void gnssRx_DeviceConfig(void) {
  */
 EUartCirBufRet gnssRx_StartCircularBufferIdleDetectionRx(void) {
 
-	static uint8_t buff[GNSSRX_CIRCULAR_BUFFER_SIZE]; /* Circular buffer */
+	static uint8_t cirBufTbl[GNSSRX_CIRCULAR_BUFFER_SIZE]; /* Circular buffer */
 
 	/* Configure the circular buffer structure */
-	gGnssRxCircularBuffer.BufferPtr = buff;
+	gGnssRxCircularBuffer.BufferPtr = cirBufTbl;
 	gGnssRxCircularBuffer.BufferSize = GNSSRX_CIRCULAR_BUFFER_SIZE;
 	gGnssRxCircularBuffer.Callback = &gnssRx_CircularBufferIdleCallback;
 	gGnssRxCircularBuffer.PeriphHandlePtr = &GNSS_UART_HANDLE;
@@ -92,13 +92,13 @@ void gnssRx_HandleMessage(void) {
 	/* Wait for notification from idle line detection callback */
 	if (0UL < ulTaskNotifyTake(pdTRUE, 0)) {
 
-		static uint8_t rxBuffTable[GNSSRX_READ_BUFFER_SIZE]; /* UART read buffer */
+		static uint8_t rxBufTbl[GNSSRX_READ_BUFFER_SIZE]; /* UART read buffer */
 		/* Read the data from the circular buffer */
-		uartCirBuf_read(&gGnssRxCircularBuffer, rxBuffTable, GNSSRX_READ_BUFFER_SIZE);
+		uartCirBuf_read(&gGnssRxCircularBuffer, rxBufTbl, GNSSRX_READ_BUFFER_SIZE);
 
 		static SGnssData dataBuff; /* GNSS data buffer */
 		/* Try parsing the message */
-		switch (parseMessage(&dataBuff, (char*) rxBuffTable,
+		switch (parseMessage(&dataBuff, (char*) rxBufTbl,
 				GNSSRX_READ_BUFFER_SIZE)) {
 
 		case EGnssDataStatus_Ready: /* If the data is ready */
@@ -145,10 +145,10 @@ static void gnssRx_CircularBufferIdleCallback(void) {
 
 /**
  * @brief Sends _GPS_POS CAN frame
- * @param pData Pointer to the GNSS data structure
+ * @param gnssDataPtr Pointer to the GNSS data structure
  * @retval None
  */
-static void gnssRx_Send_GPS_POS(SGnssData *pData) {
+static void gnssRx_Send_GPS_POS(SGnssData *gnssDataPtr) {
 
 	SCanFrame canFrame = { .EDataDirection = TX }; /* CAN frame structure */
 
@@ -160,14 +160,14 @@ static void gnssRx_Send_GPS_POS(SGnssData *pData) {
 	canFrame.UHeader.Tx.TransmitGlobalTime = DISABLE;
 
 	/* Write the longitude to the frame payload */
-	int32_t longitude = normalizeCoordinate(pData->Longitude, pData->ELonDir);
+	int32_t longitude = normalizeCoordinate(gnssDataPtr->Longitude, gnssDataPtr->LonDir);
 	canFrame.PayloadTable[0] = _bits24_31(longitude);
 	canFrame.PayloadTable[1] = _bits16_23(longitude);
 	canFrame.PayloadTable[2] = _bits8_15(longitude);
 	canFrame.PayloadTable[3] = _bits0_7(longitude);
 
 	/* Write the latitude to the frame payload */
-	int32_t latitude = normalizeCoordinate(pData->Latitude, pData->ELatDir);
+	int32_t latitude = normalizeCoordinate(gnssDataPtr->Latitude, gnssDataPtr->LatDir);
 	canFrame.PayloadTable[4] = _bits24_31(latitude);
 	canFrame.PayloadTable[5] = _bits16_23(longitude);
 	canFrame.PayloadTable[6] = _bits8_15(longitude);
@@ -181,10 +181,10 @@ static void gnssRx_Send_GPS_POS(SGnssData *pData) {
 
 /**
  * @brief Sends _GPS_POS CAN frame
- * @param pData Pointer to the GNSS data structure
+ * @param gnssDataPtr Pointer to the GNSS data structure
  * @retval None
  */
-static void gnssRx_Send_GPS_POS2(SGnssData *pData) {
+static void gnssRx_Send_GPS_POS2(SGnssData *gnssDataPtr) {
 
 	SCanFrame canFrame = { .EDataDirection = TX }; /* CAN frame structure */
 
@@ -196,17 +196,17 @@ static void gnssRx_Send_GPS_POS2(SGnssData *pData) {
 	canFrame.UHeader.Tx.TransmitGlobalTime = DISABLE;
 
 	/* Write the speed to the frame payload */
-	uint16_t speed = normalizeSpeed(pData->Speed);
+	uint16_t speed = normalizeSpeed(gnssDataPtr->Speed);
 	canFrame.PayloadTable[0] = _bits8_15(speed);
 	canFrame.PayloadTable[1] = _bits0_7(speed);
 
 	/* Write the direction to the frame payload */
-	uint16_t direction = normalizeDirection(pData->COG);
+	uint16_t direction = normalizeDirection(gnssDataPtr->COG);
 	canFrame.PayloadTable[2] = _bits8_15(direction);
 	canFrame.PayloadTable[3] = _bits0_7(direction);
 
 	/* Write the altitude to the frame payload */
-	uint16_t altitude = normalizeAltitude(pData->Altitude);
+	uint16_t altitude = normalizeAltitude(gnssDataPtr->Altitude);
 	canFrame.PayloadTable[4] = _bits8_15(altitude);
 	canFrame.PayloadTable[5] = _bits0_7(altitude);
 
@@ -218,10 +218,10 @@ static void gnssRx_Send_GPS_POS2(SGnssData *pData) {
 
 /**
  * @brief Sends _GPS_POS CAN frame
- * @param pData Pointer to the GNSS data structure
+ * @param gnssDataPtr Pointer to the GNSS data structure
  * @retval None
  */
-static void gnssRx_Send_GPS_STATUS(SGnssData *pData) {
+static void gnssRx_Send_GPS_STATUS(SGnssData *gnssDataPtr) {
 
 	SCanFrame canFrame = { .EDataDirection = TX }; /* CAN frame structure */
 
@@ -233,27 +233,27 @@ static void gnssRx_Send_GPS_STATUS(SGnssData *pData) {
 	canFrame.UHeader.Tx.TransmitGlobalTime = DISABLE;
 
 	/* Write the satellites visible count to the frame payload */
-	canFrame.PayloadTable[0] = pData->SatellitesInViewGLONASS
-			+ pData->SatellitesInViewGPS;
+	canFrame.PayloadTable[0] = gnssDataPtr->SatellitesInViewGLONASS
+			+ gnssDataPtr->SatellitesInViewGPS;
 	/* Clear two most significant bits */
 	canFrame.PayloadTable[0] &= 0b00111111;
 	/* Use two most significant bits of the first byte to store fix status flags */
-	canFrame.PayloadTable[0] |= (uint8_t) pData->EFixStatus << 6U;
+	canFrame.PayloadTable[0] |= (uint8_t) gnssDataPtr->FixStatus << 6U;
 
 	/* Write the satellites in use count to the frame payload */
-	canFrame.PayloadTable[1] = pData->SatellitesInUse;
+	canFrame.PayloadTable[1] = gnssDataPtr->SatellitesInUse;
 
 	/* Write the time to the frame payload */
-	uint32_t time = normalizeTime(pData->Time);
+	uint32_t time = normalizeTime(gnssDataPtr->Time);
 	canFrame.PayloadTable[2] = _bits24_31(time);
 	canFrame.PayloadTable[3] = _bits16_23(time);
 	canFrame.PayloadTable[4] = _bits8_15(time);
 	canFrame.PayloadTable[5] = _bits0_7(time);
 
 	/* Pack the date in the frame payload by overwriting four least significant bits of the time */
-	canFrame.PayloadTable[5] |= 0xF & _bits24_31(pData->Date);
-	canFrame.PayloadTable[6] = 0xFF & (pData->Date >> 20U);
-	canFrame.PayloadTable[7] = 0xFF & (pData->Date >> 12U);
+	canFrame.PayloadTable[5] |= 0xF & _bits24_31(gnssDataPtr->Date);
+	canFrame.PayloadTable[6] = 0xFF & (gnssDataPtr->Date >> 20U);
+	canFrame.PayloadTable[7] = 0xFF & (gnssDataPtr->Date >> 12U);
 
 	/* Transmit the frame */
 	AddToCanTxQueue(&canFrame,

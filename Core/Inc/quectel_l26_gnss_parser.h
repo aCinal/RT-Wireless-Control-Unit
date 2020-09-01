@@ -45,14 +45,14 @@ typedef uint8_t TNmeaSentencesRxFlags; /* Typedef for storing flags correspondin
  */
 typedef struct SGnssData {
 	float64_t Latitude; /* Latitude in format 'ddmm.mmmm' (degree and minutes) */
-	enum {
+	enum ELatDir {
 		ELatDir_LatitudeNorth = 0x00000000UL, ELatDir_LatitudeSouth
-	} ELatDir; /* Latitude direction */
+	} LatDir; /* Latitude direction */
 
 	float64_t Longitude; /* Longitude in format 'dddmm.mmmm' (degree and minutes) */
-	enum {
+	enum ELonDir {
 		ELonDir_LongitudeEast = 0x00000000UL, ELonDir_LongitudeWest
-	} ELonDir; /* Longitude direction */
+	} LonDir; /* Longitude direction */
 
 	float32_t Altitude; /* Altitude in meters */
 
@@ -65,9 +65,9 @@ typedef struct SGnssData {
 	uint8_t SatellitesInUse; /* Number of satellites in use */
 	uint8_t SatellitesInViewGLONASS; /* Number of GLONASS satellites in view */
 	uint8_t SatellitesInViewGPS; /* Number of GPS satellites in view */
-	enum {
+	enum EFixStatus {
 		EFixStatus_NoFix = 1U, EFixStatus_2DFix, EFixStatus_3DFix
-	} EFixStatus; /* --GSA sentence fix status */
+	} FixStatus; /* --GSA sentence fix status */
 
 	TNmeaSentencesRxFlags SentencesReceived; /* Sentences received flags */
 
