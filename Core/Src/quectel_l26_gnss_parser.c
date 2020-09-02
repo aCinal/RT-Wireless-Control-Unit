@@ -13,6 +13,9 @@
  */
 #define UNUSED(x) ((void)x)
 
+#define NMEA_PARSER_SENTENCE_BUFSIZE	(uint32_t)(64UL)	/* Message parser sentence buffer size */
+#define NMEA_PARSER_DATAFIELD_BUFSIZE	(uint32_t)(11UL)	/* Sentence parser data field buffer size */
+
 static ENmeaParserRet _NmeaParseRmcPayload(SGnssData *pDataBuff,
 		const char *pPayload, size_t length);
 static ENmeaParserRet _NmeaParseVtgPayload(SGnssData *pDataBuff,
@@ -51,7 +54,7 @@ bool isDataComplete(SGnssData *pData) {
 EGnssDataStatus parseMessage(SGnssData *pDataBuff, const char *pMessage,
 		size_t length) {
 
-	static char SentenceBuffer[NMEA_PARSER_SENTENCE_BUFFER_SIZE]; /* Sentence buffer */
+	static char SentenceBuffer[NMEA_PARSER_SENTENCE_BUFSIZE]; /* Sentence buffer */
 	static size_t SentenceLength = 0; /* Sentence length */
 
 	/* Go through the entire message */
@@ -65,7 +68,7 @@ EGnssDataStatus parseMessage(SGnssData *pDataBuff, const char *pMessage,
 			/* Save the next character of the message */
 			SentenceBuffer[SentenceLength - 1UL] = pMessage[i];
 			/* Test for buffer overflow */
-			if (NMEA_PARSER_SENTENCE_BUFFER_SIZE <= SentenceLength) {
+			if (NMEA_PARSER_SENTENCE_BUFSIZE <= SentenceLength) {
 
 				/* Reset the counter */
 				SentenceLength = 0;
@@ -96,7 +99,7 @@ EGnssDataStatus parseMessage(SGnssData *pDataBuff, const char *pMessage,
 					&& ('*' == SentenceBuffer[SentenceLength - 5UL])) {
 
 				/* Parse the received sentence */
-				if (ENmeaParserRet_OK
+				if (ENmeaParserRet_Ok
 						!= parseNmeaSentence(pDataBuff, SentenceBuffer,
 								SentenceLength)) {
 
@@ -236,7 +239,7 @@ ENmeaParserRet parseNmeaSentence(SGnssData *pDataBuff, const char *pSentence,
 static ENmeaParserRet _NmeaParseRmcPayload(SGnssData *pDataBuff,
 		const char *pPayload, size_t length) {
 
-	char dataFieldBuffer[NMEA_PARSER_DATAFIELD_BUFFER_SIZE]; /* Buffer for the data field */
+	char dataFieldBuffer[NMEA_PARSER_DATAFIELD_BUFSIZE]; /* Buffer for the data field */
 	size_t bufferIndex = 0; /* Buffer index */
 	uint8_t dataFieldNumber = 0; /* Number of data field currently being parsed */
 
@@ -250,7 +253,7 @@ static ENmeaParserRet _NmeaParseRmcPayload(SGnssData *pDataBuff,
 			/* Increment the buffer index */
 			bufferIndex += 1UL;
 			/* Test for buffer overflow */
-			if (bufferIndex >= NMEA_PARSER_DATAFIELD_BUFFER_SIZE) {
+			if (bufferIndex >= NMEA_PARSER_DATAFIELD_BUFSIZE) {
 				return ENmeaParserRet_InvalidFormat;
 			}
 
@@ -338,7 +341,7 @@ static ENmeaParserRet _NmeaParseRmcPayload(SGnssData *pDataBuff,
 
 			/* Clear the buffer */
 			(void) memset(dataFieldBuffer, 0x00,
-			NMEA_PARSER_DATAFIELD_BUFFER_SIZE);
+			NMEA_PARSER_DATAFIELD_BUFSIZE);
 			/* Reset the index counter */
 			bufferIndex = 0;
 			/* Increment the number of the data field */
@@ -349,7 +352,7 @@ static ENmeaParserRet _NmeaParseRmcPayload(SGnssData *pDataBuff,
 
 	/* Set the flag */
 	pDataBuff->SentencesReceived |= NMEA_RMC_RECEIVED;
-	return ENmeaParserRet_OK;
+	return ENmeaParserRet_Ok;
 
 }
 
@@ -363,7 +366,7 @@ static ENmeaParserRet _NmeaParseRmcPayload(SGnssData *pDataBuff,
 static ENmeaParserRet _NmeaParseVtgPayload(SGnssData *pDataBuff,
 		const char *pPayload, size_t length) {
 
-	char dataFieldBuffer[NMEA_PARSER_DATAFIELD_BUFFER_SIZE]; /* Buffer for the data field */
+	char dataFieldBuffer[NMEA_PARSER_DATAFIELD_BUFSIZE]; /* Buffer for the data field */
 	size_t bufferIndex = 0; /* Buffer index */
 	uint8_t dataFieldNumber = 0; /* Number of data field currently being parsed */
 
@@ -378,7 +381,7 @@ static ENmeaParserRet _NmeaParseVtgPayload(SGnssData *pDataBuff,
 			/* Increment the buffer index */
 			bufferIndex += 1UL;
 			/* Test for buffer overflow */
-			if (bufferIndex >= NMEA_PARSER_DATAFIELD_BUFFER_SIZE) {
+			if (bufferIndex >= NMEA_PARSER_DATAFIELD_BUFSIZE) {
 
 				return ENmeaParserRet_InvalidFormat;
 
@@ -407,7 +410,7 @@ static ENmeaParserRet _NmeaParseVtgPayload(SGnssData *pDataBuff,
 
 			/* Clear the buffer */
 			(void) memset(dataFieldBuffer, 0x00,
-			NMEA_PARSER_DATAFIELD_BUFFER_SIZE);
+			NMEA_PARSER_DATAFIELD_BUFSIZE);
 			/* Reset the index counter */
 			bufferIndex = 0;
 			/* Increment the number of the data field */
@@ -419,7 +422,7 @@ static ENmeaParserRet _NmeaParseVtgPayload(SGnssData *pDataBuff,
 
 	/* Set the flag */
 	pDataBuff->SentencesReceived |= NMEA_VTG_RECEIVED;
-	return ENmeaParserRet_OK;
+	return ENmeaParserRet_Ok;
 
 }
 
@@ -433,7 +436,7 @@ static ENmeaParserRet _NmeaParseVtgPayload(SGnssData *pDataBuff,
 static ENmeaParserRet _NmeaParseGgaPayload(SGnssData *pDataBuff,
 		const char *pPayload, size_t length) {
 
-	char dataFieldBuffer[NMEA_PARSER_DATAFIELD_BUFFER_SIZE]; /* Buffer for the data field */
+	char dataFieldBuffer[NMEA_PARSER_DATAFIELD_BUFSIZE]; /* Buffer for the data field */
 	size_t bufferIndex = 0; /* Buffer index */
 	uint8_t dataFieldNumber = 0; /* Number of data field currently being parsed */
 
@@ -448,7 +451,7 @@ static ENmeaParserRet _NmeaParseGgaPayload(SGnssData *pDataBuff,
 			/* Increment the buffer index */
 			bufferIndex += 1UL;
 			/* Test for buffer overflow */
-			if (bufferIndex >= NMEA_PARSER_DATAFIELD_BUFFER_SIZE) {
+			if (bufferIndex >= NMEA_PARSER_DATAFIELD_BUFSIZE) {
 
 				return ENmeaParserRet_InvalidFormat;
 
@@ -478,7 +481,7 @@ static ENmeaParserRet _NmeaParseGgaPayload(SGnssData *pDataBuff,
 
 			/* Clear the buffer */
 			(void) memset(dataFieldBuffer, 0x00,
-			NMEA_PARSER_DATAFIELD_BUFFER_SIZE);
+			NMEA_PARSER_DATAFIELD_BUFSIZE);
 			/* Reset the index counter */
 			bufferIndex = 0;
 			/* Increment the number of the data field */
@@ -490,7 +493,7 @@ static ENmeaParserRet _NmeaParseGgaPayload(SGnssData *pDataBuff,
 
 	/* Set the flag */
 	pDataBuff->SentencesReceived |= NMEA_GGA_RECEIVED;
-	return ENmeaParserRet_OK;
+	return ENmeaParserRet_Ok;
 
 }
 
@@ -504,7 +507,7 @@ static ENmeaParserRet _NmeaParseGgaPayload(SGnssData *pDataBuff,
 static ENmeaParserRet _NmeaParseGsaPayload(SGnssData *pDataBuff,
 		const char *pPayload, size_t length) {
 
-	char dataFieldBuffer[NMEA_PARSER_DATAFIELD_BUFFER_SIZE]; /* Buffer for the data field */
+	char dataFieldBuffer[NMEA_PARSER_DATAFIELD_BUFSIZE]; /* Buffer for the data field */
 	size_t bufferIndex = 0; /* Buffer index */
 	uint8_t dataFieldNumber = 0; /* Number of data field currently being parsed */
 
@@ -519,7 +522,7 @@ static ENmeaParserRet _NmeaParseGsaPayload(SGnssData *pDataBuff,
 			/* Increment the buffer index */
 			bufferIndex += 1UL;
 			/* Test for buffer overflow */
-			if (bufferIndex >= NMEA_PARSER_DATAFIELD_BUFFER_SIZE) {
+			if (bufferIndex >= NMEA_PARSER_DATAFIELD_BUFSIZE) {
 
 				return ENmeaParserRet_InvalidFormat;
 
@@ -564,7 +567,7 @@ static ENmeaParserRet _NmeaParseGsaPayload(SGnssData *pDataBuff,
 
 			/* Clear the buffer */
 			(void) memset(dataFieldBuffer, 0x00,
-			NMEA_PARSER_DATAFIELD_BUFFER_SIZE);
+			NMEA_PARSER_DATAFIELD_BUFSIZE);
 			/* Reset the index counter */
 			bufferIndex = 0;
 			/* Increment the number of the data field */
@@ -576,7 +579,7 @@ static ENmeaParserRet _NmeaParseGsaPayload(SGnssData *pDataBuff,
 
 	/* Set the flag */
 	pDataBuff->SentencesReceived |= NMEA_GSA_RECEIVED;
-	return ENmeaParserRet_OK;
+	return ENmeaParserRet_Ok;
 
 }
 
@@ -591,7 +594,7 @@ static ENmeaParserRet _NmeaParseGsaPayload(SGnssData *pDataBuff,
 static ENmeaParserRet _NmeaParseGsvPayload(SGnssData *pDataBuff,
 		const char *pPayload, size_t length, EGsvTalkerId talkerId) {
 
-	char dataFieldBuffer[NMEA_PARSER_DATAFIELD_BUFFER_SIZE]; /* Buffer for the data field */
+	char dataFieldBuffer[NMEA_PARSER_DATAFIELD_BUFSIZE]; /* Buffer for the data field */
 	size_t bufferIndex = 0; /* Buffer index */
 	uint8_t dataFieldNumber = 0; /* Number of data field currently being parsed */
 
@@ -606,7 +609,7 @@ static ENmeaParserRet _NmeaParseGsvPayload(SGnssData *pDataBuff,
 			/* Increment the buffer index */
 			bufferIndex += 1UL;
 			/* Test for buffer overflow */
-			if (bufferIndex >= NMEA_PARSER_DATAFIELD_BUFFER_SIZE) {
+			if (bufferIndex >= NMEA_PARSER_DATAFIELD_BUFSIZE) {
 
 				return ENmeaParserRet_InvalidFormat;
 
@@ -650,7 +653,7 @@ static ENmeaParserRet _NmeaParseGsvPayload(SGnssData *pDataBuff,
 
 			/* Clear the buffer */
 			(void) memset(dataFieldBuffer, 0x00,
-			NMEA_PARSER_DATAFIELD_BUFFER_SIZE);
+			NMEA_PARSER_DATAFIELD_BUFSIZE);
 			/* Reset the index counter */
 			bufferIndex = 0;
 			/* Increment the number of the data field */
@@ -679,7 +682,7 @@ static ENmeaParserRet _NmeaParseGsvPayload(SGnssData *pDataBuff,
 
 	}
 
-	return ENmeaParserRet_OK;
+	return ENmeaParserRet_Ok;
 
 }
 
@@ -700,7 +703,7 @@ static ENmeaParserRet _NmeaParseGllPayload(SGnssData *pDataBuff,
 
 	/* Set the flag */
 	pDataBuff->SentencesReceived |= NMEA_GLL_RECEIVED;
-	return ENmeaParserRet_OK;
+	return ENmeaParserRet_Ok;
 
 }
 
@@ -721,7 +724,7 @@ static ENmeaParserRet _NmeaParseTxtPayload(SGnssData *pDataBuff,
 
 	/* Set the flag */
 	pDataBuff->SentencesReceived |= NMEA_TXT_RECEIVED;
-	return ENmeaParserRet_OK;
+	return ENmeaParserRet_Ok;
 
 }
 

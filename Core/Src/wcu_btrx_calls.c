@@ -14,7 +14,7 @@
 
 #include "cmsis_os.h"
 
-#define BTRX_CIRCULAR_BUFFER_SIZE	(uint32_t)(50)	/* UART circular buffer size */
+#define BTRX_CIRCULAR_BUFSIZE	(uint32_t)(50)	/* UART circular buffer size */
 
 /**
  * @brief Circular buffer structure
@@ -33,11 +33,11 @@ static void btRx_CircularBufferIdleCallback(void);
  */
 EUartCirBufRet btRx_StartCircularBufferIdleDetectionRx(void) {
 
-	static uint8_t cirBufTbl[BTRX_CIRCULAR_BUFFER_SIZE]; /* Circular buffer */
+	static uint8_t cirBufTbl[BTRX_CIRCULAR_BUFSIZE]; /* Circular buffer */
 
 	/* Configure the circular buffer structure */
 	gBtRxCircularBuffer.BufferPtr = cirBufTbl;
-	gBtRxCircularBuffer.BufferSize = BTRX_CIRCULAR_BUFFER_SIZE;
+	gBtRxCircularBuffer.BufferSize = BTRX_CIRCULAR_BUFSIZE;
 	gBtRxCircularBuffer.Callback = &btRx_CircularBufferIdleCallback;
 	gBtRxCircularBuffer.PeriphHandlePtr = &BT_UART_HANDLE;
 

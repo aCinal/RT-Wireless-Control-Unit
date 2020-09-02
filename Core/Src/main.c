@@ -95,7 +95,6 @@ DMA_HandleTypeDef hdma_sdio_rx;
 DMA_HandleTypeDef hdma_sdio_tx;
 
 SPI_HandleTypeDef hspi1;
-DMA_HandleTypeDef hdma_spi1_rx;
 
 TIM_HandleTypeDef htim7;
 
@@ -740,9 +739,6 @@ static void MX_DMA_Init(void)
   /* DMA1_Stream2_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Stream2_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA1_Stream2_IRQn);
-  /* DMA2_Stream0_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA2_Stream0_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(DMA2_Stream0_IRQn);
   /* DMA2_Stream2_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA2_Stream2_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA2_Stream2_IRQn);
@@ -780,10 +776,8 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOB, RF_PWR_UP_Pin|RF_TRX_CE_Pin|RF_TX_EN_Pin|GNSS_FORCE_ON_Pin
                           |GNSS_RESET_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pins : XBEE_STATUS_Pin XBEE_RSSI_Pin XBEE_RESET_Pin RF_DR_Pin
-                           RF_AM_Pin */
-  GPIO_InitStruct.Pin = XBEE_STATUS_Pin|XBEE_RSSI_Pin|XBEE_RESET_Pin|RF_DR_Pin
-                          |RF_AM_Pin;
+  /*Configure GPIO pins : XBEE_STATUS_Pin XBEE_RSSI_Pin XBEE_RESET_Pin RF_AM_Pin */
+  GPIO_InitStruct.Pin = XBEE_STATUS_Pin|XBEE_RSSI_Pin|XBEE_RESET_Pin|RF_AM_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
@@ -794,6 +788,12 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(RF_SPI1_CSN_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : RF_DR_Pin */
+  GPIO_InitStruct.Pin = RF_DR_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(RF_DR_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : RF_CD_Pin RF_uPCLK_Pin GNSS_1PPS_Pin */
   GPIO_InitStruct.Pin = RF_CD_Pin|RF_uPCLK_Pin|GNSS_1PPS_Pin;
@@ -810,19 +810,23 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI4_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI4_IRQn);
+
 }
 
 /* USER CODE BEGIN 4 */
 
 /**
- * @brief  Rx Transfer completed callback.
- * @param  hspi pointer to a SPI_HandleTypeDef structure that contains
- *               the configuration information for SPI module.
- * @retval None
- */
-void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi) {
+  * @brief  EXTI line detection callbacks.
+  * @param  GPIO_Pin Specifies the pins connected EXTI line
+  * @retval None
+  */
+__weak void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
 
-	if (RF_SPI_INSTANCE == hspi->Instance) {
+	if(RF_DR_Pin == GPIO_Pin) {
 
 		/* Notify the rfRx task */
 		vTaskNotifyGiveFromISR(rfRxHandle, NULL);

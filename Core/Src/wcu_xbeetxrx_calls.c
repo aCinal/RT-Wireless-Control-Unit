@@ -20,7 +20,7 @@
  */
 #define StaticStrlen(str) (uint32_t)(sizeof(str) - 1U)
 
-#define XBEETXRX_CIRCULAR_BUFFER_SIZE	(uint32_t)(2 * R3TP_MAX_FRAME_SIZE)	/* UART circular buffer size */
+#define XBEETXRX_CIRCULAR_BUFSIZE		(uint32_t)(2 * R3TP_MAX_FRAME_SIZE)	/* UART circular buffer size */
 #define CAN_ID_TELEMETRY_DIAG			(uint32_t)(0x733UL)					/* CAN ID: _733_TELEMETRY_DIAG */
 #define TELEMETRY_STATE_BIT				(uint8_t)(0x80U)					/* Telemetry_State bit of the TELEMETRY_DIAG CAN frame */
 #define TELEMETRY_WARNING_BIT			(uint8_t)(0x40U)					/* Telemetry_Warning bit of the TELEMETRY_DIAG CAN frame */
@@ -129,11 +129,11 @@ void xbeeTxRx_DeviceConfig(void) {
  */
 EUartCirBufRet xbeeTxRx_StartCircularBufferIdleDetectionRx(void) {
 
-	static uint8_t cirBufTbl[XBEETXRX_CIRCULAR_BUFFER_SIZE]; /* Circular buffer */
+	static uint8_t cirBufTbl[XBEETXRX_CIRCULAR_BUFSIZE]; /* Circular buffer */
 
 	/* Configure the circular buffer structure */
 	gXbeeTxRxCircularBuffer.BufferPtr = cirBufTbl;
-	gXbeeTxRxCircularBuffer.BufferSize = XBEETXRX_CIRCULAR_BUFFER_SIZE;
+	gXbeeTxRxCircularBuffer.BufferSize = XBEETXRX_CIRCULAR_BUFSIZE;
 	gXbeeTxRxCircularBuffer.Callback = &xbeeTxRx_CircularBufferIdleCallback;
 	gXbeeTxRxCircularBuffer.PeriphHandlePtr = &XBEE_UART_HANDLE;
 

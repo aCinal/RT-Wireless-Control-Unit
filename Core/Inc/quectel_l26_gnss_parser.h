@@ -12,9 +12,6 @@
 #include <stdbool.h>
 
 /* Exported defines ------------------------------------------------------------*/
-#define NMEA_PARSER_SENTENCE_BUFFER_SIZE	(uint32_t)(64UL)	/* Message parser sentence buffer size */
-#define NMEA_PARSER_DATAFIELD_BUFFER_SIZE	(uint32_t)(11UL)	/* Sentence parser data field buffer size */
-
 #define NMEA_RMC_RECEIVED					(uint8_t)(0x01U)	/* --RMC NMEA sentence received flag */
 #define NMEA_VTG_RECEIVED					(uint8_t)(0x02U)	/* GPVTG NMEA sentence received flag */
 #define NMEA_GGA_RECEIVED					(uint8_t)(0x04U)	/* GPGGA NMEA sentence received flag */
@@ -77,7 +74,7 @@ typedef struct SGnssData {
  * @brief NMEA parser status typedef
  */
 typedef enum ENmeaParserRet {
-	ENmeaParserRet_OK = 0,
+	ENmeaParserRet_Ok = 0,
 	ENmeaParserRet_InvalidFormat,
 	ENmeaParserRet_InvalidChecksum,
 	ENmeaParserRet_InvalidId,

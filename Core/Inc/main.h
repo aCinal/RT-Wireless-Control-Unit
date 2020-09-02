@@ -78,6 +78,7 @@ void Error_Handler(void);
 #define RF_SPI1_MOSI_GPIO_Port GPIOA
 #define RF_DR_Pin GPIO_PIN_4
 #define RF_DR_GPIO_Port GPIOC
+#define RF_DR_EXTI_IRQn EXTI4_IRQn
 #define RF_AM_Pin GPIO_PIN_5
 #define RF_AM_GPIO_Port GPIOC
 #define RF_CD_Pin GPIO_PIN_0
