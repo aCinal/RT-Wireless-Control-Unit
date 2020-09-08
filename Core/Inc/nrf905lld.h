@@ -25,12 +25,12 @@ typedef enum ENrf905LldRet {
 } ENrf905LldRet;
 
 /**
- * @brief nRf905 PLL mode enumeration
+ * @brief nRf905 frequency band enumeration
  */
-typedef enum ENrf905LldPllMode {
-	ENrf905LldPllMode_433MHz = 0,
-	ENrf905LldPllMode_868_915MHz
-} ENrf905LldPllMode;
+typedef enum ENrf905LldBand {
+	ENrf905LldBand_433MHz = 0,
+	ENrf905LldBand_868_915MHz
+} ENrf905LldBand;
 
 /**
  * @brief nRF905 output power enumeration
@@ -41,26 +41,6 @@ typedef enum ENrf905LldOutputPower {
 	ENrf905LldOutputPower_p6dBm,
 	ENrf905LldOutputPower_p10dBm
 } ENrf905LldOutputPower;
-
-/**
- * @brief nRF905 address width enumeration
- */
-typedef enum ENrf905LldAddressWidth {
-	ENrf905LldAddressWidth_1 = 0,
-	ENrf905LldAddressWidth_4
-} ENrf905LldAddressWidth;
-
-/**
- * @brief nRF905 payload width enumeration
- */
-typedef enum ENrf905LldPayloadWidth {
-	ENrf905LldPayloadWidth_1 = 0,
-	ENrf905LldPayloadWidth_2,
-	ENrf905LldPayloadWidth_4,
-	ENrf905LldPayloadWidth_8,
-	ENrf905LldPayloadWidth_16,
-	ENrf905LldPayloadWidth_32
-} ENrf905LldPayloadWidth;
 
 /**
  * @brief nRF905 output clock frequency enumeration
@@ -92,22 +72,22 @@ typedef enum ENrf905LldCrcMode {
 } ENrf905LldCrcMode;
 
 /**
- * @brief Sets center frequence together with SetPll_868_915_MHz
+ * @brief Sets center frequence together with SetPllMode
  * @param chNo CH_NO parameter value
  * @retval ENrf905LldRet Status
  */
-ENrf905LldRet Nrf905Lld_SetCenterFrequency(TWord chNo);
+ENrf905LldRet Nrf905Lld_SetChannel(TWord chNo);
 
 /**
- * @brief Sets PLL mode
- * @param pllMode PLL mode
+ * @brief Sets frequency band
+ * @param band Frequency band
  * @retval ENrf905LldRet Status
  */
-ENrf905LldRet Nrf905Lld_SetPllMode(ENrf905LldPllMode pllMode);
+ENrf905LldRet Nrf905Lld_SetBand(ENrf905LldBand band);
 
 /**
  * @brief Sets the output power
- * @param outputPower Output power (ENrf905LldOutputPower enum)
+ * @param outputPower Output power
  * @retval ENrf905LldRet Status
  */
 ENrf905LldRet Nrf905Lld_SetOutputPower(ENrf905LldOutputPower outputPower);
@@ -120,7 +100,7 @@ ENrf905LldRet Nrf905Lld_SetOutputPower(ENrf905LldOutputPower outputPower);
 ENrf905LldRet Nrf905Lld_EnableReducedCurrentRx(bool enable);
 
 /**
- * @brief Retransmit contents in TX register if TRX_CE and TXEN are high
+ * @brief Retransmit contents in TX register if TRX_CE and TX_EN are high
  * @param enable True to enable retransmission of data packet, false otherwise
  * @retval ENrf905LldRet Status
  */
@@ -128,39 +108,39 @@ ENrf905LldRet Nrf905Lld_EnableAutoRetran(bool enable);
 
 /**
  * @brief Sets RX address width
- * @param width RX address width
+ * @param addressWidth RX address width
  * @retval ENrf905LldRet Status
  */
-ENrf905LldRet Nrf905Lld_SetRxAddressWidth(ENrf905LldAddressWidth width);
+ENrf905LldRet Nrf905Lld_SetRxAddressWidth(TSize addressWidth);
 
 /**
  * @brief Sets TX address width
- * @param width TX address width
+ * @param addressWidth TX address width
  * @retval ENrf905LldRet Status
  */
-ENrf905LldRet Nrf905Lld_SetTxAddressWidth(ENrf905LldAddressWidth width);
+ENrf905LldRet Nrf905Lld_SetTxAddressWidth(TSize addressWidth);
 
 /**
  * @brief Sets RX payload width
- * @param width RX payload width
+ * @param payloadWidth RX payload width
  * @retval ENrf905LldRet Status
  */
-ENrf905LldRet Nrf905Lld_SetRxPayloadWidth(ENrf905LldPayloadWidth width);
+ENrf905LldRet Nrf905Lld_SetRxPayloadWidth(TSize payloadWidth);
 
 /**
  * @brief Sets TX payload width
- * @param width TX payload width
+ * @param payloadWidth TX payload width
  * @retval ENrf905LldRet Status
  */
-ENrf905LldRet Nrf905Lld_SetTxPayloadWidth(ENrf905LldPayloadWidth width);
+ENrf905LldRet Nrf905Lld_SetTxPayloadWidth(TSize payloadWidth);
 
 /**
  * @brief Sets the device's RX address
- * @param addressPtr RX address
+ * @param addPtr RX address
  * @param size Address size
  * @retval ENrf905LldRet Status
  */
-ENrf905LldRet Nrf905Lld_SetDeviceIdentity(TByte* addressPtr, TSize size);
+ENrf905LldRet Nrf905Lld_SetDeviceIdentity(TByte* addPtr, TSize size);
 
 /**
  * @brief Sets output clock frequency
@@ -243,34 +223,47 @@ ENrf905LldRet Nrf905Lld_WriteTxPayload(TByte* payloadPtr, TSize size);
 
 /**
  * @brief Reads TX payload from the device
- * @param[out] bufferPtr Buffer for the payload
+ * @param[out] bufPtr Buffer for the payload
  * @param[in] size Size of the expected payload
  * @retval ENrf905LldRet Status
  */
-ENrf905LldRet Nrf905Lld_ReadTxPayload(TByte* bufferPtr, TSize size);
+ENrf905LldRet Nrf905Lld_ReadTxPayload(TByte* bufPtr, TSize size);
 
 /**
  * @brief Writes TX address to the device
- * @param addressPtr Address
+ * @param addPtr Address
  * @param size Size of the address
  * @retval ENrf905LldRet Status
  */
-ENrf905LldRet Nrf905Lld_WriteTxAddress(TByte* addressPtr, TSize size);
+ENrf905LldRet Nrf905Lld_WriteTxAddress(TByte* addPtr, TSize size);
 
 /**
  * @brief Reads TX address from the device
- * @param[out] bufferPtr Buffer for the address
+ * @param[out] bufPtr Buffer for the address
  * @param[in] size Size of the expected address
  * @retval ENrf905LldRet Status
  */
-ENrf905LldRet Nrf905Lld_ReadTxAddress(TByte* bufferPtr, TSize size);
+ENrf905LldRet Nrf905Lld_ReadTxAddress(TByte* bufPtr, TSize size);
 
 /**
  * @brief Reads RX payload from the device
- * @param[out] bufferPtr Buffer for the payload
+ * @param[out] bufPtr Buffer for the payload
  * @param[in] size Size of the expected payload
  * @retval ENrf905LldRet Status
  */
-ENrf905LldRet Nrf905Lld_ReadRxPayload(TByte* bufferPtr, TSize size);
+ENrf905LldRet Nrf905Lld_ReadRxPayload(TByte* bufPtr, TSize size);
+
+/**
+ * @brief Dumps the configuration register contents into a buffer
+ * @param bufPtr Buffer
+ * @retval ENrf905LldRet Status
+ */
+ENrf905LldRet Nrf905Lld_DumpConfigReg(TByte* bufPtr);
+
+/**
+ * @brief Restores the default values of the configuration register
+ * @retval ENrf905LldRet Status
+ */
+ENrf905LldRet Nrf905Lld_RestoreDefaultConfig(void);
 
 #endif /* __NRF905LLD_H_ */

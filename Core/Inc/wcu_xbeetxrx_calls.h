@@ -13,18 +13,15 @@
 #include "cmsis_os.h"
 
 extern UART_HandleTypeDef huart4;
-#define XBEE_UART_HANDLE	(huart4)
-#define XBEE_UART_INSTANCE	(UART4)
+#define XBEE_UART_HANDLE    (huart4)
+#define XBEE_UART_INSTANCE  (UART4)
 
 /**
  * @brief Internal messages enumeration for internal communication between xbeeTxRx task and callbacks
  */
 typedef enum EXbeeInternalMail {
-
 	EXbeeInternalMail_PeriodElapsed = 0,
-
 	EXbeeInternalMail_MessageReceived
-
 } EXbeeInternalMail;
 
 /**

@@ -10,8 +10,8 @@
 #include "stm32f4xx_hal.h"
 
 /* Exported defines ------------------------------------------------------------*/
-#define CAN_FILTERBANKS_COUNT	(uint32_t)(28UL)	/* Number of CAN filter banks */
-#define CAN_PAYLOAD_SIZE		(uint32_t)(8UL)		/* CAN payload size in bytes */
+#define CAN_FILTERBANKS_COUNT  ((uint32_t) 28UL)  /* Number of CAN filter banks */
+#define CAN_PAYLOAD_SIZE       ((uint32_t) 8UL)   /* CAN payload size in bytes */
 
 /* Exported typedef ------------------------------------------------------------*/
 /**
@@ -37,7 +37,7 @@ typedef struct {
 	/**
 	 * @brief CAN frame data
 	 */
-	uint8_t PayloadTable[CAN_PAYLOAD_SIZE];
+	uint8_t PayloadTbl[CAN_PAYLOAD_SIZE];
 
 } SCanFrame;
 
@@ -45,17 +45,17 @@ typedef struct {
 /**
  * @brief Shifts the bits of an 11-bit CAN standard ID to align with the filter bank register field mapping
  */
-#define AlignCanIdWithFilterFieldMapping(id) ((uint32_t)(id << 5))
+#define AlignCanIdWithFilterFieldMapping(id) (((uint32_t)(id)) << 5)
 
 /* Exported function prototypes -----------------------------------------------*/
 /**
  * @brief Configures the CAN filters according to the provided list of CAN IDs
  * @param hcan pointer to a CAN_HandleTypeDef structure that contains
  *         the configuration information for the specified CAN.
- * @param ids Pointer to an array of 32-bit CAN IDs to filter for
- * @param count Length of the ids array
+ * @param idsTbl Pointer to an array of 32-bit CAN IDs to filter for
+ * @param count Length of the idsTbl array
  */
-void setCanFilterList(CAN_HandleTypeDef *hcan, uint32_t ids[], uint32_t count);
+void setCanFilterList(CAN_HandleTypeDef *hcan, uint32_t idsTbl[], uint32_t count);
 
 /**
  * @brief Configures the CAN filters to block all incoming messages

@@ -12,8 +12,8 @@
 #include "stm32f4xx_hal.h"
 
 extern UART_HandleTypeDef huart3;
-#define GNSS_UART_HANDLE	(huart3)
-#define GNSS_UART_INSTANCE	(USART3)
+#define GNSS_UART_HANDLE    (huart3)
+#define GNSS_UART_INSTANCE  (USART3)
 
 /**
  * @brief Configures the Quectel L26 device

@@ -10,8 +10,8 @@
 #include "stm32f4xx_hal.h"
 
 extern SPI_HandleTypeDef hspi1;
-#define RF_SPI_HANDLE hspi1
-#define RF_SPI_INSTANCE SPI1
+#define RF_SPI_HANDLE    (hspi1)
+#define RF_SPI_INSTANCE  (SPI1)
 
 /**
  * @brief Configures the nRF905 device

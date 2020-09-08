@@ -12,8 +12,8 @@
 #include "stm32f4xx_hal.h"
 
 extern UART_HandleTypeDef huart1;
-#define BT_UART_HANDLE		(huart1)
-#define BT_UART_INSTANCE	(USART1)
+#define BT_UART_HANDLE    (huart1)
+#define BT_UART_INSTANCE  (USART1)
 
 /**
  * @brief Starts listening for incoming UART transmissions

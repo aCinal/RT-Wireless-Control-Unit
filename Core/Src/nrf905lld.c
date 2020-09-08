@@ -6,36 +6,54 @@
 
 #include "nrf905lld.h"
 #include "nrf905lldconfig.h"
+
 #include <stddef.h>
 
 /* Set/reset pins based on the label */
-#define SET_PIN(label) (HAL_GPIO_WritePin(label##_GPIO_Port, label##_Pin, GPIO_PIN_SET))
-#define RESET_PIN(label) (HAL_GPIO_WritePin(label##_GPIO_Port, label##_Pin, GPIO_PIN_RESET))
+#define SET_PIN(label)             (HAL_GPIO_WritePin(label##_GPIO_Port, label##_Pin, GPIO_PIN_SET))
+#define RESET_PIN(label)           (HAL_GPIO_WritePin(label##_GPIO_Port, label##_Pin, GPIO_PIN_RESET))
 
 /* Set bits in a register based on a mask */
-#define SET_BITS(REG, MASK, BITS) (REG = (((TByte)(REG) & ~(TByte)(MASK)) | ((TByte)(MASK) & ((TByte)(BITS)))))
+#define SET_BITS(REG, MASK, BITS)  ((REG) = (((TByte)(REG) & ~(TByte)(MASK)) | ((TByte)(MASK) & ((TByte)(BITS)))))
 
 /* Instruction set for the nRF905 SPI */
-#define W_TX_PAYLOAD ((TByte)0b00100000)
-#define R_TX_PAYLOAD ((TByte)0b00100001)
-#define W_TX_ADDRESS ((TByte)0b00100010)
-#define R_TX_ADDRESS ((TByte)0b00100011)
-#define R_RX_PAYLOAD ((TByte)0b00100100)
-#define W_CONFIG(start) ((TByte)(0x0F & start))
-#define R_CONFIG(start) ((TByte)(0x0F & start))
+#define W_TX_PAYLOAD               ((TByte) 0b00100000)
+#define R_TX_PAYLOAD               ((TByte) 0b00100001)
+#define W_TX_ADDRESS               ((TByte) 0b00100010)
+#define R_TX_ADDRESS               ((TByte) 0b00100011)
+#define R_RX_PAYLOAD               ((TByte) 0b00100100)
+#define W_CONFIG(offset)           ((TByte) (0x0F & (TByte)(offset)))
+#define R_CONFIG(offset)           ((TByte) (0x10 | (0x0F & (TByte)(offset))))
 
-#define SPITXTIMEOUT ((uint32_t)500U) /* SPI Tx timeout */
-#define SPIRXTIMEOUT ((uint32_t)500U) /* SPI Rx timeout */
+/* Default contents of the configuration register */
+#define DEFAULT_CONFIG_0           ((TByte) 0x6C)
+#define DEFAULT_CONFIG_1           ((TByte) 0x00)
+#define DEFAULT_CONFIG_2           ((TByte) 0x44)
+#define DEFAULT_CONFIG_3           ((TByte) 0x20)
+#define DEFAULT_CONFIG_4           ((TByte) 0x20)
+#define DEFAULT_CONFIG_5           ((TByte) 0xE7)
+#define DEFAULT_CONFIG_6           ((TByte) 0xE7)
+#define DEFAULT_CONFIG_7           ((TByte) 0xE7)
+#define DEFAULT_CONFIG_8           ((TByte) 0xE7)
+#define DEFAULT_CONFIG_9           ((TByte) 0xE7)
+
+/* Boundary sizes */
+#define MAXADDRWIDTH               ((TSize) 4U)      /* Maximum TX/RX address width */
+#define MAXPAYLWIDTH               ((TSize) 32U)     /* Maximum TX/RX payload width */
+
+/* Communication parameters */
+#define SPITXTIMEOUT               ((uint32_t)500U)  /* SPI Tx timeout */
+#define SPIRXTIMEOUT               ((uint32_t)500U)  /* SPI Rx timeout */
 
 static ENrf905LldRet Nrf905Lld_GenericWrite(TByte instruction, TByte* parametersPtr, TSize parametersSize);
 static ENrf905LldRet Nrf905Lld_GenericRead(TByte instruction, TByte* buffer, TSize dataSize);
 
 /**
- * @brief Sets center frequence together with SetPll_868_915_MHz
+ * @brief Sets center frequence together with SetPllMode
  * @param chNo CH_NO parameter value
  * @retval ENrf905LldRet Status
  */
-ENrf905LldRet Nrf905Lld_SetCenterFrequency(TWord chNo) {
+ENrf905LldRet Nrf905Lld_SetChannel(TWord chNo) {
 
 	ENrf905LldRet status = ENrf905LldRet_Ok;
 	TByte configReg_0_1[2]; /* Config register contents buffer */
@@ -57,11 +75,11 @@ ENrf905LldRet Nrf905Lld_SetCenterFrequency(TWord chNo) {
 }
 
 /**
- * @brief Sets PLL mode
- * @param pllMode PLL mode
+ * @brief Sets frequency band
+ * @param band Frequency band
  * @retval ENrf905LldRet Status
  */
-ENrf905LldRet Nrf905Lld_SetPllMode(ENrf905LldPllMode pllMode) {
+ENrf905LldRet Nrf905Lld_SetBand(ENrf905LldBand band) {
 
 	ENrf905LldRet status = ENrf905LldRet_Ok;
 	TByte configReg_1; /* Config register contents buffer */
@@ -72,14 +90,14 @@ ENrf905LldRet Nrf905Lld_SetPllMode(ENrf905LldPllMode pllMode) {
 	if(ENrf905LldRet_Ok == status) {
 
 		/* Update and push back */
-		switch(pllMode) {
+		switch(band) {
 
-		case ENrf905LldPllMode_433MHz:
+		case ENrf905LldBand_433MHz:
 
 			SET_BITS(configReg_1, 0x02, 0x00);
 			break;
 
-		case ENrf905LldPllMode_868_915MHz:
+		case ENrf905LldBand_868_915MHz:
 
 			SET_BITS(configReg_1, 0x02, 0x02);
 			break;
@@ -106,7 +124,7 @@ ENrf905LldRet Nrf905Lld_SetPllMode(ENrf905LldPllMode pllMode) {
 
 /**
  * @brief Sets the output power
- * @param outputPower Output power (ENrf905LldOutputPower enum)
+ * @param outputPower Output power
  * @retval ENrf905LldRet Status
  */
 ENrf905LldRet Nrf905Lld_SetOutputPower(ENrf905LldOutputPower outputPower) {
@@ -187,7 +205,7 @@ ENrf905LldRet Nrf905Lld_EnableReducedCurrentRx(bool enable) {
 }
 
 /**
- * @brief Retransmit contents in TX register if TRX_CE and TXEN are high
+ * @brief Retransmit contents in TX register if TRX_CE and TX_EN are high
  * @param enable True to enable retransmission of data packet, false otherwise
  * @retval ENrf905LldRet Status
  */
@@ -213,44 +231,33 @@ ENrf905LldRet Nrf905Lld_EnableAutoRetran(bool enable) {
 
 /**
  * @brief Sets RX address width
- * @param width RX address width
+ * @param addressWidth RX address width
  * @retval ENrf905LldRet Status
  */
-ENrf905LldRet Nrf905Lld_SetRxAddressWidth(ENrf905LldAddressWidth width) {
+ENrf905LldRet Nrf905Lld_SetRxAddressWidth(TSize addressWidth) {
 
 	ENrf905LldRet status = ENrf905LldRet_Ok;
 	TByte configReg_2; /* Config register contents buffer */
 
-	/* Pull the configuration register contents */
-	status = Nrf905Lld_GenericRead(R_CONFIG(2), &configReg_2, 1);
+	/* Assert valid parameters */
+	if(addressWidth > MAXADDRWIDTH) {
+
+		status = ENrf905LldRet_InvalidParams;
+
+	}
+
+	if(ENrf905LldRet_Ok == status) {
+
+		/* Pull the configuration register contents */
+		status = Nrf905Lld_GenericRead(R_CONFIG(2), &configReg_2, 1);
+
+	}
 
 	if(ENrf905LldRet_Ok == status) {
 
 		/* Update and push back */
-		switch(width) {
-
-		case ENrf905LldAddressWidth_1:
-
-			SET_BITS(configReg_2, 0x07, 0x01);
-			break;
-
-		case ENrf905LldAddressWidth_4:
-
-			SET_BITS(configReg_2, 0x07, 0x04);
-			break;
-
-		default:
-
-			status = ENrf905LldRet_InvalidParams;
-			break;
-
-		}
-
-		if(ENrf905LldRet_Ok == status) {
-
-			status = Nrf905Lld_GenericWrite(W_CONFIG(2), &configReg_2, 1);
-
-		}
+		SET_BITS(configReg_2, 0x07, addressWidth);
+		status = Nrf905Lld_GenericWrite(W_CONFIG(2), &configReg_2, 1);
 
 	}
 
@@ -260,44 +267,33 @@ ENrf905LldRet Nrf905Lld_SetRxAddressWidth(ENrf905LldAddressWidth width) {
 
 /**
  * @brief Sets TX address width
- * @param width TX address width
+ * @param addressWidth TX address width
  * @retval ENrf905LldRet Status
  */
-ENrf905LldRet Nrf905Lld_SetTxAddressWidth(ENrf905LldAddressWidth width) {
+ENrf905LldRet Nrf905Lld_SetTxAddressWidth(TSize addressWidth) {
 
 	ENrf905LldRet status = ENrf905LldRet_Ok;
 	TByte configReg_2; /* Config register contents buffer */
 
-	/* Pull the configuration register contents */
-	status = Nrf905Lld_GenericRead(R_CONFIG(2), &configReg_2, 1);
+	/* Assert valid parameters */
+	if(addressWidth > MAXADDRWIDTH) {
+
+		status = ENrf905LldRet_InvalidParams;
+
+	}
+
+	if(ENrf905LldRet_Ok == status) {
+
+		/* Pull the configuration register contents */
+		status = Nrf905Lld_GenericRead(R_CONFIG(2), &configReg_2, 1);
+
+	}
 
 	if(ENrf905LldRet_Ok == status) {
 
 		/* Update and push back */
-		switch(width) {
-
-		case ENrf905LldAddressWidth_1:
-
-			SET_BITS(configReg_2, 0x70, 0x10);
-			break;
-
-		case ENrf905LldAddressWidth_4:
-
-			SET_BITS(configReg_2, 0x70, 0x40);
-			break;
-
-		default:
-
-			status = ENrf905LldRet_InvalidParams;
-			break;
-
-		}
-
-		if(ENrf905LldRet_Ok == status) {
-
-			status = Nrf905Lld_GenericWrite(W_CONFIG(2), &configReg_2, 1);
-
-		}
+		SET_BITS(configReg_2, 0x70, (addressWidth << 4));
+		status = Nrf905Lld_GenericWrite(W_CONFIG(2), &configReg_2, 1);
 
 	}
 
@@ -307,64 +303,33 @@ ENrf905LldRet Nrf905Lld_SetTxAddressWidth(ENrf905LldAddressWidth width) {
 
 /**
  * @brief Sets RX payload width
- * @param width RX payload width
+ * @param payloadWidth RX payload width
  * @retval ENrf905LldRet Status
  */
-ENrf905LldRet Nrf905Lld_SetRxPayloadWidth(ENrf905LldPayloadWidth width) {
+ENrf905LldRet Nrf905Lld_SetRxPayloadWidth(TSize payloadWidth) {
 
 	ENrf905LldRet status = ENrf905LldRet_Ok;
 	TByte configReg_3; /* Config register contents buffer */
 
-	/* Pull the configuration register contents */
-	status = Nrf905Lld_GenericRead(R_CONFIG(3), &configReg_3, 1);
+	/* Assert valid parameters */
+	if(payloadWidth > MAXPAYLWIDTH) {
+
+		status = ENrf905LldRet_InvalidParams;
+
+	}
+
+	if(ENrf905LldRet_Ok == status) {
+
+		/* Pull the configuration register contents */
+		status = Nrf905Lld_GenericRead(R_CONFIG(3), &configReg_3, 1);
+
+	}
 
 	if(ENrf905LldRet_Ok == status) {
 
 		/* Update and push back */
-		switch(width) {
-
-		case ENrf905LldPayloadWidth_1:
-
-			SET_BITS(configReg_3, 0x3F, 0x01);
-			break;
-
-		case ENrf905LldPayloadWidth_2:
-
-			SET_BITS(configReg_3, 0x3F, 0x02);
-			break;
-
-		case ENrf905LldPayloadWidth_4:
-
-			SET_BITS(configReg_3, 0x3F, 0x04);
-			break;
-
-		case ENrf905LldPayloadWidth_8:
-
-			SET_BITS(configReg_3, 0x3F, 0x08);
-			break;
-
-		case ENrf905LldPayloadWidth_16:
-
-			SET_BITS(configReg_3, 0x3F, 0x10);
-			break;
-
-		case ENrf905LldPayloadWidth_32:
-
-			SET_BITS(configReg_3, 0x3F, 0x20);
-			break;
-
-		default:
-
-			status = ENrf905LldRet_InvalidParams;
-			break;
-
-		}
-
-		if(ENrf905LldRet_Ok == status) {
-
-			status = Nrf905Lld_GenericWrite(W_CONFIG(3), &configReg_3, 1);
-
-		}
+		SET_BITS(configReg_3, 0x3F, payloadWidth);
+		status = Nrf905Lld_GenericWrite(W_CONFIG(3), &configReg_3, 1);
 
 	}
 
@@ -374,64 +339,33 @@ ENrf905LldRet Nrf905Lld_SetRxPayloadWidth(ENrf905LldPayloadWidth width) {
 
 /**
  * @brief Sets TX payload width
- * @param width TX payload width
+ * @param payloadWidth TX payload width
  * @retval ENrf905LldRet Status
  */
-ENrf905LldRet Nrf905Lld_SetTxPayloadWidth(ENrf905LldPayloadWidth width) {
+ENrf905LldRet Nrf905Lld_SetTxPayloadWidth(TSize payloadWidth) {
 
 	ENrf905LldRet status = ENrf905LldRet_Ok;
 	TByte configReg_4; /* Config register contents buffer */
 
-	/* Pull the configuration register contents */
-	status = Nrf905Lld_GenericRead(R_CONFIG(4), &configReg_4, 1);
+	/* Assert valid parameters */
+	if(payloadWidth > MAXPAYLWIDTH) {
+
+		status = ENrf905LldRet_InvalidParams;
+
+	}
+
+	if(ENrf905LldRet_Ok == status) {
+
+		/* Pull the configuration register contents */
+		status = Nrf905Lld_GenericRead(R_CONFIG(4), &configReg_4, 1);
+
+	}
 
 	if(ENrf905LldRet_Ok == status) {
 
 		/* Update and push back */
-		switch(width) {
-
-		case ENrf905LldPayloadWidth_1:
-
-			SET_BITS(configReg_4, 0x3F, 0x01);
-			break;
-
-		case ENrf905LldPayloadWidth_2:
-
-			SET_BITS(configReg_4, 0x3F, 0x02);
-			break;
-
-		case ENrf905LldPayloadWidth_4:
-
-			SET_BITS(configReg_4, 0x3F, 0x04);
-			break;
-
-		case ENrf905LldPayloadWidth_8:
-
-			SET_BITS(configReg_4, 0x3F, 0x08);
-			break;
-
-		case ENrf905LldPayloadWidth_16:
-
-			SET_BITS(configReg_4, 0x3F, 0x10);
-			break;
-
-		case ENrf905LldPayloadWidth_32:
-
-			SET_BITS(configReg_4, 0x3F, 0x20);
-			break;
-
-		default:
-
-			status = ENrf905LldRet_InvalidParams;
-			break;
-
-		}
-
-		if(ENrf905LldRet_Ok == status) {
-
-			status = Nrf905Lld_GenericWrite(W_CONFIG(4), &configReg_4, 1);
-
-		}
+		SET_BITS(configReg_4, 0x3F, payloadWidth);
+		status = Nrf905Lld_GenericWrite(W_CONFIG(4), &configReg_4, 1);
 
 	}
 
@@ -441,11 +375,11 @@ ENrf905LldRet Nrf905Lld_SetTxPayloadWidth(ENrf905LldPayloadWidth width) {
 
 /**
  * @brief Sets the device's RX address
- * @param addressPtr RX address
+ * @param addPtr RX address
  * @param size Address size
  * @retval ENrf905LldRet Status
  */
-ENrf905LldRet Nrf905Lld_SetDeviceIdentity(TByte* addressPtr, TSize size) {
+ENrf905LldRet Nrf905Lld_SetDeviceIdentity(TByte* addPtr, TSize size) {
 
 	ENrf905LldRet status = ENrf905LldRet_Ok;
 
@@ -457,7 +391,7 @@ ENrf905LldRet Nrf905Lld_SetDeviceIdentity(TByte* addressPtr, TSize size) {
 
 	if(ENrf905LldRet_Ok == status) {
 
-		status = Nrf905Lld_GenericWrite(W_CONFIG(5), addressPtr, size);
+		status = Nrf905Lld_GenericWrite(W_CONFIG(5), addPtr, size);
 
 	}
 
@@ -755,49 +689,97 @@ ENrf905LldRet Nrf905Lld_WriteTxPayload(TByte* payloadPtr, TSize size) {
 
 /**
  * @brief Reads TX payload from the device
- * @param[out] bufferPtr Buffer for the payload
+ * @param[out] bufPtr Buffer for the payload
  * @param[in] size Size of the expected payload
  * @retval ENrf905LldRet Status
  */
-ENrf905LldRet Nrf905Lld_ReadTxPayload(TByte* bufferPtr, TSize size) {
+ENrf905LldRet Nrf905Lld_ReadTxPayload(TByte* bufPtr, TSize size) {
 
-	return Nrf905Lld_GenericRead(R_TX_PAYLOAD, bufferPtr, size);
+	return Nrf905Lld_GenericRead(R_TX_PAYLOAD, bufPtr, size);
 
 }
 
 /**
  * @brief Writes TX address to the device
- * @param addressPtr Address
+ * @param addPtr Address
  * @param size Size of the address
  * @retval ENrf905LldRet Status
  */
-ENrf905LldRet Nrf905Lld_WriteTxAddress(TByte* addressPtr, TSize size) {
+ENrf905LldRet Nrf905Lld_WriteTxAddress(TByte* addPtr, TSize size) {
 
-	return Nrf905Lld_GenericWrite(W_TX_ADDRESS, addressPtr, size);
+	return Nrf905Lld_GenericWrite(W_TX_ADDRESS, addPtr, size);
 
 }
 
 /**
  * @brief Reads TX address from the device
- * @param[out] bufferPtr Buffer for the address
+ * @param[out] bufPtr Buffer for the address
  * @param[in] size Size of the expected address
  * @retval ENrf905LldRet Status
  */
-ENrf905LldRet Nrf905Lld_ReadTxAddress(TByte* bufferPtr, TSize size) {
+ENrf905LldRet Nrf905Lld_ReadTxAddress(TByte* bufPtr, TSize size) {
 
-	return Nrf905Lld_GenericRead(R_TX_ADDRESS, bufferPtr, size);
+	return Nrf905Lld_GenericRead(R_TX_ADDRESS, bufPtr, size);
 
 }
 
 /**
  * @brief Reads RX payload from the device
- * @param[out] bufferPtr Buffer for the payload
+ * @param[out] bufPtr Buffer for the payload
  * @param[in] size Size of the expected payload
  * @retval ENrf905LldRet Status
  */
-ENrf905LldRet Nrf905Lld_ReadRxPayload(TByte* bufferPtr, TSize size) {
+ENrf905LldRet Nrf905Lld_ReadRxPayload(TByte* bufPtr, TSize size) {
 
-	return Nrf905Lld_GenericRead(R_RX_PAYLOAD, bufferPtr, size);
+	return Nrf905Lld_GenericRead(R_RX_PAYLOAD, bufPtr, size);
+
+}
+
+/**
+ * @brief Dumps the configuration register contents into a buffer
+ * @param bufPtr Buffer
+ * @retval ENrf905LldRet Status
+ */
+ENrf905LldRet Nrf905Lld_DumpConfigReg(TByte* bufPtr) {
+
+	ENrf905LldRet status = ENrf905LldRet_Ok;
+
+	/* Assert valid pointer dereference */
+	if(NULL == bufPtr) {
+
+		status = ENrf905LldRet_InvalidParams;
+
+	}
+
+	if(ENrf905LldRet_Ok == status) {
+
+		status = Nrf905Lld_GenericRead(R_CONFIG(0), bufPtr, 10);
+
+	}
+
+	return status;
+
+}
+
+/**
+ * @brief Restores the default values of the configuration register
+ * @retval ENrf905LldRet Status
+ */
+ENrf905LldRet Nrf905Lld_RestoreDefaultConfig(void) {
+
+	uint8_t buf[10];
+	buf[0] = DEFAULT_CONFIG_0;
+	buf[1] = DEFAULT_CONFIG_1;
+	buf[2] = DEFAULT_CONFIG_2;
+	buf[3] = DEFAULT_CONFIG_3;
+	buf[4] = DEFAULT_CONFIG_4;
+	buf[5] = DEFAULT_CONFIG_5;
+	buf[6] = DEFAULT_CONFIG_6;
+	buf[7] = DEFAULT_CONFIG_7;
+	buf[8] = DEFAULT_CONFIG_8;
+	buf[9] = DEFAULT_CONFIG_9;
+
+	return Nrf905Lld_GenericWrite(W_CONFIG(0), buf, sizeof(buf));
 
 }
 
@@ -884,7 +866,6 @@ static ENrf905LldRet Nrf905Lld_GenericRead(TByte instruction, TByte* buffer, TSi
 		}
 
 	}
-
 
 	if(ENrf905LldRet_Ok == status) {
 

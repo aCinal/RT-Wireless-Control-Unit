@@ -12,25 +12,25 @@
 #include <stdbool.h>
 
 /* Exported defines ------------------------------------------------------------*/
-#define NMEA_RMC_RECEIVED					(uint8_t)(0x01U)	/* --RMC NMEA sentence received flag */
-#define NMEA_VTG_RECEIVED					(uint8_t)(0x02U)	/* GPVTG NMEA sentence received flag */
-#define NMEA_GGA_RECEIVED					(uint8_t)(0x04U)	/* GPGGA NMEA sentence received flag */
-#define NMEA_GSA_RECEIVED					(uint8_t)(0x08U)	/* --GSA NMEA sentence received flag */
-#define NMEA_GPGSV_RECEIVED					(uint8_t)(0x10U)	/* GPGSV NMEA sentence received flag */
-#define NMEA_GLGSV_RECEIVED					(uint8_t)(0x20U)	/* GLGSV NMEA sentence received flag */
-#define NMEA_GLL_RECEIVED					(uint8_t)(0x40U)	/* --GLL NMEA sentence received flag */
-#define NMEA_TXT_RECEIVED					(uint8_t)(0x80U)	/* GPTXT NMEA sentence received flag */
+#define NMEA_RMC_RECEIVED    ((uint8_t)0x01U)  /* --RMC NMEA sentence received flag */
+#define NMEA_VTG_RECEIVED    ((uint8_t)0x02U)  /* GPVTG NMEA sentence received flag */
+#define NMEA_GGA_RECEIVED    ((uint8_t)0x04U)  /* GPGGA NMEA sentence received flag */
+#define NMEA_GSA_RECEIVED    ((uint8_t)0x08U)  /* --GSA NMEA sentence received flag */
+#define NMEA_GPGSV_RECEIVED  ((uint8_t)0x10U)  /* GPGSV NMEA sentence received flag */
+#define NMEA_GLGSV_RECEIVED  ((uint8_t)0x20U)  /* GLGSV NMEA sentence received flag */
+#define NMEA_GLL_RECEIVED    ((uint8_t)0x40U)  /* --GLL NMEA sentence received flag */
+#define NMEA_TXT_RECEIVED    ((uint8_t)0x80U)  /* GPTXT NMEA sentence received flag */
 
 /* Exported macros ------------------------------------------------------------*/
 /**
  * @brief Returns the address at which the payload of an NMEA sentence begins in reference to the start
  */
-#define NMEA_PAYLOAD_BEGIN(start) (char*)((char*)start + 7UL)
+#define NMEA_PAYLOAD_BEGIN(start)  ((char*)((char*)(start) + 7UL))
 
 /**
  * @brief Returns the length of an NMEA sentence payload
  */
-#define NMEA_PAYLOAD_LENGTH(sentenceLength) (size_t)(sentenceLength - 11UL)
+#define NMEA_PAYLOAD_LENGTH(sentenceLength) ((size_t)((sentenceLength) - 11UL))
 
 /* Exported typedefs ------------------------------------------------------------*/
 typedef float float32_t; /* 32-bit floating point variable typedef */

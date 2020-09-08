@@ -5,19 +5,23 @@
  */
 
 #include "wcu_sdiogtkp_calls.h"
+
 #include "wcu_common.h"
-#include "fatfs.h"
 #include "rt12e_libs_generic.h"
 #include "rt12e_libs_r3tp.h"
+
 #include "cmsis_os.h"
+#include "fatfs.h"
+#include <stdio.h>
+#include <string.h>
 
 extern osMessageQId canSubQueueHandle;
 extern osMessageQId sdioSubQueueHandle;
 extern osMessageQId sdioLogQueueHandle;
 
-#define SDIOGTKP_LOGFILE_PATH					("ERRLOG.TXT")			/* Error log file path */
-#define SDIOGTKP_SUBFILE_PATH					("SUBSCR")				/* Subscription file path */
-#define NV_CANGTKP_SDIOGTKP_SUB_READ_FAIL		(29UL)					/* Value to notify canGtkp that reading subscription from SD card failed */
+#define SDIOGTKP_LOGFILE_PATH              ("ERRLOG.TXT")     /* Error log file path */
+#define SDIOGTKP_SUBFILE_PATH              ("SUBSCR")         /* Subscription file path */
+#define NV_CANGTKP_SDIOGTKP_SUB_READ_FAIL  ((uint32_t) 29UL)  /* Value to notify canGtkp that reading subscription from SD card failed */
 
 /**
  * @brief Tries loading the telemetry subscription from the SD card and pushing it to an appropriate queue
@@ -28,13 +32,10 @@ uint32_t sdioGtkp_LoadTelemetrySubscription(void) {
 	FIL subscriptionFile; /* Telemetry subscription file object structure */
 
 	/* Try opening the file */
-	if (FR_OK
-			!= f_open(&subscriptionFile, SDIOGTKP_SUBFILE_PATH,
-					FA_READ | FA_OPEN_EXISTING)) {
+	if (FR_OK != f_open(&subscriptionFile, SDIOGTKP_SUBFILE_PATH,
+	FA_READ | FA_OPEN_EXISTING)) {
 
-		/* If failed to open the file */
-		/* Log the error and return */
-		LogError("sdioGtkp failed to open the subscription file\r\n");
+		LogPrint("sdioGtkp failed to open the subscription file\r\n");
 		return NV_CANGTKP_SDIOGTKP_SUB_READ_FAIL;
 
 	}
@@ -47,25 +48,24 @@ uint32_t sdioGtkp_LoadTelemetrySubscription(void) {
 	/* Try reading the number of frames */
 	if (FR_OK != f_read(&subscriptionFile, temp, 4, &bytesRead)) {
 
-		/* If failed to read the number of frames */
+		LogPrint("sdioGtkp failed to read from the subscription file\r\n");
+
 		/* Cleanup */
 		(void) f_close(&subscriptionFile);
-		/* Log the error and return */
-		LogError("sdioGtkp failed to read from the subscription file\r\n");
 		return NV_CANGTKP_SDIOGTKP_SUB_READ_FAIL;
 
 	}
 
 	/* Parse the number of frames */
-	frNum = _join32bits(temp[3], temp[2], temp[1], temp[0]);
+	frNum = _reinterpret32bits(temp[3], temp[2], temp[1], temp[0]);
 
 	/* Validate the number of frames */
 	if (frNum > R3TP_VER1_MAX_FRAME_NUM) {
 
+		LogPrint("Invalid FRAME NUM in the subscription file\r\n");
+
 		/* Cleanup */
 		(void) f_close(&subscriptionFile);
-		/* Log the error and return */
-		LogError("Invalid FRAME NUM in the subscription file\r\n");
 		return NV_CANGTKP_SDIOGTKP_SUB_READ_FAIL;
 
 	}
@@ -76,11 +76,11 @@ uint32_t sdioGtkp_LoadTelemetrySubscription(void) {
 		/* Try reading the frame */
 		if (FR_OK != f_read(&subscriptionFile, temp, 4, &bytesRead)) {
 
+			LogPrint("sdioGtkp failed to read from the subscription file\r\n");
+
 			/* Cleanup */
 			(void) f_close(&subscriptionFile);
 			(void) xQueueReset(canSubQueueHandle);
-			/* Log the error and return */
-			LogError("sdioGtkp failed to read from the subscription file\r\n");
 			return NV_CANGTKP_SDIOGTKP_SUB_READ_FAIL;
 
 		}
@@ -88,26 +88,26 @@ uint32_t sdioGtkp_LoadTelemetrySubscription(void) {
 		/* Assert end of file was not reached */
 		if (bytesRead < 4U) {
 
+			LogPrint("Invalid FRAME NUM in the subscription file\r\n");
+
 			/* Cleanup */
 			(void) f_close(&subscriptionFile);
 			(void) xQueueReset(canSubQueueHandle);
-			/* Log the error and return */
-			LogError("Invalid FRAME NUM in the subscription file\r\n");
 			return NV_CANGTKP_SDIOGTKP_SUB_READ_FAIL;
 
 		}
 
 		/* Parse the frame */
-		frBuf = _join32bits(temp[3], temp[2], temp[1], temp[0]);
+		frBuf = _reinterpret32bits(temp[3], temp[2], temp[1], temp[0]);
 
 		/* Send the frame to the queue */
 		if (pdPASS != xQueueSend(canSubQueueHandle, &frBuf, 0)) {
 
+			LogPrint("sdioGtkp failed to send to canSubQueue\r\n");
+
 			/* Cleanup */
 			(void) f_close(&subscriptionFile);
 			(void) xQueueReset(canSubQueueHandle);
-			/* Log the error and return */
-			LogError("sdioGtkp failed to send to canSubQueue\r\n");
 			return NV_CANGTKP_SDIOGTKP_SUB_READ_FAIL;
 
 		}
@@ -139,8 +139,8 @@ void sdioGtkp_HandleLogger(void) {
 
 			UINT bytesWritten; /* Buffer for the number of bytes written */
 			/* Write the error message to the file */
-			(void) f_write(&errorLogFile, errorMessagePtr, strlen(errorMessagePtr),
-					&bytesWritten);
+			(void) f_write(&errorLogFile, errorMessagePtr,
+					strlen(errorMessagePtr), &bytesWritten);
 			/* Close the file */
 			(void) f_close(&errorLogFile);
 			/* Free the allocated memory */
@@ -158,8 +158,7 @@ void sdioGtkp_HandleLogger(void) {
  */
 void sdioGtkp_HandleNewSubscription(void) {
 
-	uint32_t nv; /* Buffer to pass the notification value out of the xTaskNotifyWait function */
-
+	uint32_t nv;
 	/* Listen for notifications from xbeeSubscribe */
 	if (pdTRUE
 			== xTaskNotifyWait(CLEAR_NO_BITS_ON_ENTRY, CLEAR_ALL_BITS_ON_EXIT,
@@ -168,43 +167,37 @@ void sdioGtkp_HandleNewSubscription(void) {
 		/* Validate the notification */
 		if (28UL < nv) {
 
-			/* Log the error and continue */
-			LogError("Invalid notification value in sdioGtkp\r\n");
+			LogPrint("Invalid notification value in sdioGtkp\r\n");
 			return;
 
 		}
 
-		FIL subscriptionFile; /* Telemetry subscription file object structure */
-
+		FIL subscriptionFile;
 		/* Try opening the file */
 		if (FR_OK != f_open(&subscriptionFile, SDIOGTKP_SUBFILE_PATH,
 		FA_WRITE | FA_CREATE_ALWAYS)) {
 
-			/* Log the error and continue */
-			LogError("sdioGtkp failed to open the subscription file\r\n");
+			LogPrint("sdioGtkp failed to open the subscription file\r\n");
 			return;
 
 		}
 
-		uint32_t frBuf; /* Buffer for a subscription frame */
-		uint8_t temp[4]; /* Temporary buffer to facilitate transmitting a 32-bit little endian value */
-		UINT bytesWritten; /* Buffer for the number of bytes written */
-
-		/* If nv is less than or equal to 28, it is to be interpreted as the number of frames waiting in the queue */
 		/* Print the number of frames to the SD card */
+		uint8_t temp[4];
+		UINT bytesWritten;
 		temp[0] = _bits0_7(nv);
 		temp[1] = _bits8_15(nv);
 		temp[2] = _bits16_23(nv);
 		temp[3] = _bits24_31(nv);
 		(void) f_write(&subscriptionFile, temp, 4U, &bytesWritten);
 
+		uint32_t frBuf;
 		/* Print the subscription to the file */
 		for (uint32_t i = 0; i < nv; i += 1UL) {
 
 			if (pdPASS != xQueueReceive(sdioSubQueueHandle, &frBuf, 0)) {
 
-				/* Log the error and break */
-				LogError("sdioGtkp failed to receive from sdioSubQueue\r\n");
+				LogPrint("sdioGtkp failed to receive from sdioSubQueue\r\n");
 				break;
 
 			}

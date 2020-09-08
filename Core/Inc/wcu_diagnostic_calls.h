@@ -10,8 +10,8 @@
 #include "stm32f4xx_hal.h"
 
 extern ADC_HandleTypeDef hadc1;
-#define DIAGNOSTIC_ADC_HANDLE hadc1
-#define DIAGNOSTIC_ADC_INSTANCE	ADC1
+#define DIAGNOSTIC_ADC_HANDLE    (hadc1)
+#define DIAGNOSTIC_ADC_INSTANCE  (ADC1)
 
 /**
  * @brief Runs diagnostics on the MCU and transmits the data via CAN bus

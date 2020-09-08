@@ -5,12 +5,14 @@
  */
 
 #include "wcu_diagnostic_calls.h"
+
 #include "wcu_common.h"
 #include "rt12e_libs_can.h"
 #include "rt12e_libs_generic.h"
+
 #include <math.h>
 
-#define CAN_ID_WCU_DIAG		(uint32_t)(0x733UL)		/* CAN ID: _733_WCU_DIAG */
+#define CAN_ID_WCU_DIAG  ((uint32_t) 0x733)  /* CAN ID: _733_WCU_DIAG */
 
 /**
  * @brief Runs diagnostics on the MCU and transmits the data via CAN bus
@@ -26,7 +28,7 @@ void diagnostic_RunDiagnostics(void) {
 	canFrame.UHeader.Tx.StdId = CAN_ID_WCU_DIAG;
 	canFrame.UHeader.Tx.TransmitGlobalTime = DISABLE;
 
-	static uint16_t temperatureSensorAdcBuff; /* Buffer for the result of the temperature sensor ADC conversion */
+	static uint16_t temperatureSensorAdcBuff;
 	/* Start the ADC */
 	(void) HAL_ADC_Start_DMA(&hadc1, (uint32_t*) &temperatureSensorAdcBuff, 1);
 
@@ -45,21 +47,21 @@ void diagnostic_RunDiagnostics(void) {
 		/* Calculate the MCU temperature based on the sensed voltage */
 		float32_t floatTemperature = ((Vsense - V25) / AVG_SLOPE) + 25.0;
 
-		static int16_t mcuTemperature; /* Buffer for the MCU temperature in degrees Celsius times 10 */
+		static int16_t mcuTemperature;
 		/* Normalize the temperature to fit it in the CAN frame */
 		mcuTemperature = (int16_t) lround(floatTemperature * 10.0);
 
-		static uint16_t mcuUptime; /* Buffer for the MCU uptime in seconds */
+		static uint16_t mcuUptime;
 		/* Calculate the MCU uptime in seconds */
 		mcuUptime = (uint16_t) (HAL_GetTick() / 1000UL);
 
 		/* Write the MCU temperature to the frame payload */
-		canFrame.PayloadTable[0] = _bits8_15(mcuTemperature);
-		canFrame.PayloadTable[1] = _bits0_7(mcuTemperature);
+		canFrame.PayloadTbl[0] = _bits8_15(mcuTemperature);
+		canFrame.PayloadTbl[1] = _bits0_7(mcuTemperature);
 
 		/* Write the MCU uptime to the frame payload */
-		canFrame.PayloadTable[2] = _bits8_15(mcuUptime);
-		canFrame.PayloadTable[3] = _bits0_7(mcuUptime);
+		canFrame.PayloadTbl[2] = _bits8_15(mcuUptime);
+		canFrame.PayloadTbl[3] = _bits0_7(mcuUptime);
 
 		/* Transmit the frame */
 		AddToCanTxQueue(&canFrame,

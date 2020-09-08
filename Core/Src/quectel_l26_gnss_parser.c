@@ -11,10 +11,10 @@
 /**
  * @brief Tell the compiler that a variable is purposefully ignored, i.e. not used
  */
-#define UNUSED(x) ((void)x)
+#define UNUSED(x)  ((void) x)
 
-#define NMEA_PARSER_SENTENCE_BUFSIZE	(uint32_t)(64UL)	/* Message parser sentence buffer size */
-#define NMEA_PARSER_DATAFIELD_BUFSIZE	(uint32_t)(11UL)	/* Sentence parser data field buffer size */
+#define NMEA_PARSER_SENTENCE_BUFSIZE   ((uint32_t) 64UL)  /* Message parser sentence buffer size */
+#define NMEA_PARSER_DATAFIELD_BUFSIZE  ((uint32_t) 11UL)  /* Sentence parser data field buffer size */
 
 static ENmeaParserRet _NmeaParseRmcPayload(SGnssData *pDataBuff,
 		const char *pPayload, size_t length);

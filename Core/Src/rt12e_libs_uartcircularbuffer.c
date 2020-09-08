@@ -5,6 +5,7 @@
  */
 
 #include "rt12e_libs_uartcircularbuffer.h"
+
 #include <stdlib.h>
 
 /**

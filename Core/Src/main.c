@@ -44,19 +44,19 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 
-#define WCU_DEFAULT_TASK_DELAY	(TickType_t)(10)			/* Default task delay */
+#define WCU_DEFAULT_TASK_DELAY  ((TickType_t) 10)          /* Default task delay */
 
-#define TIM_1s_INSTANCE			(TIM7)						/* Alias for the TIM7 timer instance */
-#define TIM_1s_HANDLE			(htim7)						/* Alias for the TIM7 timer handle */
+#define TIM_1s_INSTANCE         (TIM7)                     /* Alias for the TIM7 timer instance */
+#define TIM_1s_HANDLE           (htim7)                    /* Alias for the TIM7 timer handle */
 
 /**
  * @brief Watchdog task notification values
  */
-#define NV_IWDGGTKP_CANGTKP		(uint32_t)(0x00000001UL)	/* canGtkp task's unique notification value for checking in with the watchdog */
-#define NV_IWDGGTKP_BTRX		(uint32_t)(0x00000002UL)	/* btRx task's unique notification value for checking in with the watchdog */
-#define NV_IWDGGTKP_GNSSRX		(uint32_t)(0x00000004UL)	/* gnssRx task's unique notification value for checking in with the watchdog */
-#define NV_IWDGGTKP_RFRX		(uint32_t)(0x00000008UL)	/* rfRx task's unique notification value for checking in with the watchdog */
-#define NV_IWDGGTKP_XBEETXRX	(uint32_t)(0x00000010UL)	/* xbeeTxRx task's unique notification value for checking in with the watchdog */
+#define NV_IWDGGTKP_CANGTKP     ((uint32_t) 0x00000001UL)  /* canGtkp task's unique notification value for checking in with the watchdog */
+#define NV_IWDGGTKP_BTRX        ((uint32_t) 0x00000002UL)  /* btRx task's unique notification value for checking in with the watchdog */
+#define NV_IWDGGTKP_GNSSRX      ((uint32_t) 0x00000004UL)  /* gnssRx task's unique notification value for checking in with the watchdog */
+#define NV_IWDGGTKP_RFRX        ((uint32_t) 0x00000008UL)  /* rfRx task's unique notification value for checking in with the watchdog */
+#define NV_IWDGGTKP_XBEETXRX    ((uint32_t) 0x00000010UL)  /* xbeeTxRx task's unique notification value for checking in with the watchdog */
 
 /* USER CODE END PD */
 
@@ -66,17 +66,17 @@
 /**
  * @brief Checks in with the watchdog thread
  */
-#define WATCHDOG_CHECKIN(nv) ((void)xTaskNotify((TaskHandle_t)iwdgGtkpHandle, nv, eSetBits))
+#define WATCHDOG_CHECKIN(nv)  ((void) xTaskNotify(iwdgGtkpHandle, (nv), eSetBits))
 
 /**
  * @brief Clears the notification value bits based on the provided mask
  */
-#define CLEARNVBITS(nvMask) ((void) xTaskNotifyWait(nvMask, 0, NULL, 0))
+#define CLEARNVBITS(nvMask)  ((void) xTaskNotifyWait((nvMask), 0, NULL, 0))
 
 /**
  * @brief Clears the notification value
  */
-#define CLEARNV() (CLEARNVBITS(CLEAR_ALL_BITS_ON_ENTRY))
+#define CLEARNV()  (CLEARNVBITS(CLEAR_ALL_BITS_ON_ENTRY))
 
 /* USER CODE END PM */
 
@@ -908,7 +908,7 @@ void StartSdioGtkpTask(void const * argument)
 	/* Try mounting the logical drive */
 	if (FR_OK != f_mount(&fatFs, SDPath, 1)) {
 
-		/* On f_mount failure, suspend the task */
+		/* On f_mount failure, suspend the task indefinitely */
 		vTaskSuspend(NULL);
 
 	}
@@ -954,7 +954,7 @@ void StartIwdgGtkpTask(void const * argument)
 	/* Infinite loop */
 	for (;;) {
 
-		static uint32_t nv; /* Buffer to pass the notification value out of the xTaskNotifyWait function */
+		static uint32_t nv;
 		/* Wait for notification */
 		if (pdTRUE == xTaskNotifyWait(CLEAR_NO_BITS_ON_ENTRY,
 		CLEAR_NO_BITS_ON_EXIT, &nv,

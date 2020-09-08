@@ -10,12 +10,12 @@
  * @brief Configures the CAN filters according to the provided list of CAN IDs
  * @param hcan pointer to a CAN_HandleTypeDef structure that contains
  *         the configuration information for the specified CAN.
- * @param ids Pointer to an array of 32-bit CAN IDs to filter for
- * @param count Length of the ids array
+ * @param idsTbl Pointer to an array of 32-bit CAN IDs to filter for
+ * @param count Length of the idsTbl array
  */
-void setCanFilterList(CAN_HandleTypeDef *hcan, uint32_t ids[], uint32_t count) {
+void setCanFilterList(CAN_HandleTypeDef *hcan, uint32_t idsTbl[], uint32_t count) {
 
-	/* Assert valid ids array length */
+	/* Assert valid idsTbl array length */
 	if (count <= CAN_FILTERBANKS_COUNT * 4UL) {
 
 		/* Prepare the filter configuration structure */
@@ -49,25 +49,25 @@ void setCanFilterList(CAN_HandleTypeDef *hcan, uint32_t ids[], uint32_t count) {
 			case 0:
 
 				filterConfig.FilterIdHigh =
-						AlignCanIdWithFilterFieldMapping(ids[i]);
+						AlignCanIdWithFilterFieldMapping(idsTbl[i]);
 				break;
 
 			case 1:
 
 				filterConfig.FilterIdLow =
-						AlignCanIdWithFilterFieldMapping(ids[i]);
+						AlignCanIdWithFilterFieldMapping(idsTbl[i]);
 				break;
 
 			case 2:
 
 				filterConfig.FilterMaskIdHigh =
-						AlignCanIdWithFilterFieldMapping(ids[i]);
+						AlignCanIdWithFilterFieldMapping(idsTbl[i]);
 				break;
 
 			case 3:
 
 				filterConfig.FilterMaskIdLow =
-						AlignCanIdWithFilterFieldMapping(ids[i]);
+						AlignCanIdWithFilterFieldMapping(idsTbl[i]);
 				break;
 
 			default:

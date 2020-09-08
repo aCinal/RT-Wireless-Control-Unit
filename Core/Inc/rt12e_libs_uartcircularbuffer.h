@@ -17,15 +17,10 @@
  * @brief API functions return value enumeration
  */
 typedef enum EUartCirBufRet {
-
 	EUartCirBufRet_Ok = 0, /* No error */
-
 	EUartCirBufRet_InvalidParams, /* Invalid function parameters */
-
 	EUartCirBufRet_HalError, /* HAL error */
-
 	EUartCirBufRet_BufferEmpty /* Ring buffer empty */
-
 } EUartCirBufRet;
 
 /**

@@ -20,14 +20,14 @@
  */
 #define StaticStrlen(str) (uint32_t)(sizeof(str) - 1U)
 
-#define XBEETXRX_CIRCULAR_BUFSIZE		(uint32_t)(2 * R3TP_MAX_FRAME_SIZE)	/* UART circular buffer size */
-#define CAN_ID_TELEMETRY_DIAG			(uint32_t)(0x733UL)					/* CAN ID: _733_TELEMETRY_DIAG */
-#define TELEMETRY_STATE_BIT				(uint8_t)(0x80U)					/* Telemetry_State bit of the TELEMETRY_DIAG CAN frame */
-#define TELEMETRY_WARNING_BIT			(uint8_t)(0x40U)					/* Telemetry_Warning bit of the TELEMETRY_DIAG CAN frame */
-#define TELEMETRY_PIT_BIT				(uint8_t)(0x20U)					/* Telemetry_Pit bit of the TELEMETRY_DIAG CAN frame */
-#define XBEE_GT_DEFAULT					(uint16_t)(0x0CE4U)					/* XBEE Pro Guard Times default value */
-#define XBEE_GT_DESIRED					(uint16_t)(0x000AU)					/* XBEE Pro Guard Times desired value */
-#define XBEE_CONTROL_UART_TIMEOUT		(uint32_t)(10U)						/* XBEE control UART Tx timeout */
+#define XBEETXRX_CIRCULAR_BUFSIZE ((uint32_t) (2 * R3TP_MAX_FRAME_SIZE))  /* UART circular buffer size */
+#define CAN_ID_TELEMETRY_DIAG     ((uint32_t) 0x733)                      /* CAN ID: _733_TELEMETRY_DIAG */
+#define TELEMETRY_STATE_BIT       ((uint8_t) 0x80)                        /* Telemetry_State bit of the TELEMETRY_DIAG CAN frame */
+#define TELEMETRY_WARNING_BIT     ((uint8_t) 0x40)                        /* Telemetry_Warning bit of the TELEMETRY_DIAG CAN frame */
+#define TELEMETRY_PIT_BIT         ((uint8_t) 0x20)                        /* Telemetry_Pit bit of the TELEMETRY_DIAG CAN frame */
+#define XBEE_GT_DEFAULT           ((uint16_t) 0x0CE4)                     /* XBEE Pro Guard Times default value */
+#define XBEE_GT_DESIRED           ((uint16_t) 0x000A)                     /* XBEE Pro Guard Times desired value */
+#define XBEE_CONTROL_UART_TIMEOUT ((uint32_t) 10U)                        /* XBEE control UART Tx timeout */
 
 /**
  * @brief Telemetry diagnostics structure
@@ -35,7 +35,6 @@
 typedef struct STelemetryDiagnostics {
 
 	uint8_t greenWarningDuration; /* Buffer for the green warning's duration */
-
 	uint8_t redWarningDuration; /* Buffer for the red warning's duration */
 
 	uint8_t rssi; /* Buffer for the RSSI value */
@@ -63,12 +62,15 @@ static uint16_t gGT = XBEE_GT_DEFAULT;
 
 static void xbeeTxRx_CircularBufferIdleCallback(void);
 static void xbeeTxRx_HandleNewSubscription(uint8_t rxBufTbl[]);
-static void xbeeTxRx_HandleDriverWarning(uint8_t rxBufTbl[], STelemetryDiagnostics *diagPtr);
+static void xbeeTxRx_HandleDriverWarning(uint8_t rxBufTbl[],
+		STelemetryDiagnostics *diagPtr);
 static void xbeeTxRx_SendDiagnostics(STelemetryDiagnostics *diagPtr);
 static void xbeeTxRx_UpdateWarnings(STelemetryDiagnostics *diagPtr);
 static void xbeeTxRx_PollForRssi(uint8_t *rssiPtr);
-static BaseType_t xbeeTxRx_SendSubscriptionToCanGtkp(uint32_t ids[], size_t count);
-static BaseType_t xbeeTxRx_SendSubscriptionToSdioGtkp(uint32_t ids[], size_t count);
+static BaseType_t xbeeTxRx_SendSubscriptionToCanGtkp(uint32_t ids[],
+		size_t count);
+static BaseType_t xbeeTxRx_SendSubscriptionToSdioGtkp(uint32_t ids[],
+		size_t count);
 
 /**
  * @brief Configures the XBEE Pro device
@@ -87,7 +89,7 @@ void xbeeTxRx_DeviceConfig(void) {
 					StaticStrlen(ENTER_COMMAND_MODE),
 					XBEE_CONTROL_UART_TIMEOUT)) {
 
-		LogError("Failed to send ENTER_COMMAND_MODE string in xbeeTxRx\r\n");
+		LogPrint("Failed to send ENTER_COMMAND_MODE string in xbeeTxRx\r\n");
 		return;
 
 	}
@@ -101,7 +103,7 @@ void xbeeTxRx_DeviceConfig(void) {
 			!= HAL_UART_Transmit(&XBEE_UART_HANDLE, (uint8_t*) SET_GT,
 					StaticStrlen(SET_GT), XBEE_CONTROL_UART_TIMEOUT)) {
 
-		LogError("Failed to send SET_GT string in xbeeTxRx\r\n");
+		LogPrint("Failed to send SET_GT string in xbeeTxRx\r\n");
 
 	}
 
@@ -113,7 +115,7 @@ void xbeeTxRx_DeviceConfig(void) {
 					(sizeof(EXIT_COMMAND_MODE) - 1U),
 					XBEE_CONTROL_UART_TIMEOUT)) {
 
-		LogError("Failed to send EXIT_COMMAND_MODE string in xbeeTxRx\r\n");
+		LogPrint("Failed to send EXIT_COMMAND_MODE string in xbeeTxRx\r\n");
 
 	}
 
@@ -129,7 +131,7 @@ void xbeeTxRx_DeviceConfig(void) {
  */
 EUartCirBufRet xbeeTxRx_StartCircularBufferIdleDetectionRx(void) {
 
-	static uint8_t cirBufTbl[XBEETXRX_CIRCULAR_BUFSIZE]; /* Circular buffer */
+	static uint8_t cirBufTbl[XBEETXRX_CIRCULAR_BUFSIZE ]; /* Circular buffer */
 
 	/* Configure the circular buffer structure */
 	gXbeeTxRxCircularBuffer.BufferPtr = cirBufTbl;
@@ -148,7 +150,7 @@ EUartCirBufRet xbeeTxRx_StartCircularBufferIdleDetectionRx(void) {
  */
 void xbeeTxRx_HandleInternalMail(void) {
 
-	static uint8_t rxBufTbl[R3TP_MAX_FRAME_SIZE]; /* UART Rx buffer */
+	static uint8_t rxBufTbl[R3TP_MAX_FRAME_SIZE ]; /* UART Rx buffer */
 	static EXbeeInternalMail mail; /* Internal mail buffer */
 
 	/* Wait for messages */
@@ -161,24 +163,25 @@ void xbeeTxRx_HandleInternalMail(void) {
 		case EXbeeInternalMail_MessageReceived:
 
 			/* Read the data from the circular buffer */
-			(void) uartCirBuf_read(&gXbeeTxRxCircularBuffer, rxBufTbl, R3TP_MAX_FRAME_SIZE);
+			(void) uartCirBuf_read(&gXbeeTxRxCircularBuffer, rxBufTbl,
+					R3TP_MAX_FRAME_SIZE);
 
 			/* Identify the protocol version */
-			switch(rxBufTbl[0]) {
+			switch (rxBufTbl[0]) {
 
-			case R3TP_VER1_VER_BYTE:
+			case R3TP_VER1_VER_BYTE :
 
 				xbeeTxRx_HandleNewSubscription(rxBufTbl);
 				break;
 
-			case R3TP_VER2_VER_BYTE:
+			case R3TP_VER2_VER_BYTE :
 
 				xbeeTxRx_HandleDriverWarning(rxBufTbl, &diagnostics);
 				break;
 
 			default:
 
-				LogError("Invalid protocol version in xbeeTxRx\r\n");
+				LogPrint("Invalid protocol version in xbeeTxRx\r\n");
 				break;
 
 			}
@@ -243,7 +246,7 @@ void xbeeTxRx_HandleOutgoingR3tpComms(void) {
 		/* Set the DATA field */
 		for (uint8_t i = 0; i < frBuf.UHeader.Rx.DLC; i += 1U) {
 
-			txBuff[9U + i] = frBuf.PayloadTable[i];
+			txBuff[9U + i] = frBuf.PayloadTbl[i];
 
 		}
 
@@ -262,8 +265,7 @@ void xbeeTxRx_HandleOutgoingR3tpComms(void) {
 		} else {
 
 			/* If failed to acquire crcMutex */
-			/* Log the error */
-			LogError("crcMutex timeout in xbeeTxRx\r\n");
+			LogPrint("crcMutex timeout in xbeeTxRx\r\n");
 			return;
 
 		}
@@ -300,32 +302,29 @@ static void xbeeTxRx_CircularBufferIdleCallback(void) {
 static void xbeeTxRx_HandleNewSubscription(uint8_t rxBufTbl[]) {
 
 	/* Read the number of frames in the payload */
-	uint32_t frNum = _join32bits(rxBufTbl[7], rxBufTbl[6],
-			rxBufTbl[5], rxBufTbl[4]);
+	uint32_t frNum = _reinterpret32bits(rxBufTbl[7], rxBufTbl[6], rxBufTbl[5],
+			rxBufTbl[4]);
 
 	/* Assert the payload won't overflow the buffer */
 	if (frNum > R3TP_VER1_MAX_FRAME_NUM) {
 
-		/* Log the error */
-		LogError("Invalid FRAME NUM in xbeeTxRx\r\n");
+		LogPrint("Invalid FRAME NUM in xbeeTxRx\r\n");
 		return;
 
 	}
 
 	/* Validate the END SEQ field */
-	if ((R3TP_END_SEQ_LOW_BYTE
-			!= rxBufTbl[R3TP_VER1_MESSAGE_LENGTH(frNum) - 2U])
+	if ((R3TP_END_SEQ_LOW_BYTE != rxBufTbl[R3TP_VER1_MESSAGE_LENGTH(frNum) - 2U])
 			|| (R3TP_END_SEQ_HIGH_BYTE
 					!= rxBufTbl[R3TP_VER1_MESSAGE_LENGTH(frNum) - 1U])) {
 
-		/* Log the error */
-		LogError("Invalid END SEQ in xbeeTxRx\r\n");
+		LogPrint("Invalid END SEQ in xbeeTxRx\r\n");
 		return;
 
 	}
 
 	/* Read the CHECKSUM field - note that the CRC is transmitted as little endian */
-	uint16_t readCrc = _join16bits(rxBufTbl[3], rxBufTbl[2]);
+	uint16_t readCrc = _reinterpret16bits(rxBufTbl[3], rxBufTbl[2]);
 
 	/* Clear the CHECKSUM field */
 	rxBufTbl[2] = 0x00U;
@@ -347,8 +346,7 @@ static void xbeeTxRx_HandleNewSubscription(uint8_t rxBufTbl[]) {
 	} else {
 
 		/* If failed to acquire crcMutex */
-		/* Log the error */
-		LogError("crcMutex timeout in xbeeTxRx\r\n");
+		LogPrint("crcMutex timeout in xbeeTxRx\r\n");
 		return;
 
 	}
@@ -357,19 +355,19 @@ static void xbeeTxRx_HandleNewSubscription(uint8_t rxBufTbl[]) {
 	if (readCrc != calculatedCrc) {
 
 		/* Log the error */
-		LogError("Invalid CRC in xbeeTxRx\r\n");
+		LogPrint("Invalid CRC in xbeeTxRx\r\n");
 		return;
 
 	}
 
 	uint32_t subscription[R3TP_VER1_MAX_FRAME_NUM ]; /* Buffer for telemetry subscription CAN IDs */
 	/* Read the payload */
+	uint8_t *payload = R3TP_VER1_PAYLOAD(rxBufTbl);
 	for (uint32_t i = 0; i < frNum; i += 1UL) {
 
-		subscription[i] = _join32bits(R3TP_VER1_PAYLOAD(rxBufTbl)[3UL + 4UL * i],
-				R3TP_VER1_PAYLOAD(rxBufTbl)[2UL + 4UL * i],
-				R3TP_VER1_PAYLOAD(rxBufTbl)[1UL + 4UL * i],
-				R3TP_VER1_PAYLOAD(rxBufTbl)[4UL * i]);
+		subscription[i] = _reinterpret32bits(payload[3UL + 4UL * i],
+				payload[2UL + 4UL * i], payload[1UL + 4UL * i],
+				payload[4UL * i]);
 
 	}
 
@@ -394,14 +392,13 @@ static void xbeeTxRx_HandleDriverWarning(uint8_t rxBufTbl[],
 	if ((R3TP_END_SEQ_LOW_BYTE != rxBufTbl[R3TP_VER2_FRAME_SIZE - 2U])
 			|| (R3TP_END_SEQ_HIGH_BYTE != rxBufTbl[R3TP_VER2_FRAME_SIZE - 1U])) {
 
-		/* Log the error and return */
-		LogError("Invalid END SEQ in xbeeTxRx\r\n");
+		LogPrint("Invalid END SEQ in xbeeTxRx\r\n");
 		return;
 
 	}
 
 	/* Read the CHECKSUM field - note that the CRC is transmitted as little endian */
-	uint16_t readCrc = _join16bits(rxBufTbl[3], rxBufTbl[2]);
+	uint16_t readCrc = _reinterpret16bits(rxBufTbl[3], rxBufTbl[2]);
 
 	/* Clear the CHECKSUM field */
 	rxBufTbl[2] = 0x00U;
@@ -423,8 +420,7 @@ static void xbeeTxRx_HandleDriverWarning(uint8_t rxBufTbl[],
 	} else {
 
 		/* If failed to acquire crcMutex */
-		/* Log the error and return */
-		LogError("crcMutex timeout in xbeeTxRx\r\n");
+		LogPrint("crcMutex timeout in xbeeTxRx\r\n");
 		return;
 
 	}
@@ -432,8 +428,7 @@ static void xbeeTxRx_HandleDriverWarning(uint8_t rxBufTbl[],
 	/* Validate the CRC */
 	if (readCrc != calculatedCrc) {
 
-		/* Log the error and return */
-		LogError("Invalid CRC in xbeeTxRx\r\n");
+		LogPrint("Invalid CRC in xbeeTxRx\r\n");
 		return;
 
 	}
@@ -482,7 +477,9 @@ static void xbeeTxRx_PollForRssi(uint8_t *rssiPtr) {
 					StaticStrlen(ENTER_COMMAND_MODE),
 					XBEE_CONTROL_UART_TIMEOUT)) {
 
-		LogError("Failed to send ENTER_COMMAND_MODE string in xbeeTxRx\r\n");
+		LogPrint("Failed to send ENTER_COMMAND_MODE string in xbeeTxRx\r\n");
+		/* Resume the data transfer to the circular buffer */
+		uartCirBuf_start(&gXbeeTxRxCircularBuffer);
 		return;
 
 	}
@@ -496,7 +493,9 @@ static void xbeeTxRx_PollForRssi(uint8_t *rssiPtr) {
 			!= HAL_UART_Transmit(&XBEE_UART_HANDLE, (uint8_t*) REQUEST_RSSI,
 					StaticStrlen(REQUEST_RSSI), XBEE_CONTROL_UART_TIMEOUT)) {
 
-		LogError("Failed to send REQUEST_RSSI string in xbeeTxRx\r\n");
+		LogPrint("Failed to send REQUEST_RSSI string in xbeeTxRx\r\n");
+		/* Resume the data transfer to the circular buffer */
+		uartCirBuf_start(&gXbeeTxRxCircularBuffer);
 		return;
 
 	}
@@ -505,7 +504,7 @@ static void xbeeTxRx_PollForRssi(uint8_t *rssiPtr) {
 	if (HAL_OK != HAL_UART_Receive(&XBEE_UART_HANDLE, rssiPtr, 1,
 	XBEE_CONTROL_UART_TIMEOUT)) {
 
-		LogError("Failed to receive RSSI value in xbeeTxRx\r\n");
+		LogPrint("Failed to receive RSSI value in xbeeTxRx\r\n");
 
 	}
 
@@ -517,7 +516,7 @@ static void xbeeTxRx_PollForRssi(uint8_t *rssiPtr) {
 					StaticStrlen(EXIT_COMMAND_MODE),
 					XBEE_CONTROL_UART_TIMEOUT)) {
 
-		LogError("Failed to send EXIT_COMMAND_MODE string in xbeeTxRx\r\n");
+		LogPrint("Failed to send EXIT_COMMAND_MODE string in xbeeTxRx\r\n");
 
 	}
 
@@ -543,17 +542,17 @@ static void xbeeTxRx_SendDiagnostics(STelemetryDiagnostics *diagPtr) {
 	canFrame.UHeader.Tx.TransmitGlobalTime = DISABLE;
 
 	/* Write the RSSI to the frame payload */
-	canFrame.PayloadTable[0] = diagPtr->rssi;
+	canFrame.PayloadTbl[0] = diagPtr->rssi;
 
 	/* Clear the status flags */
-	canFrame.PayloadTable[1] = 0x00;
+	canFrame.PayloadTbl[1] = 0x00;
 
 	/* Poll the XBEE_STATUS */
 	if (GPIO_PIN_SET
 			== HAL_GPIO_ReadPin(XBEE_STATUS_GPIO_Port, XBEE_STATUS_Pin)) {
 
 		/* Set the Telemetry_State flag */
-		SET_BIT(canFrame.PayloadTable[1], TELEMETRY_STATE_BIT);
+		SET_BIT(canFrame.PayloadTbl[1], TELEMETRY_STATE_BIT);
 
 	}
 
@@ -561,7 +560,7 @@ static void xbeeTxRx_SendDiagnostics(STelemetryDiagnostics *diagPtr) {
 	if (0U < diagPtr->greenWarningDuration) {
 
 		/* Set the Telemetry_Pit flag */
-		SET_BIT(canFrame.PayloadTable[1], TELEMETRY_PIT_BIT);
+		SET_BIT(canFrame.PayloadTbl[1], TELEMETRY_PIT_BIT);
 
 	}
 
@@ -569,7 +568,7 @@ static void xbeeTxRx_SendDiagnostics(STelemetryDiagnostics *diagPtr) {
 	if (0U < diagPtr->redWarningDuration) {
 
 		/* Set the Telemetry_Warning flag */
-		SET_BIT(canFrame.PayloadTable[1], TELEMETRY_WARNING_BIT);
+		SET_BIT(canFrame.PayloadTbl[1], TELEMETRY_WARNING_BIT);
 
 	}
 
@@ -609,7 +608,8 @@ static void xbeeTxRx_UpdateWarnings(STelemetryDiagnostics *diagPtr) {
  * @param count Length of the ids array
  * @retval BaseType_t pdPASS if the subscription was successfully forwarded to the gatekeeper, errQUEUE_FULL otherwise
  */
-static BaseType_t xbeeTxRx_SendSubscriptionToCanGtkp(uint32_t ids[], size_t count) {
+static BaseType_t xbeeTxRx_SendSubscriptionToCanGtkp(uint32_t ids[],
+		size_t count) {
 
 	BaseType_t ret = pdPASS; /* Buffer for xQueueSend return value */
 
@@ -620,8 +620,8 @@ static BaseType_t xbeeTxRx_SendSubscriptionToCanGtkp(uint32_t ids[], size_t coun
 		/* Send the frame to the queue */
 		if (pdPASS != ret) {
 
-			/* Log the error */
-			LogError("xbeeTxRx failed to send to canSubQueue\r\n");
+			LogPrint("xbeeTxRx failed to send to canSubQueue\r\n");
+
 			/* Cleanup */
 			(void) xQueueReset(canSubQueueHandle);
 			return ret;
@@ -643,7 +643,8 @@ static BaseType_t xbeeTxRx_SendSubscriptionToCanGtkp(uint32_t ids[], size_t coun
  * @param count Length of the ids array
  * @retval BaseType_t pdPASS if the subscription was successfully forwarded to the gatekeeper, errQUEUE_FULL otherwise
  */
-static BaseType_t xbeeTxRx_SendSubscriptionToSdioGtkp(uint32_t ids[], size_t count) {
+static BaseType_t xbeeTxRx_SendSubscriptionToSdioGtkp(uint32_t ids[],
+		size_t count) {
 
 	BaseType_t ret = pdPASS; /* Buffer for xQueueSend return value */
 
@@ -654,8 +655,8 @@ static BaseType_t xbeeTxRx_SendSubscriptionToSdioGtkp(uint32_t ids[], size_t cou
 		/* Send the frame to the queue */
 		if (pdPASS != ret) {
 
-			/* Log the error */
-			LogError("xbeeTxRx failed to send to sdioSubQueue\r\n");
+			LogPrint("xbeeTxRx failed to send to sdioSubQueue\r\n");
+
 			/* Cleanup */
 			(void) xQueueReset(sdioSubQueueHandle);
 			return ret;
