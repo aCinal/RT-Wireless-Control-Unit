@@ -221,7 +221,7 @@ void xbeeTxRx_HandleOutgoingR3tpComms(void) {
 
 		static uint8_t txBuff[R3TP_VER0_FRAME_SIZE ]; /* UART Tx buffer */
 		/* Clear the buffer */
-		(void) memset(txBuff, 0x00, R3TP_VER0_FRAME_SIZE);
+		(void) memset(txBuff, 0, R3TP_VER0_FRAME_SIZE);
 
 		/* Set VER and RES/SEQ field */
 		txBuff[0] = R3TP_VER0_VER_BYTE;

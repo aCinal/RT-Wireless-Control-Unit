@@ -111,7 +111,7 @@ void gnssRx_HandleMessage(void) {
 			gnssRx_Send_GPS_STATUS(&dataBuff);
 
 			/* Clear the data buffer */
-			(void) memset(&dataBuff, 0x00, sizeof(dataBuff));
+			(void) memset(&dataBuff, 0, sizeof(dataBuff));
 			break;
 
 		case EGnssDataStatus_Pending: /* If the data is not complete */

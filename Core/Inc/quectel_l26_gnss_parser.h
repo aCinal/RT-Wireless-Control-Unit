@@ -33,9 +33,9 @@
 #define NMEA_PAYLOAD_LENGTH(sentenceLength) ((size_t)((sentenceLength) - 11UL))
 
 /* Exported typedefs ------------------------------------------------------------*/
-typedef float float32_t; /* 32-bit floating point variable typedef */
-typedef double float64_t; /* 64-bit floating point variable typedef */
-typedef uint8_t TNmeaSentencesRxFlags; /* Typedef for storing flags corresponding to received NMEA sentences */
+typedef float float32_t;                /* 32-bit floating point variable typedef */
+typedef double float64_t;               /* 64-bit floating point variable typedef */
+typedef uint8_t TNmeaSentencesRxFlags;  /* Typedef for storing flags corresponding to received NMEA sentences */
 
 /**
  * @brief GNSS data structure
