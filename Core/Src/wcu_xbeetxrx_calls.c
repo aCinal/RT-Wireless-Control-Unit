@@ -236,14 +236,14 @@ void xbeeTxRx_HandleOutgoingR3tpCom(void) {
 		txBuff[R3TP_VER0_FRAME_SIZE - 1U] = R3TP_END_SEQ_HIGH_BYTE;
 
 		/* Set CAN ID field - note that the CAN ID is transmitted as little endian */
-		txBuff[4] = _bits0_7(frBuf.UHeader.Rx.StdId);
-		txBuff[5] = _bits8_15(frBuf.UHeader.Rx.StdId);
+		txBuff[4] = _bits0_7(frBuf.RxHeader.StdId);
+		txBuff[5] = _bits8_15(frBuf.RxHeader.StdId);
 
 		/* Set the DLC field */
-		txBuff[8] = (uint8_t) frBuf.UHeader.Rx.DLC;
+		txBuff[8] = (uint8_t) frBuf.RxHeader.DLC;
 
 		/* Set the DATA field */
-		for (uint8_t i = 0; i < frBuf.UHeader.Rx.DLC; i += 1U) {
+		for (uint8_t i = 0; i < frBuf.RxHeader.DLC; i += 1U) {
 
 			txBuff[9U + i] = frBuf.PayloadTbl[i];
 
@@ -531,14 +531,13 @@ static void xbeeTxRx_PollForRssi(uint8_t *rssiPtr) {
  */
 static void xbeeTxRx_SendDiagnostics(STelemetryDiagnostics *diagPtr) {
 
-	SCanFrame canFrame = { .EDataDirection = TX }; /* CAN frame structure */
-
+	SCanFrame canFrame;
 	/* Configure the CAN Tx header */
-	canFrame.UHeader.Tx.DLC = 2;
-	canFrame.UHeader.Tx.IDE = CAN_ID_STD;
-	canFrame.UHeader.Tx.RTR = CAN_RTR_DATA;
-	canFrame.UHeader.Tx.StdId = CAN_ID_TELEMETRY_DIAG;
-	canFrame.UHeader.Tx.TransmitGlobalTime = DISABLE;
+	canFrame.TxHeader.DLC = 2;
+	canFrame.TxHeader.IDE = CAN_ID_STD;
+	canFrame.TxHeader.RTR = CAN_RTR_DATA;
+	canFrame.TxHeader.StdId = CAN_ID_TELEMETRY_DIAG;
+	canFrame.TxHeader.TransmitGlobalTime = DISABLE;
 
 	/* Write the RSSI to the frame payload */
 	canFrame.PayloadTbl[0] = diagPtr->rssi;

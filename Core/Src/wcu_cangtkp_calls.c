@@ -71,7 +71,7 @@ void canGtkp_HandleOutbox(void) {
 		uint32_t dummy; /* Buffer for the CAN Tx mailbox used */
 
 		/* Send the message */
-		(void) HAL_CAN_AddTxMessage(&hcan1, &frBuf.UHeader.Tx,
+		(void) HAL_CAN_AddTxMessage(&hcan1, &frBuf.TxHeader,
 				frBuf.PayloadTbl, &dummy);
 
 	}
@@ -89,10 +89,8 @@ void canGtkp_HandleInbox(void) {
 
 		SCanFrame frBuf;
 		/* Receive the message */
-		(void) HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &frBuf.UHeader.Rx,
+		(void) HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &frBuf.RxHeader,
 				frBuf.PayloadTbl);
-		/* Set the DataDirection member in the CAN frame struct */
-		frBuf.EDataDirection = RX;
 		/* Send the frame to the telemetry queue */
 		if (pdPASS != xQueueSend(canRxQueueHandle, &frBuf, 0)) {
 

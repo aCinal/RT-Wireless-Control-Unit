@@ -18,27 +18,9 @@
  * @brief Structure facilitating communication with the CAN peripheral gatekeeper
  */
 typedef struct {
-
-	/**
-	 * @brief Member specifying the data direction and, by extension, type of the Header member
-	 */
-	enum {
-		TX, RX
-	} EDataDirection;
-
-	/*
-	 * @brief CAN header
-	 */
-	union {
-		CAN_TxHeaderTypeDef Tx;
-		CAN_RxHeaderTypeDef Rx;
-	} UHeader;
-
-	/**
-	 * @brief CAN frame data
-	 */
+	CAN_TxHeaderTypeDef TxHeader;
+	CAN_RxHeaderTypeDef RxHeader;
 	uint8_t PayloadTbl[CAN_PAYLOAD_SIZE];
-
 } SCanFrame;
 
 /* Exported macro ------------------------------------------------------------*/

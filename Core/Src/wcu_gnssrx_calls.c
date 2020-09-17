@@ -151,14 +151,13 @@ static void gnssRx_CircularBufferIdleCallback(void) {
  */
 static void gnssRx_Send_GPS_POS(SGnssData *gnssDataPtr) {
 
-	SCanFrame canFrame = { .EDataDirection = TX }; /* CAN frame structure */
-
+	SCanFrame canFrame;
 	/* Configure the CAN Tx header */
-	canFrame.UHeader.Tx.DLC = 8;
-	canFrame.UHeader.Tx.IDE = CAN_ID_STD;
-	canFrame.UHeader.Tx.RTR = CAN_RTR_DATA;
-	canFrame.UHeader.Tx.StdId = CAN_ID_GPS_POS;
-	canFrame.UHeader.Tx.TransmitGlobalTime = DISABLE;
+	canFrame.TxHeader.DLC = 8;
+	canFrame.TxHeader.IDE = CAN_ID_STD;
+	canFrame.TxHeader.RTR = CAN_RTR_DATA;
+	canFrame.TxHeader.StdId = CAN_ID_GPS_POS;
+	canFrame.TxHeader.TransmitGlobalTime = DISABLE;
 
 	/* Write the longitude to the frame payload */
 	int32_t longitude = normalizeCoordinate(gnssDataPtr->Longitude,
@@ -189,14 +188,13 @@ static void gnssRx_Send_GPS_POS(SGnssData *gnssDataPtr) {
  */
 static void gnssRx_Send_GPS_POS2(SGnssData *gnssDataPtr) {
 
-	SCanFrame canFrame = { .EDataDirection = TX }; /* CAN frame structure */
-
+	SCanFrame canFrame;
 	/* Configure the CAN Tx header */
-	canFrame.UHeader.Tx.DLC = 6;
-	canFrame.UHeader.Tx.IDE = CAN_ID_STD;
-	canFrame.UHeader.Tx.RTR = CAN_RTR_DATA;
-	canFrame.UHeader.Tx.StdId = CAN_ID_GPS_POS2;
-	canFrame.UHeader.Tx.TransmitGlobalTime = DISABLE;
+	canFrame.TxHeader.DLC = 6;
+	canFrame.TxHeader.IDE = CAN_ID_STD;
+	canFrame.TxHeader.RTR = CAN_RTR_DATA;
+	canFrame.TxHeader.StdId = CAN_ID_GPS_POS2;
+	canFrame.TxHeader.TransmitGlobalTime = DISABLE;
 
 	/* Write the speed to the frame payload */
 	uint16_t speed = normalizeSpeed(gnssDataPtr->Speed);
@@ -226,14 +224,13 @@ static void gnssRx_Send_GPS_POS2(SGnssData *gnssDataPtr) {
  */
 static void gnssRx_Send_GPS_STATUS(SGnssData *gnssDataPtr) {
 
-	SCanFrame canFrame = { .EDataDirection = TX }; /* CAN frame structure */
-
+	SCanFrame canFrame;
 	/* Configure the CAN Tx header */
-	canFrame.UHeader.Tx.DLC = 8;
-	canFrame.UHeader.Tx.IDE = CAN_ID_STD;
-	canFrame.UHeader.Tx.RTR = CAN_RTR_DATA;
-	canFrame.UHeader.Tx.StdId = CAN_ID_GPS_STATUS;
-	canFrame.UHeader.Tx.TransmitGlobalTime = DISABLE;
+	canFrame.TxHeader.DLC = 8;
+	canFrame.TxHeader.IDE = CAN_ID_STD;
+	canFrame.TxHeader.RTR = CAN_RTR_DATA;
+	canFrame.TxHeader.StdId = CAN_ID_GPS_STATUS;
+	canFrame.TxHeader.TransmitGlobalTime = DISABLE;
 
 	/* Write the satellites visible count to the frame payload */
 	canFrame.PayloadTbl[0] = gnssDataPtr->SatellitesInViewGLONASS

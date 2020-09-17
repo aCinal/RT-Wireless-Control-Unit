@@ -28,6 +28,8 @@
 #define TPMS_RL_RECEIVED                      ((uint8_t) 0x04)         /* TPMS rear-left message received */
 #define TPMS_RR_RECEIVED                      ((uint8_t) 0x08)         /* TPMS rear-right message received */
 
+#define CAN_ID_TPMS                           ((uint32_t) 0x411)       /* CAN ID: _411_WDTM_TPMS_1 */
+
 #define _bits0_6(x)                           ((uint8_t) (x & 0x7F))
 #define _bit7(x)                              ((uint8_t) ((x >> 7) & 0x01))
 
@@ -42,12 +44,9 @@ typedef uint8_t TTpmsPacketRxFlags;
  * @brief TPMS data packet structure
  */
 typedef struct STpmsDataPacket {
-
 	uint32_t Id; /* TPMS ID */
-
 	uint8_t PressurePsi; /* Pressure in PSI */
 	uint8_t TemperatureC; /* Temperature in degrees Celsius */
-
 } STpmsDataPacket;
 
 /**
@@ -63,7 +62,8 @@ typedef enum ETpmsDecoderRet {
  * @brief TPMS data status enumeration
  */
 typedef enum ETpmsDataStatus {
-	ETpmsDataStatus_Ready = 0, ETpmsDataStatus_Pending
+	ETpmsDataStatus_Ready = 0,
+	ETpmsDataStatus_Pending
 } ETpmsDataStatus;
 
 extern osMessageQId rfRxInternalMailQueueHandle;
@@ -130,6 +130,13 @@ void rfRx_HandleCom(void) {
 			/* Add data to CAN frame */
 			if (ETpmsDataStatus_Ready
 					== rfRx_AddDataToCanFrame(&canFrame, tpmsDataPckt)) {
+
+				/* Configure the CAN Tx header */
+				canFrame.TxHeader.DLC = 8;
+				canFrame.TxHeader.IDE = CAN_ID_STD;
+				canFrame.TxHeader.RTR = CAN_RTR_DATA;
+				canFrame.TxHeader.StdId = CAN_ID_TPMS;
+				canFrame.TxHeader.TransmitGlobalTime = DISABLE;
 
 				/* Send data to CAN bus */
 				AddToCanTxQueue(&canFrame, "rfRx failed to send to canTxQueue\r\n");

@@ -113,14 +113,14 @@ void btRx_HandleCom(void) {
 
 		}
 
-		static SCanFrame canFrame = { .EDataDirection = TX }; /* CAN frame structure */
+		static SCanFrame canFrame;
 		/* Read the CAN ID - note that the CAN ID is transmitted as little endian */
-		canFrame.UHeader.Tx.StdId = _reinterpret32bits(rxBufTbl[7], rxBufTbl[6],
+		canFrame.TxHeader.StdId = _reinterpret32bits(rxBufTbl[7], rxBufTbl[6],
 				rxBufTbl[5], rxBufTbl[4]);
 		/* Read the DLC */
-		canFrame.UHeader.Tx.DLC = (uint32_t) rxBufTbl[8];
+		canFrame.TxHeader.DLC = (uint32_t) rxBufTbl[8];
 		/* Assert valid DLC */
-		if (CAN_PAYLOAD_SIZE < canFrame.UHeader.Tx.DLC) {
+		if (CAN_PAYLOAD_SIZE < canFrame.TxHeader.DLC) {
 
 			LogPrint("Invalid DLC in btRx\r\n");
 			return;
@@ -128,15 +128,15 @@ void btRx_HandleCom(void) {
 		}
 
 		/* Read the payload */
-		for (uint8_t i = 0; i < canFrame.UHeader.Tx.DLC; i += 1U) {
+		for (uint8_t i = 0; i < canFrame.TxHeader.DLC; i += 1U) {
 
 			canFrame.PayloadTbl[i] = rxBufTbl[9U + i];
 
 		}
 
 		/* Configure the remaining CAN Tx header fields */
-		canFrame.UHeader.Tx.RTR = CAN_RTR_DATA;
-		canFrame.UHeader.Tx.TransmitGlobalTime = DISABLE;
+		canFrame.TxHeader.RTR = CAN_RTR_DATA;
+		canFrame.TxHeader.TransmitGlobalTime = DISABLE;
 
 		/* Transmit the frame */
 		AddToCanTxQueue(&canFrame, "btRx failed to send to canTxQueue\r\n");

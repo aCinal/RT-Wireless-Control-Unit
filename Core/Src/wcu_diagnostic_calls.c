@@ -19,14 +19,13 @@
  */
 void diagnostic_RunDiagnostics(void) {
 
-	static SCanFrame canFrame = { .EDataDirection = TX }; /* CAN frame structure */
-
+	static SCanFrame canFrame;
 	/* Configure the CAN Tx header */
-	canFrame.UHeader.Tx.DLC = 4;
-	canFrame.UHeader.Tx.IDE = CAN_ID_STD;
-	canFrame.UHeader.Tx.RTR = CAN_RTR_DATA;
-	canFrame.UHeader.Tx.StdId = CAN_ID_WCU_DIAG;
-	canFrame.UHeader.Tx.TransmitGlobalTime = DISABLE;
+	canFrame.TxHeader.DLC = 4;
+	canFrame.TxHeader.IDE = CAN_ID_STD;
+	canFrame.TxHeader.RTR = CAN_RTR_DATA;
+	canFrame.TxHeader.StdId = CAN_ID_WCU_DIAG;
+	canFrame.TxHeader.TransmitGlobalTime = DISABLE;
 
 	static uint16_t temperatureSensorAdcBuff;
 	/* Start the ADC */
