@@ -25,6 +25,6 @@ EUartCirBufRet btRx_StartCircularBufferIdleDetectionRx(void);
  * @brief Handles the BT message
  * @retval None
  */
-void btRx_HandleMessage(void);
+void btRx_HandleCom(void);
 
 #endif /* __WCU_BTRX_CALLS_H_ */

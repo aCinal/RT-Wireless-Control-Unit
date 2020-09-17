@@ -44,10 +44,12 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 
-#define WCU_DEFAULT_TASK_DELAY  ((TickType_t) 10)          /* Default task delay */
+#define WCU_DEFAULT_TASK_DELAY     ((TickType_t) 10)       /* Default task delay */
 
-#define TIM_1s_INSTANCE         (TIM7)                     /* Alias for the TIM7 timer instance */
-#define TIM_1s_HANDLE           (htim7)                    /* Alias for the TIM7 timer handle */
+#define TIM_1s_INSTANCE            (TIM7)                  /* Alias for the TIM7 timer instance */
+#define TIM_1s_HANDLE              (htim7)                 /* Alias for the TIM7 timer handle */
+#define TIM_NEXT_TPMS_ID_INSTANCE  (TIM10)                 /* Alias for the TIM11 timer instance */
+#define TIM_NEXT_TPMS_ID_HANDLE    (htim10)                /* Alias for the TIM11 timer handle */
 
 /**
  * @brief Watchdog task notification values
@@ -97,6 +99,7 @@ DMA_HandleTypeDef hdma_sdio_tx;
 SPI_HandleTypeDef hspi1;
 
 TIM_HandleTypeDef htim7;
+TIM_HandleTypeDef htim10;
 
 UART_HandleTypeDef huart4;
 UART_HandleTypeDef huart1;
@@ -119,7 +122,8 @@ osMessageQId canRxQueueHandle;
 osMessageQId canSubQueueHandle;
 osMessageQId sdioSubQueueHandle;
 osMessageQId sdioLogQueueHandle;
-osMessageQId xbeeInternalMailQueueHandle;
+osMessageQId rfRxInternalMailQueueHandle;
+osMessageQId xbeeTxRxInternalMailQueueHandle;
 osMutexId crcMutexHandle;
 /* USER CODE BEGIN PV */
 
@@ -140,6 +144,7 @@ static void MX_USART2_UART_Init(void);
 static void MX_USART3_UART_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_TIM7_Init(void);
+static void MX_TIM10_Init(void);
 void StartCanGtkpTask(void const *argument);
 void StartSdioGtkpTask(void const *argument);
 void StartIwdgGtkpTask(void const *argument);
@@ -198,6 +203,7 @@ int main(void) {
 	MX_FATFS_Init();
 	MX_ADC1_Init();
 	MX_TIM7_Init();
+	MX_TIM10_Init();
 	/* USER CODE BEGIN 2 */
 
 	/* USER CODE END 2 */
@@ -240,10 +246,15 @@ int main(void) {
 	osMessageQDef(sdioLogQueue, 16, const char*);
 	sdioLogQueueHandle = osMessageCreate(osMessageQ(sdioLogQueue), NULL);
 
-	/* definition and creation of xbeeInternalMailQueue */
-	osMessageQDef(xbeeInternalMailQueue, 4, EXbeeInternalMail);
-	xbeeInternalMailQueueHandle = osMessageCreate(
-			osMessageQ(xbeeInternalMailQueue), NULL);
+	/* definition and creation of rfRxInternalMailQueue */
+	osMessageQDef(rfRxInternalMailQueue, 4, ERfRxInternalMail);
+	rfRxInternalMailQueueHandle = osMessageCreate(
+			osMessageQ(rfRxInternalMailQueue), NULL);
+
+	/* definition and creation of xbeeTxRxInternalMailQueue */
+	osMessageQDef(xbeeTxRxInternalMailQueue, 4, EXbeeTxRxInternalMail);
+	xbeeTxRxInternalMailQueueHandle = osMessageCreate(
+			osMessageQ(xbeeTxRxInternalMailQueue), NULL);
 
 	/* USER CODE BEGIN RTOS_QUEUES */
 	/* add queues, ... */
@@ -575,6 +586,35 @@ static void MX_TIM7_Init(void) {
 }
 
 /**
+ * @brief TIM10 Initialization Function
+ * @param None
+ * @retval None
+ */
+static void MX_TIM10_Init(void) {
+
+	/* USER CODE BEGIN TIM10_Init 0 */
+
+	/* USER CODE END TIM10_Init 0 */
+
+	/* USER CODE BEGIN TIM10_Init 1 */
+
+	/* USER CODE END TIM10_Init 1 */
+	htim10.Instance = TIM10;
+	htim10.Init.Prescaler = 0;
+	htim10.Init.CounterMode = TIM_COUNTERMODE_UP;
+	htim10.Init.Period = 9999;
+	htim10.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+	htim10.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+	if (HAL_TIM_Base_Init(&htim10) != HAL_OK) {
+		Error_Handler();
+	}
+	/* USER CODE BEGIN TIM10_Init 2 */
+
+	/* USER CODE END TIM10_Init 2 */
+
+}
+
+/**
  * @brief UART4 Initialization Function
  * @param None
  * @retval None
@@ -804,7 +844,8 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 	if (RF_DR_Pin == GPIO_Pin) {
 
 		/* Notify the rfRx task */
-		vTaskNotifyGiveFromISR(rfRxHandle, NULL);
+		ERfRxInternalMail rfRxInternalMail = ERfRxInternalMail_DataReady;
+		xQueueSendFromISR(rfRxInternalMailQueueHandle, &rfRxInternalMail, NULL);
 
 	}
 
@@ -839,7 +880,7 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc) {
 void StartCanGtkpTask(void const *argument) {
 	/* USER CODE BEGIN 5 */
 
-	/* Wait for SDIO gatekeeper to test if there is a valid telemetry subscription stored on the SD card */
+	/* Wait for telemetry subscription stored on the SD card */
 	canGtkp_WaitSubscriptionFromSdioGtkp();
 
 	/* Start the CAN module */
@@ -877,7 +918,7 @@ void StartCanGtkpTask(void const *argument) {
 void StartSdioGtkpTask(void const *argument) {
 	/* USER CODE BEGIN StartSdioGtkpTask */
 
-	static FATFS fatFs; /* File system object structure */
+	static FATFS fatFs;
 	/* Try mounting the logical drive */
 	if (FR_OK != f_mount(&fatFs, SDPath, 1)) {
 
@@ -971,7 +1012,7 @@ void StartBtRxTask(void const *argument) {
 	for (;;) {
 
 		/* Handle for the message */
-		btRx_HandleMessage();
+		btRx_HandleCom();
 
 		/* Report to watchdog */
 		WATCHDOG_CHECKIN(NV_IWDGGTKP_BTRX);
@@ -1003,7 +1044,7 @@ void StartGnssRxTask(void const *argument) {
 	for (;;) {
 
 		/* Handle for the message */
-		gnssRx_HandleMessage();
+		gnssRx_HandleCom();
 
 		/* Report to watchdog */
 		WATCHDOG_CHECKIN(NV_IWDGGTKP_GNSSRX);
@@ -1028,11 +1069,14 @@ void StartRfRxTask(void const *argument) {
 	/* Configure the device */
 	rfRx_DeviceConfig();
 
+	/* Start the timer */
+	HAL_TIM_Base_Start_IT(&TIM_NEXT_TPMS_ID_HANDLE);
+
 	/* Infinite loop */
 	for (;;) {
 
 		/* Listen for the message */
-		rfRx_HandleMessage();
+		rfRx_HandleCom();
 
 		/* Report to watchdog */
 		WATCHDOG_CHECKIN(NV_IWDGGTKP_RFRX);
@@ -1070,7 +1114,7 @@ void StartXbeeTxRxTask(void const *argument) {
 		xbeeTxRx_HandleInternalMail();
 
 		/* Poll the queue for CAN frames to send */
-		xbeeTxRx_HandleOutgoingR3tpComms();
+		xbeeTxRx_HandleOutgoingR3tpCom();
 
 		/* Report to watchdog */
 		WATCHDOG_CHECKIN(NV_IWDGGTKP_XBEETXRX);
@@ -1126,8 +1170,16 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 	if (TIM_1s_INSTANCE == htim->Instance) {
 
 		/* Notify the xbeeTxRx task */
-		EXbeeInternalMail mail = EXbeeInternalMail_PeriodElapsed;
-		xQueueSendFromISR(xbeeInternalMailQueueHandle, &mail, NULL);
+		EXbeeTxRxInternalMail xbeeTxRxInternalMail =
+				EXbeeTxRxInternalMail_PeriodElapsed;
+		xQueueSendFromISR(xbeeTxRxInternalMailQueueHandle,
+				&xbeeTxRxInternalMail, NULL);
+
+	} else if (TIM_NEXT_TPMS_ID_INSTANCE == htim->Instance) {
+
+		/* Notify the rfRx task */
+		ERfRxInternalMail rfRxInternalMail = ERfRxInternalMail_PeriodElapsed;
+		xQueueSendFromISR(rfRxInternalMailQueueHandle, &rfRxInternalMail, NULL);
 
 	}
 

@@ -89,7 +89,7 @@ EUartCirBufRet gnssRx_StartCircularBufferIdleDetectionRx(void) {
  * @brief Listens for and handles the GNSS message
  * @retval None
  */
-void gnssRx_HandleMessage(void) {
+void gnssRx_HandleCom(void) {
 
 	/* Wait for notification from idle line detection callback */
 	if (0UL < ulTaskNotifyTake(pdTRUE, 0)) {

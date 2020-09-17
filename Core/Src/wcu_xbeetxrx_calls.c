@@ -27,7 +27,7 @@
 #define TELEMETRY_PIT_BIT         ((uint8_t) 0x20)                        /* Telemetry_Pit bit of the TELEMETRY_DIAG CAN frame */
 #define XBEE_GT_DEFAULT           ((uint16_t) 0x0CE4)                     /* XBEE Pro Guard Times default value */
 #define XBEE_GT_DESIRED           ((uint16_t) 0x000A)                     /* XBEE Pro Guard Times desired value */
-#define XBEE_CONTROL_UART_TIMEOUT ((uint32_t) 10U)                        /* XBEE control UART Tx timeout */
+#define XBEE_CONTROL_UART_TIMEOUT ((uint32_t) 10)                         /* XBEE control UART Tx timeout */
 
 /**
  * @brief Telemetry diagnostics structure
@@ -52,7 +52,7 @@ extern osThreadId sdioGtkpHandle;
 extern osMessageQId canRxQueueHandle;
 extern osMessageQId canSubQueueHandle;
 extern osMessageQId sdioSubQueueHandle;
-extern osMessageQId xbeeInternalMailQueueHandle;
+extern osMessageQId xbeeTxRxInternalMailQueueHandle;
 extern osMutexId crcMutexHandle;
 
 /**
@@ -150,17 +150,16 @@ EUartCirBufRet xbeeTxRx_StartCircularBufferIdleDetectionRx(void) {
  */
 void xbeeTxRx_HandleInternalMail(void) {
 
-	static uint8_t rxBufTbl[R3TP_MAX_FRAME_SIZE ]; /* UART Rx buffer */
-	static EXbeeInternalMail mail; /* Internal mail buffer */
-
+	static EXbeeTxRxInternalMail mail;
 	/* Wait for messages */
-	if (pdPASS == xQueueReceive(xbeeInternalMailQueueHandle, &mail, 0)) {
+	if (pdPASS == xQueueReceive(xbeeTxRxInternalMailQueueHandle, &mail, 0)) {
 
-		static STelemetryDiagnostics diagnostics; /* Diagnostics structure */
+		static uint8_t rxBufTbl[R3TP_MAX_FRAME_SIZE];
+		static STelemetryDiagnostics diagnostics;
 
 		switch (mail) {
 
-		case EXbeeInternalMail_MessageReceived:
+		case EXbeeTxRxInternalMail_MessageReceived:
 
 			/* Read the data from the circular buffer */
 			(void) uartCirBuf_read(&gXbeeTxRxCircularBuffer, rxBufTbl,
@@ -190,7 +189,7 @@ void xbeeTxRx_HandleInternalMail(void) {
 			xbeeTxRx_PollForRssi(&diagnostics.rssi);
 			break;
 
-		case EXbeeInternalMail_PeriodElapsed:
+		case EXbeeTxRxInternalMail_PeriodElapsed:
 
 			/* Transmit the diagnostic frame */
 			xbeeTxRx_SendDiagnostics(&diagnostics);
@@ -212,7 +211,7 @@ void xbeeTxRx_HandleInternalMail(void) {
  * @brief Handles transmitting telemetry data
  * @retval None
  */
-void xbeeTxRx_HandleOutgoingR3tpComms(void) {
+void xbeeTxRx_HandleOutgoingR3tpCom(void) {
 
 	SCanFrame frBuf; /* Buffer for the CAN frame */
 
@@ -289,8 +288,8 @@ void xbeeTxRx_HandleOutgoingR3tpComms(void) {
 static void xbeeTxRx_CircularBufferIdleCallback(void) {
 
 	/* Notify the xbeeTxRx task */
-	EXbeeInternalMail mail = EXbeeInternalMail_MessageReceived;
-	(void) xQueueSendFromISR(xbeeInternalMailQueueHandle, &mail, NULL);
+	EXbeeTxRxInternalMail mail = EXbeeTxRxInternalMail_MessageReceived;
+	(void) xQueueSendFromISR(xbeeTxRxInternalMailQueueHandle, &mail, NULL);
 
 }
 

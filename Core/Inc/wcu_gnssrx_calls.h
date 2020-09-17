@@ -31,6 +31,6 @@ EUartCirBufRet gnssRx_StartCircularBufferIdleDetectionRx(void);
  * @brief Handles the GNSS message
  * @retval None
  */
-void gnssRx_HandleMessage(void);
+void gnssRx_HandleCom(void);
 
 #endif /* __WCU_GNSSRX_CALLS_H_ */

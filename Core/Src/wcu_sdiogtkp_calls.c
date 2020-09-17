@@ -14,6 +14,7 @@
 #include "fatfs.h"
 #include <stdio.h>
 #include <string.h>
+#include <stddef.h>
 
 extern osMessageQId canSubQueueHandle;
 extern osMessageQId sdioSubQueueHandle;
@@ -127,25 +128,24 @@ uint32_t sdioGtkp_LoadTelemetrySubscription(void) {
  */
 void sdioGtkp_HandleLogger(void) {
 
-	char *errorMessagePtr; /* Buffer for the pointer to the error message */
+	char *errMsgPtr;
+	/* Receive an error message */
+	if (pdPASS == xQueueReceive(sdioLogQueueHandle, &errMsgPtr, 0)) {
 
-	if (pdPASS == xQueueReceive(sdioLogQueueHandle, &errorMessagePtr, 0)) {
-
-		FIL errorLogFile; /* Error log file object structure */
-
-		/* Try opening the file */
+		FIL errorLogFile;
+		/* Try opening the log file */
 		if (FR_OK == f_open(&errorLogFile, SDIOGTKP_LOGFILE_PATH,
 		FA_WRITE | FA_OPEN_APPEND)) {
 
-			UINT bytesWritten; /* Buffer for the number of bytes written */
+			UINT bytesWritten;
 			/* Write the error message to the file */
-			(void) f_write(&errorLogFile, errorMessagePtr,
-					strlen(errorMessagePtr), &bytesWritten);
+			(void) f_write(&errorLogFile, errMsgPtr,
+					strlen(errMsgPtr), &bytesWritten);
 			/* Close the file */
 			(void) f_close(&errorLogFile);
 			/* Free the allocated memory */
-			vPortFree(errorMessagePtr);
-			errorMessagePtr = NULL;
+			vPortFree(errMsgPtr);
+			errMsgPtr = NULL;
 
 		}
 

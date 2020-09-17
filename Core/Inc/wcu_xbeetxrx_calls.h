@@ -19,10 +19,10 @@ extern UART_HandleTypeDef huart4;
 /**
  * @brief Internal messages enumeration for internal communication between xbeeTxRx task and callbacks
  */
-typedef enum EXbeeInternalMail {
-	EXbeeInternalMail_PeriodElapsed = 0,
-	EXbeeInternalMail_MessageReceived
-} EXbeeInternalMail;
+typedef enum EXbeeTxRxInternalMail {
+	EXbeeTxRxInternalMail_MessageReceived = 0,
+	EXbeeTxRxInternalMail_PeriodElapsed
+} EXbeeTxRxInternalMail;
 
 /**
  * @brief Starts listening for incoming UART transmissions
@@ -40,7 +40,7 @@ void xbeeTxRx_HandleInternalMail(void);
  * @brief Handles transmitting telemetry data
  * @retval None
  */
-void xbeeTxRx_HandleOutgoingR3tpComms(void);
+void xbeeTxRx_HandleOutgoingR3tpCom(void);
 
 /**
  * @brief Configures the XBEE Pro device

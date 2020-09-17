@@ -29,7 +29,8 @@ typedef enum ENrf905LldRet {
  */
 typedef enum ENrf905LldBand {
 	ENrf905LldBand_433MHz = 0,
-	ENrf905LldBand_868_915MHz
+	ENrf905LldBand_868MHz,
+	ENrf905LldBand_915MHz
 } ENrf905LldBand;
 
 /**

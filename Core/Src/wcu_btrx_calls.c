@@ -50,7 +50,7 @@ EUartCirBufRet btRx_StartCircularBufferIdleDetectionRx(void) {
  * @brief Handles the BT message
  * @retval None
  */
-void btRx_HandleMessage(void) {
+void btRx_HandleCom(void) {
 
 	/* Wait for notification from idle line detection callback */
 	if (0UL < ulTaskNotifyTake(pdTRUE, 0)) {

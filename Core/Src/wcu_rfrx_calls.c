@@ -21,8 +21,8 @@
 #define TPMS_ID_FR                            ((uint32_t) 0x00000001)  /* TBD experimentally */
 #define TPMS_ID_RL                            ((uint32_t) 0x00000002)  /* TBD experimentally */
 #define TPMS_ID_RR                            ((uint32_t) 0x00000003)  /* TBD experimentally */
-#define TPMS_PRES_SCAL_FAC                    ((float32_t) 0.25)       /* TPMS pressure scaling factor */
-#define TPMS_PRES_OFFSET                      ((float32_t) (-7.))      /* TPMS pressure offset */
+#define TPMS_PRES_SCAL_FAC                    ((float32_t) 0.25f)      /* TPMS pressure scaling factor */
+#define TPMS_PRES_OFFSET                      ((float32_t) (-7.0f))    /* TPMS pressure offset */
 #define TPMS_FL_RECEIVED                      ((uint8_t) 0x01)         /* TPMS front-left message received */
 #define TPMS_FR_RECEIVED                      ((uint8_t) 0x02)         /* TPMS front-right message received */
 #define TPMS_RL_RECEIVED                      ((uint8_t) 0x04)         /* TPMS rear-left message received */
@@ -66,10 +66,13 @@ typedef enum ETpmsDataStatus {
 	ETpmsDataStatus_Ready = 0, ETpmsDataStatus_Pending
 } ETpmsDataStatus;
 
+extern osMessageQId rfRxInternalMailQueueHandle;
+
 static ETpmsDecoderRet rfRx_DecodeMessage(STpmsDataPacket *tpmsDataPcktPtr,
 		uint8_t bufTbl[]);
 static ETpmsDataStatus rfRx_AddDataToCanFrame(SCanFrame *canFrPtr,
 		STpmsDataPacket tpmsDataPckt);
+static void rfRx_SwitchIdToListenOn(void);
 
 /**
  * @brief Configures the nRF905 device
@@ -83,49 +86,69 @@ void rfRx_DeviceConfig(void) {
 	Nrf905Lld_SetDeviceIdentity(NULL, 0);
 	Nrf905Lld_EnableCrcCheck(true);
 	Nrf905Lld_SetCrcMode(ENrf905LldCrcMode_Crc8);
+	Nrf905Lld_SetXof(ENrf905LldXof_16MHz);
 
+	rfRx_SwitchIdToListenOn();
 	Nrf905Lld_ModeSelectRx();
-	Nrf905Lld_TransmissionEnable();
 	Nrf905Lld_PwrUp();
 
 }
 
 /**
- * @brief Listens for and handles the RF message
+ * @brief Handles nRF905 communications
  * @retval None
  */
-void rfRx_HandleMessage(void) {
+void rfRx_HandleCom(void) {
 
-	static uint8_t rxBufTbl[TPMS_MESSAGE_PAYLOAD_WIDTH];
-	/* Wait for notification from EXTI ISR */
-	if (0UL < ulTaskNotifyTake(pdTRUE, 0)) {
+	static ERfRxInternalMail mail;
+	/* Wait for messages */
+	if (pdPASS == xQueueReceive(rfRxInternalMailQueueHandle, &mail, 0)) {
 
-		/* Read the payload */
-		Nrf905Lld_TransmissionDisable();
-		Nrf905Lld_ReadRxPayload(rxBufTbl, TPMS_MESSAGE_PAYLOAD_WIDTH);
-		Nrf905Lld_TransmissionEnable();
+		static uint8_t rxBufTbl[TPMS_MESSAGE_PAYLOAD_WIDTH];
 
-		STpmsDataPacket tpmsDataPckt;
-		/* Clear the data buffer */
-		(void) memset(&tpmsDataPckt, 0, sizeof(tpmsDataPckt));
-		/* Parse the message */
-		if (ETpmsDecoderRet_Ok != rfRx_DecodeMessage(&tpmsDataPckt, rxBufTbl)) {
+		switch (mail) {
 
-			LogPrint("TPMS decoder error\r\n");
-			return;
+		case ERfRxInternalMail_DataReady:
 
-		}
+			/* Read the payload */
+			Nrf905Lld_TransmissionDisable();
+			Nrf905Lld_ReadRxPayload(rxBufTbl, TPMS_MESSAGE_PAYLOAD_WIDTH);
+			Nrf905Lld_TransmissionEnable();
 
-		static SCanFrame canFrame;
-		/* Add data to CAN frame */
-		if (ETpmsDataStatus_Ready
-				== rfRx_AddDataToCanFrame(&canFrame, tpmsDataPckt)) {
+			STpmsDataPacket tpmsDataPckt;
+			/* Clear the data buffer */
+			(void) memset(&tpmsDataPckt, 0, sizeof(tpmsDataPckt));
+			/* Parse the message */
+			if (ETpmsDecoderRet_Ok != rfRx_DecodeMessage(&tpmsDataPckt, rxBufTbl)) {
 
-			/* Send data to CAN bus */
-			AddToCanTxQueue(&canFrame, "rfRx failed to send to canTxQueue\r\n");
+				LogPrint("TPMS decoder error\r\n");
+				return;
 
-			/* Clear the frame buffer */
-			(void) memset(&canFrame, 0, sizeof(canFrame));
+			}
+
+			static SCanFrame canFrame;
+			/* Add data to CAN frame */
+			if (ETpmsDataStatus_Ready
+					== rfRx_AddDataToCanFrame(&canFrame, tpmsDataPckt)) {
+
+				/* Send data to CAN bus */
+				AddToCanTxQueue(&canFrame, "rfRx failed to send to canTxQueue\r\n");
+
+				/* Clear the frame buffer */
+				(void) memset(&canFrame, 0, sizeof(canFrame));
+
+			}
+			break;
+
+		case ERfRxInternalMail_PeriodElapsed:
+
+			/* Listen on next TPMS sensor */
+			rfRx_SwitchIdToListenOn();
+			break;
+
+		default:
+
+			break;
 
 		}
 
@@ -152,8 +175,8 @@ static ETpmsDecoderRet rfRx_DecodeMessage(STpmsDataPacket *tpmsDataPcktPtr,
 		/* Read the TPMS ID */
 		tpmsDataPcktPtr->Id = _reinterpret32bits(bufTbl[0], bufTbl[1],
 				bufTbl[2], bufTbl[3]);
-		tpmsDataPcktPtr->PressurePsi = ((TPMS_PRES_SCAL_FAC * pressureNonInverted)
-				+ TPMS_PRES_OFFSET);
+		tpmsDataPcktPtr->PressurePsi = ((TPMS_PRES_SCAL_FAC
+				* pressureNonInverted) + TPMS_PRES_OFFSET);
 		tpmsDataPcktPtr->TemperatureC = TPMS_SCRMBL_TEMP(bufTbl);
 
 	} else {
@@ -216,7 +239,8 @@ static ETpmsDataStatus rfRx_AddDataToCanFrame(SCanFrame *canFrPtr,
 	}
 
 	/* Test if all packets have been received */
-	if((TPMS_FL_RECEIVED | TPMS_FR_RECEIVED | TPMS_RL_RECEIVED | TPMS_RR_RECEIVED) == packetsReceived) {
+	if ((TPMS_FL_RECEIVED | TPMS_FR_RECEIVED | TPMS_RL_RECEIVED
+			| TPMS_RR_RECEIVED) == packetsReceived) {
 
 		/* Clear the flags */
 		packetsReceived = 0;
@@ -225,5 +249,27 @@ static ETpmsDataStatus rfRx_AddDataToCanFrame(SCanFrame *canFrPtr,
 	}
 
 	return ret;
+
+}
+
+/**
+ * @brief Switch TPMS ID to listen on
+ * @retval None
+ */
+static void rfRx_SwitchIdToListenOn(void) {
+
+	static uint32_t tpmsIds[] =
+			{ TPMS_ID_FL, TPMS_ID_FR, TPMS_ID_RL, TPMS_ID_RR };
+	static uint8_t idIndex = 0;
+
+	/* Disable transmission */
+	Nrf905Lld_TransmissionDisable();
+	/* Set ID to listen on */
+	Nrf905Lld_SetDeviceIdentity((uint8_t*) &(tpmsIds[idIndex]),
+			(sizeof(uint32_t) / sizeof(uint8_t)));
+	/* Enable transmission */
+	Nrf905Lld_TransmissionEnable();
+	/* Update the index */
+	idIndex = (idIndex < (sizeof(tpmsIds) - 1U)) ? (idIndex + 1U) : 0;
 
 }

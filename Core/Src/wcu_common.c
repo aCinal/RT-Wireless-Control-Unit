@@ -12,6 +12,8 @@
 
 extern osMessageQId sdioLogQueueHandle;
 
+#define LOG_TIMESTAMP_LENGTH  ((uint32_t) 11UL)  /* Decimal timestamp length */
+
 /**
  * @brief Logs an error message to the SD card
  * @param msgTbl Error message
@@ -19,8 +21,8 @@ extern osMessageQId sdioLogQueueHandle;
  */
 void LogPrint(const char msgTbl[]) {
 
-	/* Allocate the memory for the error message (timestamp length + message length + NULL character) */
-	char* logEntryPtr = pvPortMalloc(11UL + strlen(msgTbl) + 1UL);
+	/* Allocate the memory for the error message */
+	char* logEntryPtr = pvPortMalloc(LOG_TIMESTAMP_LENGTH + strlen(msgTbl) + 1UL);
 	/* Assert successful memory allocation */
 	if(logEntryPtr != NULL) {
 
