@@ -31,10 +31,10 @@ typedef double float64_t;
 
 /**
  * @brief Logs an error message to the SD card
- * @param msgTbl Error message
+ * @param messagePayloadTbl Error message
  * @retval None
  */
-void LogPrint(const char msgTbl[]);
+void LogPrint(const char messagePayloadTbl[]);
 
 /* Exported macros -------------------------------------------------------------------------- */
 

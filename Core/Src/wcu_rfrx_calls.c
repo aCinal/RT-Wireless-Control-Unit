@@ -17,25 +17,16 @@
 #define TPMS_MESSAGE_PAYLOAD_WIDTH            ((uint32_t) 8)           /* TPMS message size */
 #define TPMS_MESSAGE_ADDRESS_WIDTH            ((uint32_t) 4)           /* TPMS address size */
 
-#define TPMS_ID_FL                            ((uint32_t) 0x00000000)  /* TBD experimentally */
-#define TPMS_ID_FR                            ((uint32_t) 0x00000001)  /* TBD experimentally */
-#define TPMS_ID_RL                            ((uint32_t) 0x00000002)  /* TBD experimentally */
-#define TPMS_ID_RR                            ((uint32_t) 0x00000003)  /* TBD experimentally */
-#define TPMS_PRES_SCAL_FAC                    ((float32_t) 0.25f)      /* TPMS pressure scaling factor */
-#define TPMS_PRES_OFFSET                      ((float32_t) (-7.0f))    /* TPMS pressure offset */
-#define TPMS_FL_RECEIVED                      ((uint8_t) 0x01)         /* TPMS front-left message received */
-#define TPMS_FR_RECEIVED                      ((uint8_t) 0x02)         /* TPMS front-right message received */
-#define TPMS_RL_RECEIVED                      ((uint8_t) 0x04)         /* TPMS rear-left message received */
-#define TPMS_RR_RECEIVED                      ((uint8_t) 0x08)         /* TPMS rear-right message received */
+#define TPMS_ID_FL                            ((uint32_t) 0x00000000)  /* TBD */
+#define TPMS_ID_FR                            ((uint32_t) 0x00000001)  /* TBD */
+#define TPMS_ID_RL                            ((uint32_t) 0x00000002)  /* TBD */
+#define TPMS_ID_RR                            ((uint32_t) 0x00000003)  /* TBD */
+#define TPMS_FL_RECEIVED                      ((uint8_t) 0x01)         /* TPMS front-left message received flag */
+#define TPMS_FR_RECEIVED                      ((uint8_t) 0x02)         /* TPMS front-right message received flag */
+#define TPMS_RL_RECEIVED                      ((uint8_t) 0x04)         /* TPMS rear-left message received flag */
+#define TPMS_RR_RECEIVED                      ((uint8_t) 0x08)         /* TPMS rear-right message received flag */
 
 #define CAN_ID_TPMS                           ((uint32_t) 0x411)       /* CAN ID: _411_WDTM_TPMS_1 */
-
-#define _bits0_6(x)                           ((uint8_t) (x & 0x7F))
-#define _bit7(x)                              ((uint8_t) ((x >> 7) & 0x01))
-
-/* Macros for scrambling the TPMS data from the bits of the message */
-#define TPMS_SCRMBL_PRES_NONINVERTED(bufTbl)  ((uint8_t) ((_bits0_6(bufTbl[4]) << 1) | _bit7(bufTbl[5])))
-#define TPMS_SCRMBL_TEMP(bufTbl)              ((uint8_t) ((_bits0_6(bufTbl[5]) << 1) | _bit7(bufTbl[6])))
 
 /* Typedef for storing flags corresponding to received TPMS packets */
 typedef uint8_t TTpmsPacketRxFlags;
@@ -174,23 +165,7 @@ static ETpmsDecoderRet rfRx_DecodeMessage(STpmsDataPacket *tpmsDataPcktPtr,
 
 	ETpmsDecoderRet ret = ETpmsDecoderRet_Ok; /* Return value */
 
-	/* Pressure check */
-	uint8_t pressureNonInverted = TPMS_SCRMBL_PRES_NONINVERTED(bufTbl);
-	uint8_t pressureInverted = bufTbl[7];
-	if (pressureNonInverted == ~pressureInverted) {
-
-		/* Read the TPMS ID */
-		tpmsDataPcktPtr->Id = _reinterpret32bits(bufTbl[0], bufTbl[1],
-				bufTbl[2], bufTbl[3]);
-		tpmsDataPcktPtr->PressurePsi = ((TPMS_PRES_SCAL_FAC
-				* pressureNonInverted) + TPMS_PRES_OFFSET);
-		tpmsDataPcktPtr->TemperatureC = TPMS_SCRMBL_TEMP(bufTbl);
-
-	} else {
-
-		ret = ETpmsDecoderRet_PressureCheckError;
-
-	}
+	/* TODO: Decode the message */
 
 	return ret;
 

@@ -12,8 +12,10 @@
 
 extern osMessageQId sdioLogQueueHandle;
 
-#define LOG_HEAD_LENGTH  ((uint32_t) 11)  /* Length of the timestamp in decimal */
-#define LOG_TAIL_LENGTH  ((uint32_t) 3)   /* <CR><LF> and NULL character sequence */
+#define LOG_HEADER_LENGTH         ((uint32_t) 11)                       /* Length of the timestamp in decimal */
+#define LOG_TRAILER_LENGTH        ((uint32_t) 3)                        /* <CR><LF> and NULL character sequence length */
+#define LOG_PAYLOAD(log)          (&(log[LOG_HEADER_LENGTH]))           /* Get pointer to the log entry payload */
+#define LOG_TRAILER(log, payLen)  (&(log[LOG_HEADER_LENGTH + payLen]))  /* Get pointer to the log entry trailer */
 
 /**
  * @brief Logs an error message to the SD card
@@ -24,17 +26,17 @@ void LogPrint(const char messagePayloadTbl[]) {
 
 	size_t payloadLength = strlen(messagePayloadTbl);
 	/* Allocate the memory for the error message */
-	char *logEntryPtr = pvPortMalloc(
-			LOG_HEAD_LENGTH + payloadLength + LOG_TAIL_LENGTH);
+	char* logEntryPtr = pvPortMalloc(
+		LOG_HEADER_LENGTH + payloadLength + LOG_TRAILER_LENGTH);
 	/* Assert successful memory allocation */
 	if (logEntryPtr != NULL) {
 
 		/* Write the message head to the memory block */
-		(void) sprintf(logEntryPtr, "%010lu ", HAL_GetTick());
+		(void)sprintf(logEntryPtr, "%010lu ", HAL_GetTick());
 		/* Write the message payload to the memory block */
-		(void) sprintf(logEntryPtr + LOG_HEAD_LENGTH, (messagePayloadTbl));
+		(void)sprintf(LOG_PAYLOAD(logEntryPtr), (messagePayloadTbl));
 		/* Write the message tail to the memory block */
-		(void) sprintf(logEntryPtr + LOG_HEAD_LENGTH + payloadLength, "\r\n");
+		(void)sprintf(LOG_TRAILER(logEntryPtr, payloadLength), "\r\n");
 
 		/* Push the pointer to the message to the logErrorQueue */
 		if (pdPASS != xQueueSend(sdioLogQueueHandle, &logEntryPtr, 0)) {
