@@ -42,7 +42,7 @@ void canGtkp_WaitSubscriptionFromSdioGtkp(void) {
 						!= xQueueReceive(canSubQueueHandle, &(subscrTbl[i]),
 								0)) {
 
-					LogPrint("canGtkp failed to receive from canSubQueue\r\n");
+					LogPrint("canGtkp failed to receive from canSubQueue");
 					return;
 
 				}
@@ -94,7 +94,7 @@ void canGtkp_HandleInbox(void) {
 		/* Send the frame to the telemetry queue */
 		if (pdPASS != xQueueSend(canRxQueueHandle, &frBuf, 0)) {
 
-			LogPrint("canGtkp failed to send to canRxQueue\r\n");
+			LogPrint("canGtkp failed to send to canRxQueue");
 
 		}
 
@@ -120,7 +120,7 @@ void canGtkp_HandleNewSubscription(void) {
 			if (pdPASS
 					!= xQueueReceive(canSubQueueHandle, &(subscrTbl[i]), 0)) {
 
-				LogPrint("canGtkp failed to receive from canSubQueue\r\n");
+				LogPrint("canGtkp failed to receive from canSubQueue");
 				continue;
 
 			}

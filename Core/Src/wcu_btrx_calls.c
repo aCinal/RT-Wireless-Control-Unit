@@ -62,7 +62,7 @@ void btRx_HandleCom(void) {
 		/* Validate protocol version */
 		if (R3TP_VER0_VER_BYTE != rxBufTbl[0]) {
 
-			LogPrint("Invalid VER/RES/SEQ in btRx\r\n");
+			LogPrint("Invalid VER/RES/SEQ in btRx");
 			return;
 
 		}
@@ -72,7 +72,7 @@ void btRx_HandleCom(void) {
 				|| (R3TP_END_SEQ_HIGH_BYTE
 						!= rxBufTbl[R3TP_VER0_FRAME_SIZE - 1U])) {
 
-			LogPrint("Invalid END SEQ in btRx\r\n");
+			LogPrint("Invalid END SEQ in btRx");
 			return;
 
 		}
@@ -100,7 +100,7 @@ void btRx_HandleCom(void) {
 		} else {
 
 			/* If failed to acquire crcMutex */
-			LogPrint("crcMutex timeout in btRx\r\n");
+			LogPrint("crcMutex timeout in btRx");
 			return;
 
 		}
@@ -108,7 +108,7 @@ void btRx_HandleCom(void) {
 		/* Validate the CRC */
 		if (readCrc != calculatedCrc) {
 
-			LogPrint("Invalid CRC in btRx\r\n");
+			LogPrint("Invalid CRC in btRx");
 			return;
 
 		}
@@ -122,7 +122,7 @@ void btRx_HandleCom(void) {
 		/* Assert valid DLC */
 		if (CAN_PAYLOAD_SIZE < canFrame.TxHeader.DLC) {
 
-			LogPrint("Invalid DLC in btRx\r\n");
+			LogPrint("Invalid DLC in btRx");
 			return;
 
 		}
@@ -139,7 +139,7 @@ void btRx_HandleCom(void) {
 		canFrame.TxHeader.TransmitGlobalTime = DISABLE;
 
 		/* Transmit the frame */
-		AddToCanTxQueue(&canFrame, "btRx failed to send to canTxQueue\r\n");
+		AddToCanTxQueue(&canFrame, "btRx failed to send to canTxQueue");
 
 	}
 

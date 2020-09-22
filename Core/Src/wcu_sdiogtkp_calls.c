@@ -36,7 +36,7 @@ uint32_t sdioGtkp_LoadTelemetrySubscription(void) {
 	if (FR_OK != f_open(&subscriptionFile, SDIOGTKP_SUBFILE_PATH,
 	FA_READ | FA_OPEN_EXISTING)) {
 
-		LogPrint("sdioGtkp failed to open the subscription file\r\n");
+		LogPrint("sdioGtkp failed to open the subscription file");
 		return NV_CANGTKP_SDIOGTKP_SUB_READ_FAIL;
 
 	}
@@ -49,7 +49,7 @@ uint32_t sdioGtkp_LoadTelemetrySubscription(void) {
 	/* Try reading the number of frames */
 	if (FR_OK != f_read(&subscriptionFile, temp, 4, &bytesRead)) {
 
-		LogPrint("sdioGtkp failed to read from the subscription file\r\n");
+		LogPrint("sdioGtkp failed to read from the subscription file");
 
 		/* Cleanup */
 		(void) f_close(&subscriptionFile);
@@ -63,7 +63,7 @@ uint32_t sdioGtkp_LoadTelemetrySubscription(void) {
 	/* Validate the number of frames */
 	if (frNum > R3TP_VER1_MAX_FRAME_NUM) {
 
-		LogPrint("Invalid FRAME NUM in the subscription file\r\n");
+		LogPrint("Invalid FRAME NUM in the subscription file");
 
 		/* Cleanup */
 		(void) f_close(&subscriptionFile);
@@ -77,7 +77,7 @@ uint32_t sdioGtkp_LoadTelemetrySubscription(void) {
 		/* Try reading the frame */
 		if (FR_OK != f_read(&subscriptionFile, temp, 4, &bytesRead)) {
 
-			LogPrint("sdioGtkp failed to read from the subscription file\r\n");
+			LogPrint("sdioGtkp failed to read from the subscription file");
 
 			/* Cleanup */
 			(void) f_close(&subscriptionFile);
@@ -89,7 +89,7 @@ uint32_t sdioGtkp_LoadTelemetrySubscription(void) {
 		/* Assert end of file was not reached */
 		if (bytesRead < 4U) {
 
-			LogPrint("Invalid FRAME NUM in the subscription file\r\n");
+			LogPrint("Invalid FRAME NUM in the subscription file");
 
 			/* Cleanup */
 			(void) f_close(&subscriptionFile);
@@ -104,7 +104,7 @@ uint32_t sdioGtkp_LoadTelemetrySubscription(void) {
 		/* Send the frame to the queue */
 		if (pdPASS != xQueueSend(canSubQueueHandle, &frBuf, 0)) {
 
-			LogPrint("sdioGtkp failed to send to canSubQueue\r\n");
+			LogPrint("sdioGtkp failed to send to canSubQueue");
 
 			/* Cleanup */
 			(void) f_close(&subscriptionFile);
@@ -167,7 +167,7 @@ void sdioGtkp_HandleNewSubscription(void) {
 		/* Validate the notification */
 		if (28UL < nv) {
 
-			LogPrint("Invalid notification value in sdioGtkp\r\n");
+			LogPrint("Invalid notification value in sdioGtkp");
 			return;
 
 		}
@@ -177,7 +177,7 @@ void sdioGtkp_HandleNewSubscription(void) {
 		if (FR_OK != f_open(&subscriptionFile, SDIOGTKP_SUBFILE_PATH,
 		FA_WRITE | FA_CREATE_ALWAYS)) {
 
-			LogPrint("sdioGtkp failed to open the subscription file\r\n");
+			LogPrint("sdioGtkp failed to open the subscription file");
 			return;
 
 		}
@@ -197,7 +197,7 @@ void sdioGtkp_HandleNewSubscription(void) {
 
 			if (pdPASS != xQueueReceive(sdioSubQueueHandle, &frBuf, 0)) {
 
-				LogPrint("sdioGtkp failed to receive from sdioSubQueue\r\n");
+				LogPrint("sdioGtkp failed to receive from sdioSubQueue");
 				break;
 
 			}

@@ -121,7 +121,7 @@ void rfRx_HandleCom(void) {
 			/* Parse the message */
 			if (ETpmsDecoderRet_Ok != rfRx_DecodeMessage(&tpmsDataPckt, rxBufTbl)) {
 
-				LogPrint("TPMS decoder error\r\n");
+				LogPrint("TPMS decoder error");
 				return;
 
 			}
@@ -139,7 +139,7 @@ void rfRx_HandleCom(void) {
 				canFrame.TxHeader.TransmitGlobalTime = DISABLE;
 
 				/* Send data to CAN bus */
-				AddToCanTxQueue(&canFrame, "rfRx failed to send to canTxQueue\r\n");
+				AddToCanTxQueue(&canFrame, "rfRx failed to send to canTxQueue");
 
 				/* Clear the frame buffer */
 				(void) memset(&canFrame, 0, sizeof(canFrame));
@@ -241,7 +241,7 @@ static ETpmsDataStatus rfRx_AddDataToCanFrame(SCanFrame *canFrPtr,
 
 	default:
 
-		LogPrint("Unknown TPMS ID received\r\n");
+		LogPrint("Unknown TPMS ID received");
 
 	}
 

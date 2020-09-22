@@ -27,14 +27,12 @@ typedef enum EUartCirBufRet {
  * @brief Circular buffer structure
  */
 typedef struct SUartCirBuf {
-
 	uint8_t *BufferPtr; /* Pointer to the buffer */
 	size_t BufferSize; /* Buffer size in bytes */
 	volatile size_t Head; /* Position of the head */
 	volatile size_t Tail; /* Position of the tail */
 	UART_HandleTypeDef *PeriphHandlePtr; /* Peripheral handle */
 	void (*Callback)(void); /* Callback */
-
 } SUartCirBuf;
 
 /* Exported function prototypes -----------------------------------------------*/

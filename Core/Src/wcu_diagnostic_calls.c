@@ -64,7 +64,7 @@ void diagnostic_RunDiagnostics(void) {
 
 		/* Transmit the frame */
 		AddToCanTxQueue(&canFrame,
-				"diagnostic failed to send to canTxQueue\r\n");
+				"diagnostic failed to send to canTxQueue");
 
 	}
 

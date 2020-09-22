@@ -48,7 +48,7 @@ void gnssRx_DeviceConfig(void) {
 			!= HAL_UART_Transmit(&GNSS_UART_HANDLE, (uint8_t*) PMTK_SET_POS_FIX,
 					sizeof(PMTK_SET_POS_FIX), 1000)) {
 
-		LogPrint("Failed to send PMTK_SET_POS_FIX string in gnssRx\r\n");
+		LogPrint("Failed to send PMTK_SET_POS_FIX string in gnssRx");
 
 	}
 
@@ -60,7 +60,7 @@ void gnssRx_DeviceConfig(void) {
 					sizeof(PMTK_API_SET_GNSS_SEARCH_MODE), 1000)) {
 
 		LogPrint(
-				"Failed to send PMTK_API_SET_GNSS_SEARCH_MODE string in gnssRx\r\n");
+				"Failed to send PMTK_API_SET_GNSS_SEARCH_MODE string in gnssRx");
 
 	}
 
@@ -120,7 +120,7 @@ void gnssRx_HandleCom(void) {
 
 		case EGnssDataStatus_Error: /* If the parser failed */
 
-			LogPrint("parseMessage failed in gnssRx\r\n");
+			LogPrint("parseMessage failed in gnssRx");
 			break;
 
 		default:
@@ -177,7 +177,7 @@ static void gnssRx_Send_GPS_POS(SGnssData *gnssDataPtr) {
 
 	/* Transmit the frame */
 	AddToCanTxQueue(&canFrame,
-			"gnssRx_Send_GPS_POS failed to send to canTxQueue\r\n");
+			"gnssRx_Send_GPS_POS failed to send to canTxQueue");
 
 }
 
@@ -213,7 +213,7 @@ static void gnssRx_Send_GPS_POS2(SGnssData *gnssDataPtr) {
 
 	/* Transmit the frame */
 	AddToCanTxQueue(&canFrame,
-			"gnssRx_Send_GPS_POS2 failed to send to canTxQueue\r\n");
+			"gnssRx_Send_GPS_POS2 failed to send to canTxQueue");
 
 }
 
@@ -257,6 +257,6 @@ static void gnssRx_Send_GPS_STATUS(SGnssData *gnssDataPtr) {
 
 	/* Transmit the frame */
 	AddToCanTxQueue(&canFrame,
-			"gnssRx_Send_GPS_STATUS failed to send to canTxQueue\r\n");
+			"gnssRx_Send_GPS_STATUS failed to send to canTxQueue");
 
 }
