@@ -261,14 +261,8 @@ void xbeeTxRx_HandleOutgoingR3tpCom(void) {
 
 		}
 
-		/* Acquire the semaphore */
-		CRC_SEM_WAIT();
-
 		/* Calculate the CRC */
-		uint16_t calculatedCrc = _bits0_15(GET_CRC_32(txBufTbl, R3TP_VER0_FRAME_SIZE));
-
-		/* Release the semaphore */
-		CRC_SEM_POST();
+		uint16_t calculatedCrc = GetR3tpCrc(txBufTbl, R3TP_VER0_FRAME_SIZE);
 
 		/* Set the CHECKSUM field - note that the CRC is transmitted as little endian */
 		txBufTbl[2] = _bits0_7(calculatedCrc);
@@ -338,14 +332,8 @@ static EXbeeTxRxRet xbeeTxRx_HandleNewSubscription(uint8_t rxBufTbl[]) {
 		rxBufTbl[2] = 0x00U;
 		rxBufTbl[3] = 0x00U;
 
-		/* Acquire the semaphore */
-		CRC_SEM_WAIT();
-
 		/* Calculate the CRC */
-		uint16_t calculatedCrc = _bits0_15(GET_CRC_32(rxBufTbl, R3TP_VER1_MESSAGE_LENGTH(frNum)));
-
-		/* Release the semaphore */
-		CRC_SEM_POST();
+		uint16_t calculatedCrc = GetR3tpCrc(rxBufTbl, R3TP_VER1_MESSAGE_LENGTH(frNum));
 
 		/* Validate the CRC */
 		if (readCrc != calculatedCrc) {
@@ -412,14 +400,8 @@ static EXbeeTxRxRet xbeeTxRx_HandleDriverWarning(uint8_t rxBufTbl[],
 		rxBufTbl[2] = 0x00;
 		rxBufTbl[3] = 0x00;
 
-		/* Acquire the semaphore */
-		CRC_SEM_WAIT();
-
 		/* Calculate the CRC */
-		uint16_t calculatedCrc = _bits0_15(GET_CRC_32(rxBufTbl, R3TP_VER2_FRAME_SIZE));
-
-		/* Release the semaphore */
-		CRC_SEM_POST();
+		uint16_t calculatedCrc = GetR3tpCrc(rxBufTbl, R3TP_VER2_FRAME_SIZE);
 
 		/* Validate the CRC */
 		if (readCrc != calculatedCrc) {

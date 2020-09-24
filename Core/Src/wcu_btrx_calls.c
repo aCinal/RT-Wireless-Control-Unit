@@ -91,14 +91,8 @@ EBtRxRet btRx_HandleCom(void) {
 			rxBufTbl[2] = 0x00U;
 			rxBufTbl[3] = 0x00U;
 
-			/* Acquire the semaphore */
-			CRC_SEM_WAIT();
-
 			/* Calculate the CRC */
-			uint16_t calculatedCrc = _bits0_15(GET_CRC_32(rxBufTbl, R3TP_VER0_FRAME_SIZE));
-
-			/* Release the semaphore */
-			CRC_SEM_POST();
+			uint16_t calculatedCrc = GetR3tpCrc(rxBufTbl, R3TP_VER0_FRAME_SIZE);
 
 			/* Validate the CRC */
 			if (readCrc != calculatedCrc) {

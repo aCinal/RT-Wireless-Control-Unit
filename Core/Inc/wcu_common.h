@@ -14,8 +14,6 @@
 
 /* External variables -------------------------------------------------------------------------- */
 extern osMessageQId canTxQueueHandle;
-extern osMutexId crcMutexHandle;
-extern CRC_HandleTypeDef hcrc;
 
 /* Exported typedefs -------------------------------------------------------------------------- */
 typedef float float32_t;
@@ -33,11 +31,19 @@ typedef double float64_t;
 /* Exported function prototypes */
 
 /**
- * @brief Logs an error message to the SD card
+ * @brief Log an error message to the SD card
  * @param messagePayloadTbl Error message
  * @retval None
  */
 void LogPrint(const char messagePayloadTbl[]);
+
+/**
+ * @brief Calculate the CRC of payload and return the 16 least significant bits
+ * @param payloadPtr Payload
+ * @param numOfBytes Number of bytes
+ * @retval uint16_t 16 least significant bits of the CRC
+ */
+uint16_t GetR3tpCrc(uint8_t* payloadPtr, uint32_t numOfBytes);
 
 /* Exported macros -------------------------------------------------------------------------- */
 
@@ -51,20 +57,5 @@ void LogPrint(const char messagePayloadTbl[]);
 		LogPrint((errMsgTbl)); \
 	} \
 } while(0)
-
-/**
- * @brief Acquire the CRC semaphore
- */
-#define CRC_SEM_WAIT()              ((void) osMutexWait(crcMutexHandle, osWaitForever))
-
-/**
- * @brief Release the CRC semaphore
- */
-#define CRC_SEM_POST()              ((void) osMutexRelease(crcMutexHandle))
-
-/**
- * @brief Calculate the CRC
- */
-#define GET_CRC_32(payload, bytes)  (HAL_CRC_Calculate(&hcrc, (uint32_t*) (payload), (bytes) / 4U))
 
 #endif /* __WCU_COMMON_H_ */
