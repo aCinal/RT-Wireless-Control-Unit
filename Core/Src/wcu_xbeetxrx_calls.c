@@ -265,7 +265,7 @@ void xbeeTxRx_HandleOutgoingR3tpCom(void) {
 		CRC_SEM_WAIT();
 
 		/* Calculate the CRC */
-		uint16_t calculatedCrc = GET_CRC(txBufTbl, R3TP_VER0_FRAME_SIZE);
+		uint16_t calculatedCrc = _bits0_15(GET_CRC_32(txBufTbl, R3TP_VER0_FRAME_SIZE));
 
 		/* Release the semaphore */
 		CRC_SEM_POST();
@@ -342,7 +342,7 @@ static EXbeeTxRxRet xbeeTxRx_HandleNewSubscription(uint8_t rxBufTbl[]) {
 		CRC_SEM_WAIT();
 
 		/* Calculate the CRC */
-		uint16_t calculatedCrc = GET_CRC(rxBufTbl, R3TP_VER1_MESSAGE_LENGTH(frNum));
+		uint16_t calculatedCrc = _bits0_15(GET_CRC_32(rxBufTbl, R3TP_VER1_MESSAGE_LENGTH(frNum)));
 
 		/* Release the semaphore */
 		CRC_SEM_POST();
@@ -416,7 +416,7 @@ static EXbeeTxRxRet xbeeTxRx_HandleDriverWarning(uint8_t rxBufTbl[],
 		CRC_SEM_WAIT();
 
 		/* Calculate the CRC */
-		uint16_t calculatedCrc = GET_CRC(rxBufTbl, R3TP_VER2_FRAME_SIZE);
+		uint16_t calculatedCrc = _bits0_15(GET_CRC_32(rxBufTbl, R3TP_VER2_FRAME_SIZE));
 
 		/* Release the semaphore */
 		CRC_SEM_POST();

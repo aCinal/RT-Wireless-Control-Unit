@@ -95,7 +95,7 @@ EBtRxRet btRx_HandleCom(void) {
 			CRC_SEM_WAIT();
 
 			/* Calculate the CRC */
-			uint16_t calculatedCrc = GET_CRC(rxBufTbl, R3TP_VER0_FRAME_SIZE);
+			uint16_t calculatedCrc = _bits0_15(GET_CRC_32(rxBufTbl, R3TP_VER0_FRAME_SIZE));
 
 			/* Release the semaphore */
 			CRC_SEM_POST();

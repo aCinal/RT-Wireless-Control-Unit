@@ -10,17 +10,17 @@
 #include "stm32f4xx_hal.h"
 
 /* Exported defines ------------------------------------------------------------*/
-#define CAN_FILTERBANKS_COUNT  ((uint32_t) 28UL)  /* Number of CAN filter banks */
-#define CAN_PAYLOAD_SIZE       ((uint32_t) 8UL)   /* CAN payload size in bytes */
+#define CAN_FILTERBANKS_COUNT  ((uint32_t) 28)  /* Number of CAN filter banks */
+#define CAN_PAYLOAD_SIZE       ((uint32_t) 8U)  /* CAN payload size in bytes */
 
 /* Exported typedef ------------------------------------------------------------*/
 /**
  * @brief Structure facilitating communication with the CAN peripheral gatekeeper
  */
 typedef struct {
-	CAN_TxHeaderTypeDef TxHeader;
-	CAN_RxHeaderTypeDef RxHeader;
-	uint8_t PayloadTbl[CAN_PAYLOAD_SIZE];
+	CAN_TxHeaderTypeDef TxHeader;          /* Tx header */
+	CAN_RxHeaderTypeDef RxHeader;          /* Rx header */
+	uint8_t PayloadTbl[CAN_PAYLOAD_SIZE];  /* Payload */
 } SCanFrame;
 
 /* Exported macro ------------------------------------------------------------*/
