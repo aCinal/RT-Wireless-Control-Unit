@@ -17,6 +17,14 @@ extern UART_HandleTypeDef huart4;
 #define XBEE_UART_INSTANCE  (UART4)
 
 /**
+ * @brief Error code return value enumeration
+ */
+typedef enum EXbeeTxRxRet {
+	EXbeeTxRxRet_Ok = 0,
+	EXbeeTxRxRet_Error
+} EXbeeTxRxRet;
+
+/**
  * @brief Internal messages enumeration for internal communication between xbeeTxRx task and callbacks
  */
 typedef enum EXbeeTxRxInternalMail {
@@ -32,9 +40,9 @@ EUartCirBufRet xbeeTxRx_StartCircularBufferIdleDetectionRx(void);
 
 /**
  * @brief Handles internal messages
- * @retval None
+ * @retval EXbeeTxRxRet Status
  */
-void xbeeTxRx_HandleInternalMail(void);
+EXbeeTxRxRet xbeeTxRx_HandleInternalMail(void);
 
 /**
  * @brief Handles transmitting telemetry data
@@ -44,8 +52,8 @@ void xbeeTxRx_HandleOutgoingR3tpCom(void);
 
 /**
  * @brief Configures the XBEE Pro device
- * @retval None
+ * @retval EXbeeTxRxRet Status
  */
-void xbeeTxRx_DeviceConfig(void);
+EXbeeTxRxRet xbeeTxRx_DeviceConfig(void);
 
 #endif /* __WCU_XBEETXRX_CALLS_H_ */

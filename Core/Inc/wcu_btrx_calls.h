@@ -16,6 +16,14 @@ extern UART_HandleTypeDef huart1;
 #define BT_UART_INSTANCE  (USART1)
 
 /**
+ * @brief Error code return value enumeration
+ */
+typedef enum EBtRxRet {
+	EBtRxRet_Ok = 0,
+	EBtRxRet_Error
+} EBtRxRet;
+
+/**
  * @brief Starts listening for incoming UART transmissions
  * @retval EUartCirBufRet Status
  */
@@ -23,8 +31,8 @@ EUartCirBufRet btRx_StartCircularBufferIdleDetectionRx(void);
 
 /**
  * @brief Handles the BT message
- * @retval None
+ * @EBtRxRet Status
  */
-void btRx_HandleCom(void);
+EBtRxRet btRx_HandleCom(void);
 
 #endif /* __WCU_BTRX_CALLS_H_ */

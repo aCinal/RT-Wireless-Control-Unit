@@ -30,7 +30,6 @@
 #include "wcu_sdiogtkp_calls.h"
 #include "wcu_btrx_calls.h"
 #include "wcu_gnssrx_calls.h"
-#include "wcu_rfrx_calls.h"
 #include "wcu_diagnostic_calls.h"
 #include "wcu_xbeetxrx_calls.h"
 
@@ -48,8 +47,6 @@
 
 #define TIM_1s_INSTANCE            (TIM7)                  /* Alias for the TIM7 timer instance */
 #define TIM_1s_HANDLE              (htim7)                 /* Alias for the TIM7 timer handle */
-#define TIM_NEXT_TPMS_ID_INSTANCE  (TIM10)                 /* Alias for the TIM11 timer instance */
-#define TIM_NEXT_TPMS_ID_HANDLE    (htim10)                /* Alias for the TIM11 timer handle */
 
 /**
  * @brief Watchdog task notification values
@@ -66,19 +63,19 @@
 /* USER CODE BEGIN PM */
 
 /**
- * @brief Checks in with the watchdog thread
+ * @brief Check in with the watchdog thread
  */
-#define WATCHDOG_CHECKIN(nv)  ((void) xTaskNotify(iwdgGtkpHandle, (nv), eSetBits))
+#define NOTIFY_WATCHDOG(nv)  ((void) xTaskNotify(iwdgGtkpHandle, (nv), eSetBits))
 
 /**
- * @brief Clears the notification value bits based on the provided mask
+ * @brief Clear the notification value bits based on the provided mask
  */
 #define CLEARNVBITS(nvMask)  ((void) xTaskNotifyWait((nvMask), 0, NULL, 0))
 
 /**
- * @brief Clears the notification value
+ * @brief Clear the notification value
  */
-#define CLEARNV()  (CLEARNVBITS(CLEAR_ALL_BITS_ON_ENTRY))
+#define CLEARNV()            (CLEARNVBITS(CLEAR_ALL_BITS_ON_ENTRY))
 
 /* USER CODE END PM */
 
@@ -99,7 +96,6 @@ DMA_HandleTypeDef hdma_sdio_tx;
 SPI_HandleTypeDef hspi1;
 
 TIM_HandleTypeDef htim7;
-TIM_HandleTypeDef htim10;
 
 UART_HandleTypeDef huart4;
 UART_HandleTypeDef huart1;
@@ -122,7 +118,6 @@ osMessageQId canRxQueueHandle;
 osMessageQId canSubQueueHandle;
 osMessageQId sdioSubQueueHandle;
 osMessageQId sdioLogQueueHandle;
-osMessageQId rfRxInternalMailQueueHandle;
 osMessageQId xbeeTxRxInternalMailQueueHandle;
 osMutexId crcMutexHandle;
 /* USER CODE BEGIN PV */
@@ -144,7 +139,6 @@ static void MX_USART2_UART_Init(void);
 static void MX_USART3_UART_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_TIM7_Init(void);
-static void MX_TIM10_Init(void);
 void StartCanGtkpTask(void const *argument);
 void StartSdioGtkpTask(void const *argument);
 void StartIwdgGtkpTask(void const *argument);
@@ -203,7 +197,6 @@ int main(void) {
 	MX_FATFS_Init();
 	MX_ADC1_Init();
 	MX_TIM7_Init();
-	MX_TIM10_Init();
 	/* USER CODE BEGIN 2 */
 
 	/* USER CODE END 2 */
@@ -245,11 +238,6 @@ int main(void) {
 	/* definition and creation of sdioLogQueue */
 	osMessageQDef(sdioLogQueue, 16, const char*);
 	sdioLogQueueHandle = osMessageCreate(osMessageQ(sdioLogQueue), NULL);
-
-	/* definition and creation of rfRxInternalMailQueue */
-	osMessageQDef(rfRxInternalMailQueue, 4, ERfRxInternalMail);
-	rfRxInternalMailQueueHandle = osMessageCreate(
-			osMessageQ(rfRxInternalMailQueue), NULL);
 
 	/* definition and creation of xbeeTxRxInternalMailQueue */
 	osMessageQDef(xbeeTxRxInternalMailQueue, 4, EXbeeTxRxInternalMail);
@@ -586,35 +574,6 @@ static void MX_TIM7_Init(void) {
 }
 
 /**
- * @brief TIM10 Initialization Function
- * @param None
- * @retval None
- */
-static void MX_TIM10_Init(void) {
-
-	/* USER CODE BEGIN TIM10_Init 0 */
-
-	/* USER CODE END TIM10_Init 0 */
-
-	/* USER CODE BEGIN TIM10_Init 1 */
-
-	/* USER CODE END TIM10_Init 1 */
-	htim10.Instance = TIM10;
-	htim10.Init.Prescaler = 0;
-	htim10.Init.CounterMode = TIM_COUNTERMODE_UP;
-	htim10.Init.Period = 9999;
-	htim10.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-	htim10.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-	if (HAL_TIM_Base_Init(&htim10) != HAL_OK) {
-		Error_Handler();
-	}
-	/* USER CODE BEGIN TIM10_Init 2 */
-
-	/* USER CODE END TIM10_Init 2 */
-
-}
-
-/**
  * @brief UART4 Initialization Function
  * @param None
  * @retval None
@@ -835,23 +794,6 @@ static void MX_GPIO_Init(void) {
 /* USER CODE BEGIN 4 */
 
 /**
- * @brief  EXTI line detection callbacks.
- * @param  GPIO_Pin Specifies the pins connected EXTI line
- * @retval None
- */
-void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
-
-	if (RF_DR_Pin == GPIO_Pin) {
-
-		/* Notify the rfRx task */
-		ERfRxInternalMail rfRxInternalMail = ERfRxInternalMail_DataReady;
-		xQueueSendFromISR(rfRxInternalMailQueueHandle, &rfRxInternalMail, NULL);
-
-	}
-
-}
-
-/**
  * @brief  Regular conversion complete callback in non blocking mode
  * @param  hadc pointer to a ADC_HandleTypeDef structure that contains
  *         the configuration information for the specified ADC.
@@ -880,26 +822,23 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc) {
 void StartCanGtkpTask(void const *argument) {
 	/* USER CODE BEGIN 5 */
 
-	/* Wait for telemetry subscription stored on the SD card */
-	canGtkp_WaitSubscriptionFromSdioGtkp();
-
 	/* Start the CAN module */
 	(void) HAL_CAN_Start(&hcan1);
 
 	/* Infinite loop */
 	for (;;) {
 
+		/* Check for new telemetry subscription */
+		(void) canGtkp_HandleNewSubscription();
+
 		/* Check for outgoing messages */
 		canGtkp_HandleOutbox();
 
 		/* Check for incoming messages */
-		canGtkp_HandleInbox();
-
-		/* Check for new telemetry subscription */
-		canGtkp_HandleNewSubscription();
+		(void) canGtkp_HandleInbox();
 
 		/* Report to watchdog */
-		WATCHDOG_CHECKIN(NV_IWDGGTKP_CANGTKP);
+		NOTIFY_WATCHDOG(NV_IWDGGTKP_CANGTKP);
 
 		vTaskDelay(WCU_DEFAULT_TASK_DELAY);
 
@@ -927,10 +866,7 @@ void StartSdioGtkpTask(void const *argument) {
 
 	}
 
-	/* Try loading the telemetry subscription from the SD card */
-	uint32_t nv = sdioGtkp_LoadTelemetrySubscription();
-	/* Notify sdioGtkp of the result */
-	(void) xTaskNotify(sdioGtkpHandle, nv, eSetValueWithOverwrite);
+	(void) sdioGtkp_LoadTelemetrySubscription();
 
 	/* Infinite loop */
 	for (;;) {
@@ -939,7 +875,7 @@ void StartSdioGtkpTask(void const *argument) {
 		sdioGtkp_HandleLogger();
 
 		/* Listen for new telemetry subscription */
-		sdioGtkp_HandleNewSubscription();
+		(void) sdioGtkp_HandleNewSubscription();
 
 		vTaskDelay(WCU_DEFAULT_TASK_DELAY);
 
@@ -1006,16 +942,16 @@ void StartBtRxTask(void const *argument) {
 	/* USER CODE BEGIN StartBtRxTask */
 
 	/* Start listening for incoming data */
-	btRx_StartCircularBufferIdleDetectionRx();
+	(void) btRx_StartCircularBufferIdleDetectionRx();
 
 	/* Infinite loop */
 	for (;;) {
 
 		/* Handle for the message */
-		btRx_HandleCom();
+		(void) btRx_HandleCom();
 
 		/* Report to watchdog */
-		WATCHDOG_CHECKIN(NV_IWDGGTKP_BTRX);
+		NOTIFY_WATCHDOG(NV_IWDGGTKP_BTRX);
 
 		vTaskDelay(WCU_DEFAULT_TASK_DELAY);
 
@@ -1035,19 +971,19 @@ void StartGnssRxTask(void const *argument) {
 	/* USER CODE BEGIN StartGnssRxTask */
 
 	/* Configure the device */
-	gnssRx_DeviceConfig();
+	(void) gnssRx_DeviceConfig();
 
 	/* Start listening for incoming data */
-	gnssRx_StartCircularBufferIdleDetectionRx();
+	(void) gnssRx_StartCircularBufferIdleDetectionRx();
 
 	/* Infinite loop */
 	for (;;) {
 
 		/* Handle for the message */
-		gnssRx_HandleCom();
+		(void) gnssRx_HandleCom();
 
 		/* Report to watchdog */
-		WATCHDOG_CHECKIN(NV_IWDGGTKP_GNSSRX);
+		NOTIFY_WATCHDOG(NV_IWDGGTKP_GNSSRX);
 
 		vTaskDelay(WCU_DEFAULT_TASK_DELAY);
 
@@ -1066,20 +1002,11 @@ void StartGnssRxTask(void const *argument) {
 void StartRfRxTask(void const *argument) {
 	/* USER CODE BEGIN StartRfRxTask */
 
-	/* Configure the device */
-	rfRx_DeviceConfig();
-
-	/* Start the timer */
-	HAL_TIM_Base_Start_IT(&TIM_NEXT_TPMS_ID_HANDLE);
-
 	/* Infinite loop */
 	for (;;) {
 
-		/* Listen for the message */
-		rfRx_HandleCom();
-
 		/* Report to watchdog */
-		WATCHDOG_CHECKIN(NV_IWDGGTKP_RFRX);
+		NOTIFY_WATCHDOG(NV_IWDGGTKP_RFRX);
 
 		vTaskDelay(WCU_DEFAULT_TASK_DELAY);
 
@@ -1099,25 +1026,25 @@ void StartXbeeTxRxTask(void const *argument) {
 	/* USER CODE BEGIN StartXbeeTxRxTask */
 
 	/* Configure the device */
-	xbeeTxRx_DeviceConfig();
+	(void) xbeeTxRx_DeviceConfig();
 
 	/* Start listening for incoming data */
-	xbeeTxRx_StartCircularBufferIdleDetectionRx();
+	(void) xbeeTxRx_StartCircularBufferIdleDetectionRx();
 
 	/* Start the timer */
-	HAL_TIM_Base_Start_IT(&TIM_1s_HANDLE);
+	(void) HAL_TIM_Base_Start_IT(&TIM_1s_HANDLE);
 
 	/* Infinite loop */
 	for (;;) {
 
 		/* Listen for internal communication */
-		xbeeTxRx_HandleInternalMail();
+		(void) xbeeTxRx_HandleInternalMail();
 
 		/* Poll the queue for CAN frames to send */
 		xbeeTxRx_HandleOutgoingR3tpCom();
 
 		/* Report to watchdog */
-		WATCHDOG_CHECKIN(NV_IWDGGTKP_XBEETXRX);
+		NOTIFY_WATCHDOG(NV_IWDGGTKP_XBEETXRX);
 
 		vTaskDelay(WCU_DEFAULT_TASK_DELAY);
 
@@ -1174,12 +1101,6 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 				EXbeeTxRxInternalMail_PeriodElapsed;
 		xQueueSendFromISR(xbeeTxRxInternalMailQueueHandle,
 				&xbeeTxRxInternalMail, NULL);
-
-	} else if (TIM_NEXT_TPMS_ID_INSTANCE == htim->Instance) {
-
-		/* Notify the rfRx task */
-		ERfRxInternalMail rfRxInternalMail = ERfRxInternalMail_PeriodElapsed;
-		xQueueSendFromISR(rfRxInternalMailQueueHandle, &rfRxInternalMail, NULL);
 
 	}
 

@@ -16,10 +16,18 @@ extern UART_HandleTypeDef huart3;
 #define GNSS_UART_INSTANCE  (USART3)
 
 /**
- * @brief Configures the Quectel L26 device
- * @retval None
+ * @brief Error code return value enumeration
  */
-void gnssRx_DeviceConfig(void);
+typedef enum EGnssRxRet {
+	EGnssRxRet_Ok = 0,
+	EGnssRxRet_Error
+} EGnssRxRet;
+
+/**
+ * @brief Configures the Quectel L26 device
+ * @retval EGnssRxRet Status
+ */
+EGnssRxRet gnssRx_DeviceConfig(void);
 
 /**
  * @brief Starts listening for incoming UART transmissions
@@ -29,8 +37,8 @@ EUartCirBufRet gnssRx_StartCircularBufferIdleDetectionRx(void);
 
 /**
  * @brief Handles the GNSS message
- * @retval None
+ * @retval Status
  */
-void gnssRx_HandleCom(void);
+EGnssRxRet gnssRx_HandleCom(void);
 
 #endif /* __WCU_GNSSRX_CALLS_H_ */

@@ -22,8 +22,6 @@
 SUartCirBuf gBtRxCircularBuffer;
 
 extern osThreadId btRxHandle;
-extern osMutexId crcMutexHandle;
-extern CRC_HandleTypeDef hcrc;
 
 static void btRx_CircularBufferIdleCallback(void);
 
@@ -48,9 +46,11 @@ EUartCirBufRet btRx_StartCircularBufferIdleDetectionRx(void) {
 
 /**
  * @brief Handles the BT message
- * @retval None
+ * @retval EBtRxRet Status
  */
-void btRx_HandleCom(void) {
+EBtRxRet btRx_HandleCom(void) {
+
+	EBtRxRet status = EBtRxRet_Ok;
 
 	/* Wait for notification from idle line detection callback */
 	if (0UL < ulTaskNotifyTake(pdTRUE, 0)) {
@@ -63,85 +63,93 @@ void btRx_HandleCom(void) {
 		if (R3TP_VER0_VER_BYTE != rxBufTbl[0]) {
 
 			LogPrint("Invalid VER/RES/SEQ in btRx");
-			return;
+			status = EBtRxRet_Error;
 
 		}
 
-		/* Validate end sequence */
-		if ((R3TP_END_SEQ_LOW_BYTE != rxBufTbl[R3TP_VER0_FRAME_SIZE - 2U])
-				|| (R3TP_END_SEQ_HIGH_BYTE
-						!= rxBufTbl[R3TP_VER0_FRAME_SIZE - 1U])) {
+		if(EBtRxRet_Ok == status) {
 
-			LogPrint("Invalid END SEQ in btRx");
-			return;
+			/* Validate end sequence */
+			if ((R3TP_END_SEQ_LOW_BYTE != rxBufTbl[R3TP_VER0_FRAME_SIZE - 2U])
+					|| (R3TP_END_SEQ_HIGH_BYTE
+							!= rxBufTbl[R3TP_VER0_FRAME_SIZE - 1U])) {
+
+				LogPrint("Invalid END SEQ in btRx");
+				status = EBtRxRet_Error;
+
+			}
 
 		}
 
-		uint16_t readCrc;
-		/* Read the checksum - note that the checksum is transmitted as little endian */
-		readCrc = _reinterpret16bits(rxBufTbl[3], rxBufTbl[2]);
 
-		/* Clear the checksum field */
-		rxBufTbl[2] = 0x00U;
-		rxBufTbl[3] = 0x00U;
+		if(EBtRxRet_Ok == status) {
 
-		uint16_t calculatedCrc;
-		/* Acquire crcMutex */
-		if (osOK == osMutexWait(crcMutexHandle, portMAX_DELAY)) {
+			/* Read the checksum - note that the checksum is transmitted as little endian */
+			uint16_t readCrc = _reinterpret16bits(rxBufTbl[3], rxBufTbl[2]);
+
+			/* Clear the checksum field */
+			rxBufTbl[2] = 0x00U;
+			rxBufTbl[3] = 0x00U;
+
+			/* Acquire the semaphore */
+			CRC_SEM_WAIT();
 
 			/* Calculate the CRC */
-			calculatedCrc =
-					_bits0_15(
-							HAL_CRC_Calculate(&hcrc, (uint32_t*)rxBufTbl, R3TP_VER0_FRAME_SIZE / 4U));
+			uint16_t calculatedCrc = GET_CRC(rxBufTbl, R3TP_VER0_FRAME_SIZE);
 
-			/* Release crcMutex */
-			(void) osMutexRelease(crcMutexHandle);
+			/* Release the semaphore */
+			CRC_SEM_POST();
 
-		} else {
+			/* Validate the CRC */
+			if (readCrc != calculatedCrc) {
 
-			/* If failed to acquire crcMutex */
-			LogPrint("crcMutex timeout in btRx");
-			return;
+				LogPrint("Invalid CRC in btRx");
+				status = EBtRxRet_Error;
 
-		}
-
-		/* Validate the CRC */
-		if (readCrc != calculatedCrc) {
-
-			LogPrint("Invalid CRC in btRx");
-			return;
+			}
 
 		}
 
-		static SCanFrame canFrame;
-		/* Read the CAN ID - note that the CAN ID is transmitted as little endian */
-		canFrame.TxHeader.StdId = _reinterpret32bits(rxBufTbl[7], rxBufTbl[6],
-				rxBufTbl[5], rxBufTbl[4]);
-		/* Read the DLC */
-		canFrame.TxHeader.DLC = (uint32_t) rxBufTbl[8];
-		/* Assert valid DLC */
-		if (CAN_PAYLOAD_SIZE < canFrame.TxHeader.DLC) {
+		SCanFrame canFrame;
 
-			LogPrint("Invalid DLC in btRx");
-			return;
+		if(EBtRxRet_Ok == status) {
 
-		}
+			/* Read the CAN ID - note that the CAN ID is transmitted as little endian */
+			canFrame.TxHeader.StdId = _reinterpret32bits(rxBufTbl[7], rxBufTbl[6],
+					rxBufTbl[5], rxBufTbl[4]);
+			/* Read the DLC */
+			canFrame.TxHeader.DLC = (uint32_t) rxBufTbl[8];
+			/* Assert valid DLC */
+			if (CAN_PAYLOAD_SIZE < canFrame.TxHeader.DLC) {
 
-		/* Read the payload */
-		for (uint8_t i = 0; i < canFrame.TxHeader.DLC; i += 1U) {
+				LogPrint("Invalid DLC in btRx");
+				status = EBtRxRet_Error;
 
-			canFrame.PayloadTbl[i] = rxBufTbl[9U + i];
+			}
 
 		}
 
-		/* Configure the remaining CAN Tx header fields */
-		canFrame.TxHeader.RTR = CAN_RTR_DATA;
-		canFrame.TxHeader.TransmitGlobalTime = DISABLE;
+		if(EBtRxRet_Ok == status) {
 
-		/* Transmit the frame */
-		AddToCanTxQueue(&canFrame, "btRx failed to send to canTxQueue");
+			/* Read the payload */
+			for (uint8_t i = 0; i < canFrame.TxHeader.DLC; i += 1U) {
+
+				canFrame.PayloadTbl[i] = rxBufTbl[9U + i];
+
+			}
+
+			/* Configure the remaining CAN Tx header fields */
+			canFrame.TxHeader.RTR = CAN_RTR_DATA;
+			canFrame.TxHeader.TransmitGlobalTime = DISABLE;
+
+			/* Transmit the frame */
+			AddToCanTxQueue(&canFrame, "btRx failed to send to canTxQueue");
+
+		}
 
 	}
+
+	return status;
 
 }
 

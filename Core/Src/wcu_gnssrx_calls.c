@@ -35,9 +35,11 @@ static void gnssRx_Send_GPS_STATUS(SGnssData *gnssDataPtr);
 
 /**
  * @brief Configures the Quectel L26 device
- * @retval None
+ * @retval EGnssRxRet Status
  */
-void gnssRx_DeviceConfig(void) {
+EGnssRxRet gnssRx_DeviceConfig(void) {
+
+	EGnssRxRet status = EGnssRxRet_Ok;
 
 	/* Wait for the device to turn on and set up */
 	vTaskDelay(pdMS_TO_TICKS(1000));
@@ -49,6 +51,7 @@ void gnssRx_DeviceConfig(void) {
 					sizeof(PMTK_SET_POS_FIX), 1000)) {
 
 		LogPrint("Failed to send PMTK_SET_POS_FIX string in gnssRx");
+		status = EGnssRxRet_Error;
 
 	}
 
@@ -61,8 +64,11 @@ void gnssRx_DeviceConfig(void) {
 
 		LogPrint(
 				"Failed to send PMTK_API_SET_GNSS_SEARCH_MODE string in gnssRx");
+		status = EGnssRxRet_Error;
 
 	}
+
+	return status;
 
 }
 
@@ -87,14 +93,16 @@ EUartCirBufRet gnssRx_StartCircularBufferIdleDetectionRx(void) {
 
 /**
  * @brief Listens for and handles the GNSS message
- * @retval None
+ * @retval EGnssRxRet Status
  */
-void gnssRx_HandleCom(void) {
+EGnssRxRet gnssRx_HandleCom(void) {
+
+	EGnssRxRet status = EGnssRxRet_Ok;
 
 	/* Wait for notification from idle line detection callback */
 	if (0UL < ulTaskNotifyTake(pdTRUE, 0)) {
 
-		static uint8_t rxBufTbl[GNSSRX_READ_BUFSIZE ];
+		static uint8_t rxBufTbl[GNSSRX_READ_BUFSIZE];
 		/* Read the data from the circular buffer */
 		uartCirBuf_read(&gGnssRxCircularBuffer, rxBufTbl, GNSSRX_READ_BUFSIZE);
 
@@ -121,6 +129,7 @@ void gnssRx_HandleCom(void) {
 		case EGnssDataStatus_Error: /* If the parser failed */
 
 			LogPrint("parseMessage failed in gnssRx");
+			status = EGnssRxRet_Error;
 			break;
 
 		default:
@@ -130,6 +139,8 @@ void gnssRx_HandleCom(void) {
 		}
 
 	}
+
+	return status;
 
 }
 

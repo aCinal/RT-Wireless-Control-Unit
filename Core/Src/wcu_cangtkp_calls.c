@@ -20,45 +20,6 @@ extern osMessageQId canSubQueueHandle;
 extern osMessageQId sdioSubQueueHandle;
 
 /**
- * @brief Waits for SDIO gatekeeper to test if there is a valid telemetry subscription stored on the SD card
- * @retval None
- */
-void canGtkp_WaitSubscriptionFromSdioGtkp(void) {
-
-	uint32_t nv;
-	/* Wait for sdioGtkp to notify the task if there is a valid subscription stored on the SD card */
-	if (pdTRUE
-			== xTaskNotifyWait(CLEAR_NO_BITS_ON_ENTRY, CLEAR_ALL_BITS_ON_EXIT,
-					&nv, pdMS_TO_TICKS(1000))) {
-
-		/* Assert valid notification value */
-		if (nv <= 28UL) {
-
-			uint32_t subscrTbl[R3TP_VER1_MAX_FRAME_NUM];
-
-			for (uint32_t i = 0; i < nv; i += 1UL) {
-
-				if (pdPASS
-						!= xQueueReceive(canSubQueueHandle, &(subscrTbl[i]),
-								0)) {
-
-					LogPrint("canGtkp failed to receive from canSubQueue");
-					return;
-
-				}
-
-			}
-
-			/* Set the CAN filters */
-			setCanFilterList(&hcan1, subscrTbl, nv);
-
-		}
-
-	}
-
-}
-
-/**
  * @brief Handles the CAN outgoing messages
  * @retval None
  */
@@ -80,9 +41,11 @@ void canGtkp_HandleOutbox(void) {
 
 /**
  * @brief Handles the CAN incoming messages
- * @retval None
+ * @retval EWcuCanGtkpRet Status
  */
-void canGtkp_HandleInbox(void) {
+EWcuCanGtkpRet canGtkp_HandleInbox(void) {
+
+	EWcuCanGtkpRet status = EWcuCanGtkpRet_Ok;
 
 	/* Check for incoming messages */
 	if (0UL < HAL_CAN_GetRxFifoFillLevel(&hcan1, CAN_RX_FIFO0)) {
@@ -95,20 +58,25 @@ void canGtkp_HandleInbox(void) {
 		if (pdPASS != xQueueSend(canRxQueueHandle, &frBuf, 0)) {
 
 			LogPrint("canGtkp failed to send to canRxQueue");
+			status = EWcuCanGtkpRet_Error;
 
 		}
 
 	}
 
+	return status;
+
 }
 
 /**
  * @brief Handles setting CAN filters according to the new telemetry subscription
- * @retval None
+ * @retval EWcuCanGtkpRet Status
  */
-void canGtkp_HandleNewSubscription(void) {
+EWcuCanGtkpRet canGtkp_HandleNewSubscription(void) {
 
-	uint32_t nv; /* Buffer to pass the notification value out of the xTaskNotifyWait function */
+	EWcuCanGtkpRet status = EWcuCanGtkpRet_Ok;
+
+	uint32_t nv;
 	/* Check for new telemetry subscription notification */
 	if (pdTRUE
 			== xTaskNotifyWait(CLEAR_NO_BITS_ON_ENTRY, CLEAR_ALL_BITS_ON_EXIT,
@@ -121,15 +89,21 @@ void canGtkp_HandleNewSubscription(void) {
 					!= xQueueReceive(canSubQueueHandle, &(subscrTbl[i]), 0)) {
 
 				LogPrint("canGtkp failed to receive from canSubQueue");
-				continue;
+				status = EWcuCanGtkpRet_Error;
 
 			}
 
 		}
 
-		/* Set the filters */
-		setCanFilterList(&hcan1, subscrTbl, nv);
+		if(EWcuCanGtkpRet_Ok == status) {
+
+			/* Set the filters */
+			setCanFilterList(&hcan1, subscrTbl, nv);
+
+		}
 
 	}
+
+	return status;
 
 }

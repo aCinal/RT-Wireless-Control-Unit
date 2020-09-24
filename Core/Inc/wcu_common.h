@@ -8,11 +8,15 @@
 #define __WCU_COMMON_H_
 
 #include "rt12e_libs_can.h"
+#include "rt12e_libs_generic.h"
 
 #include "cmsis_os.h"
+#include <stdint.h>
 
 /* External variables -------------------------------------------------------------------------- */
 extern osMessageQId canTxQueueHandle;
+extern osMutexId crcMutexHandle;
+extern CRC_HandleTypeDef hcrc;
 
 /* Exported typedefs -------------------------------------------------------------------------- */
 typedef float float32_t;
@@ -39,7 +43,7 @@ void LogPrint(const char messagePayloadTbl[]);
 /* Exported macros -------------------------------------------------------------------------- */
 
 /**
- * @brief Pushes a CAN frame to the canTxQueue
+ * @brief Push a CAN frame to the canTxQueue
  */
 #define AddToCanTxQueue(canFramePtr, errMsgTbl) do { \
 	/* Push the frame to the queue */ \
@@ -48,5 +52,20 @@ void LogPrint(const char messagePayloadTbl[]);
 		LogPrint(errMsgTbl); \
 	} \
 } while(0)
+
+/**
+ * @brief Acquire the CRC semaphore
+ */
+#define CRC_SEM_WAIT() ((void) osMutexWait(crcMutexHandle, osWaitForever))
+
+/**
+ * @brief Release the CRC semaphore
+ */
+#define CRC_SEM_POST() ((void) osMutexRelease(crcMutexHandle))
+
+/**
+ * @brief Calculate the CRC
+ */
+#define GET_CRC(payload, bytes) (_bits0_15(HAL_CRC_Calculate(&hcrc, (uint32_t*)payload, bytes / 4U)))
 
 #endif /* __WCU_COMMON_H_ */

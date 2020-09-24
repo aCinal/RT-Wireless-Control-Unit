@@ -8,10 +8,12 @@
 #define __WCU_CANGTKP_CALLS_H_
 
 /**
- * @brief Waits for SDIO gatekeeper to test if there is a valid telemetry subscription stored on the SD card
- * @retval None
+ * @brief Error code return value enumeration
  */
-void canGtkp_WaitSubscriptionFromSdioGtkp(void);
+typedef enum EWcuCanGtkpRet {
+	EWcuCanGtkpRet_Ok = 0,
+	EWcuCanGtkpRet_Error
+} EWcuCanGtkpRet;
 
 /**
  * @brief Handles the CAN outgoing messages
@@ -21,14 +23,14 @@ void canGtkp_HandleOutbox(void);
 
 /**
  * @brief Handles the CAN incoming messages
- * @retval None
+ * @retval EWcuCanGtkpRet Status
  */
-void canGtkp_HandleInbox(void);
+EWcuCanGtkpRet canGtkp_HandleInbox(void);
 
 /**
  * @brief Handles setting CAN filters according to the new telemetry subscription
- * @retval None
+ * @retval EWcuCanGtkpRet Status
  */
-void canGtkp_HandleNewSubscription(void);
+EWcuCanGtkpRet canGtkp_HandleNewSubscription(void);
 
 #endif /* __WCU_CANGTKP_CALLS_H_ */
