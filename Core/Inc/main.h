@@ -70,8 +70,8 @@ void Error_Handler(void);
 #define XBEE_UART3_RX_GPIO_Port GPIOA
 #define RF_SPI1_CSN_Pin GPIO_PIN_4
 #define RF_SPI1_CSN_GPIO_Port GPIOA
-#define RF_SP1_SCK_Pin GPIO_PIN_5
-#define RF_SP1_SCK_GPIO_Port GPIOA
+#define RF_SPI1_SCK_Pin GPIO_PIN_5
+#define RF_SPI1_SCK_GPIO_Port GPIOA
 #define RF_SPI1_MISO_Pin GPIO_PIN_6
 #define RF_SPI1_MISO_GPIO_Port GPIOA
 #define RF_SPI1_MOSI_Pin GPIO_PIN_7
