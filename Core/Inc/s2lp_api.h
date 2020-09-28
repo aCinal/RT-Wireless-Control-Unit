@@ -88,7 +88,7 @@ typedef enum ES2lpApiGpioSignal {
 } ES2lpApiGpioSignal;
 
 /**
- * @brief S2-LP charge pump current enumeration
+ * @brief Charge pump current enumeration
  */
 typedef enum ES2lpApiIcp {
 	ES2lpApiIcp_120uA = 0,
@@ -98,17 +98,17 @@ typedef enum ES2lpApiIcp {
 } ES2lpApiIcp;
 
 /**
- * @brief S2-LP base frequency settings structure
+ * @brief Base frequency configuration structure
  * @note f_base = (f_xo * SYNT) / 2^(BANDSELECT + REFDIV + 21)
  */
-typedef struct SS2lpApiBaseFrequencySettings {
+typedef struct SS2lpApiBaseFrequencyConfig {
 	BIT_FIELD(SYNT, 28);
 	BIT_FIELD(BANDSELECT, 1);
 	BIT_FIELD(REFDIV, 1);
-} SS2lpApiBaseFrequencySettings;
+} SS2lpApiBaseFrequencyConfig;
 
 /**
- * @brief S2-LP modulation type enumeration
+ * @brief Modulation type enumeration
  */
 typedef enum ES2lpApiModulationType {
 	ES2lpApiModulationType_2_FSK = 0,
@@ -122,7 +122,122 @@ typedef enum ES2lpApiModulationType {
 	ES2lpApiModulationType_4_GFSK_BT_0_5
 } ES2lpApiModulationType;
 
+/**
+ * @brief Carrier sense mode enumeration
+ */
+typedef enum ES2lpApiCarrierSenseMode {
+	ES2lpApiCarrierSenseMode_Static = 0,
+	ES2lpApiCarrierSenseMode_Dynamic_6db,
+	ES2lpApiCarrierSenseMode_Dynamic_12db,
+	ES2lpApiCarrierSenseMode_Dynamic_18db
+} ES2lpApiCarrierSenseMode;
+
+/**
+ * @brief Packet format enumeration mode
+ */
+typedef enum ES2lpApiPacketFormat {
+	ES2lpApiPacketFormat_Basic = 0,
+	ES2lpApiPacketFormat_802_15_4g,
+	ES2lpApiPacketFormat_UART_OTA,
+	ES2lpApiPacketFormat_Stack
+} ES2lpApiPacketFormat;
+
+/**
+ * @brief RX mode enumeration
+ */
+typedef enum ES2lpApiRxMode {
+	ES2lpApiRxMode_NormalMode = 0,
+	ES2lpApiRxMode_DirectThroughFifo,
+	ES2lpApiRxMode_DirectThroughGpio
+} ES2lpApiRxMode;
+
+/**
+ * @brief CRC mode enumeration
+ */
+typedef enum ES2lpApiCrcMode {
+	ES2lpApiCrcMode_NoCRCField = 0,
+	ES2lpApiCrcMode_Poly0x07,
+	ES2lpApiCrcMode_Poly0x8005,
+	ES2lpApiCrcMode_Poly0x1021,
+	ES2lpApiCrcMode_Poly0x864CBF,
+	ES2lpApiCrcMode_Poly0x04C011BB7
+} ES2lpApiCrcMode;
+
+/**
+ * @brief Packet control configuration structure
+ */
+typedef struct SS2lpApiPacketControlConfig {
+	BIT_FIELD(SYNC_LEN, 6);          /* The number of bits used for the SYNC field in the packet */
+	BIT_FIELD(PREAMBLE_LEN, 10);     /* Number of '01' or '10' of the preamble of the packet */
+	BIT_FIELD(LEN_WID, 1);           /* The number of bytes used for the length field: 0: 1 byte, 1: 2 bytes */
+	BIT_FIELD(ADDRESS_LEN, 1);       /* 1: include the ADDRESS field in the packet */
+	ES2lpApiPacketFormat PCKT_FRMT;  /* Packet format */
+	ES2lpApiRxMode RX_MODE;          /* RX mode */
+	BIT_FIELD(BYTE_SWAP, 1);         /* Send theFIFO bytes in 0: MSBit first, 1: LSBit first*/
+	BIT_FIELD(PREAMBLE_SEL, 2);      /* Select the preamble pattern (Table 52. in S2-LP datasheet)  */
+	BIT_FIELD(MANCHESTER_EN, 1);     /* Enable Manchester encoding */
+	BIT_FIELD(FIX_VAR_LEN, 1);       /* Packet length mode 0: fixed, 1: variable */
+	ES2lpApiCrcMode CRC_MODE;
+	THalfWord PCKTLEN;
+	TWord SYNC;
+	TByte PCKT_PSTMBL;
+} SS2lpApiPacketControlConfig;
+
 /*---------------------------------------------- Function prototypes ----------------------------------------------*/
+
+/**
+ * @brief Send the S2-LP to TX state for transmission
+ * @retval ES2lpApiRet Status
+ */
+ES2lpApiRet S2lpApi_GoToTxState(void);
+
+/**
+ * @brief Send the S2-LP to RX state for reception
+ * @retval ES2lpApiRet Status
+ */
+ES2lpApiRet S2lpApi_GoToRxState(void);
+
+/**
+ * @brief Go to READY state
+ * @retval ES2lpApiRet Status
+ */
+ES2lpApiRet S2lpApi_GoToReadyState(void);
+
+/**
+ * @brief Go to STANDBY state
+ * @retval ES2lpApiRet Status
+ */
+ES2lpApiRet S2lpApi_GoToStandbyState(void);
+
+/**
+ * @brief Go to SLEEP state
+ * @retval ES2lpApiRet Status
+ */
+ES2lpApiRet S2lpApi_GoToSleepState(void);
+
+/**
+ * @brief Exit from TX or RX states and go to READY state
+ * @retval ES2lpApiRet Status
+ */
+ES2lpApiRet S2lpApi_AbortTransmission(void);
+
+/**
+ * @brief Reset the S2-LP state machine and registers values
+ * @retval ES2lpApiRet Status
+ */
+ES2lpApiRet S2lpApi_Reset(void);
+
+/**
+ * @brief Clean the RX FIFO
+ * @retval ES2lpApiRet Status
+ */
+ES2lpApiRet S2lpApi_FlushRxFifo(void);
+
+/**
+ * @brief Clean the TX FIFO
+ * @retval ES2lpApiRet Status
+ */
+ES2lpApiRet S2lpApi_FlushTxFifo(void);
 
 /**
  * @brief Specify GPIO I/O signal
@@ -145,21 +260,7 @@ ES2lpApiRet S2lpApi_SetChargePumpCurrent(ES2lpApiIcp icp);
  * @param config Configuration structure
  * @retval ES2lpApiRet Status
  */
-ES2lpApiRet S2lpApi_SetBaseFrequency(SS2lpApiBaseFrequencySettings config);
-
-/**
- * @brief Set intermediate frequency for analog RF synthesizer
- * @param ifOffsetAna Value to write to register IF_OFFSET_ANA
- * @retval ES2lpApiRet Status
- */
-ES2lpApiRet S2lpApi_SetIntFreqForAnalogRFSynth(TByte ifOffsetAna);
-
-/**
- * @brief Set intermediate frequency for digital shift-to-baseband circuits
- * @param ifOffsetAna Value to write to register IF_OFFSET_DIG
- * @retval ES2lpApiRet Status
- */
-ES2lpApiRet S2lpApi_SetIntFreqForDigitalShiftToBbCircuits(TByte ifOffsetDig);
+ES2lpApiRet S2lpApi_SetBaseFrequency(SS2lpApiBaseFrequencyConfig config);
 
 /**
  * @brief Select the RF channel
@@ -189,6 +290,43 @@ ES2lpApiRet S2lpApi_SetDataRate(TWord mantissa, TByte exponent);
  * @retval ES2lpApiRet Status
  */
 ES2lpApiRet S2lpApi_SetModulationType(ES2lpApiModulationType type);
+
+/**
+ * @brief Set the bandwidth of the receiver channel filter
+ * @param mantissa 4-bit mantissa value of the receiver channel filter
+ * @param exponent 4-bit exponent value of the receiver channel filter
+ * @retval ES2lpApiRet Status
+ */
+ES2lpApiRet S2lpApi_SetRxChannelFilterBandwidth(TByte mantissa, TByte exponent);
+
+/**
+ * @brief Set the gain of the RSSI filter
+ * @param gain 4-bit gain value
+ * @retval ES2lpApiRet Status
+ */
+ES2lpApiRet S2lpApi_SetRssiFilterGain(TByte gain);
+
+/**
+ * @brief Select carrier sense mode
+ * @param mode Carrier sense mode
+ * @retval ES2lpApiRet Status
+ */
+ES2lpApiRet S2lpApi_SelectCarrierSenseMode(ES2lpApiCarrierSenseMode mode);
+
+/**
+ * @brief Set signal detect threshold
+ * @param rssiThreshold Value to write to register RSSI_TH
+ * @retval ES2lpApiRet Status
+ * @note Threshold in dBm is (RSSI_TH - 146)
+ */
+ES2lpApiRet S2lpApi_SetSignalDetectThreshold(TByte rssiThreshold);
+
+/**
+ * @brief Configure packet control
+ * @param config Configuration structure
+ * @retval ES2lpApiRet Status
+ */
+ES2lpApiRet S2lpApi_ConfigPacketControl(SS2lpApiPacketControlConfig config);
 
 
 #endif /* __S2LP_API_H_ */

@@ -14,6 +14,7 @@
 /*---------------------------------------------- Typedefs ----------------------------------------------*/
 
 typedef uint8_t TByte;
+typedef uint16_t THalfWord;
 typedef uint32_t TWord;
 typedef uint32_t TSize;
 
@@ -27,6 +28,21 @@ typedef enum ES2lpLldRet {
 
 
 /*---------------------------------------------- Defines ----------------------------------------------*/
+
+/* S2-LP command list */
+#define TX_COMMAND                ((TByte) 0x60)
+#define RX_COMMAND                ((TByte) 0x61)
+#define READY_COMMAND             ((TByte) 0x62)
+#define STANDBY_COMMAND           ((TByte) 0x63)
+#define SLEEP_COMMAND             ((TByte) 0x64)
+#define LOCKRX_COMMAND            ((TByte) 0x65)
+#define LOCKTX_COMMAND            ((TByte) 0x66)
+#define SABORT_COMMAND            ((TByte) 0x67)
+#define LDC_RELOAD_COMMAND        ((TByte) 0x68)
+#define SRES_COMMAND              ((TByte) 0x70)
+#define FLUSHRXFIFO_COMMAND       ((TByte) 0x71)
+#define FLUSHTXFIFO_COMMAND       ((TByte) 0x72)
+#define SEQUENCE_UPDATE_COMMAND   ((TByte) 0x73)
 
 /* S2-LP register addresses */
 #define GPIO0_CONF_ADDR           ((TByte) 0x00)

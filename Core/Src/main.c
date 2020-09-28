@@ -30,8 +30,9 @@
 #include "wcu_sdiogtkp_calls.h"
 #include "wcu_btrx_calls.h"
 #include "wcu_gnssrx_calls.h"
-#include "wcu_diagnostic_calls.h"
+#include "wcu_rfrx_calls.h"
 #include "wcu_xbeetxrx_calls.h"
+#include "wcu_diagnostic_calls.h"
 
 /* USER CODE END Includes */
 
@@ -1031,6 +1032,8 @@ void StartGnssRxTask(void const * argument)
 void StartRfRxTask(void const * argument)
 {
   /* USER CODE BEGIN StartRfRxTask */
+	/* Configure the device */
+	(void) rfRx_DeviceConfig();
 
 	/* Infinite loop */
 	for (;;) {
