@@ -133,25 +133,6 @@ typedef enum ES2lpApiCarrierSenseMode {
 } ES2lpApiCarrierSenseMode;
 
 /**
- * @brief Packet format enumeration mode
- */
-typedef enum ES2lpApiPacketFormat {
-	ES2lpApiPacketFormat_Basic = 0,
-	ES2lpApiPacketFormat_802_15_4g,
-	ES2lpApiPacketFormat_UART_OTA,
-	ES2lpApiPacketFormat_Stack
-} ES2lpApiPacketFormat;
-
-/**
- * @brief RX mode enumeration
- */
-typedef enum ES2lpApiRxMode {
-	ES2lpApiRxMode_NormalMode = 0,
-	ES2lpApiRxMode_DirectThroughFifo,
-	ES2lpApiRxMode_DirectThroughGpio
-} ES2lpApiRxMode;
-
-/**
  * @brief CRC mode enumeration
  */
 typedef enum ES2lpApiCrcMode {
@@ -164,24 +145,32 @@ typedef enum ES2lpApiCrcMode {
 } ES2lpApiCrcMode;
 
 /**
- * @brief Packet control configuration structure
+ * @brief Interrupt event enumeration
  */
-typedef struct SS2lpApiPacketControlConfig {
-	BIT_FIELD(SYNC_LEN, 6);          /* The number of bits used for the SYNC field in the packet */
-	BIT_FIELD(PREAMBLE_LEN, 10);     /* Number of '01' or '10' of the preamble of the packet */
-	BIT_FIELD(LEN_WID, 1);           /* The number of bytes used for the length field: 0: 1 byte, 1: 2 bytes */
-	BIT_FIELD(ADDRESS_LEN, 1);       /* 1: include the ADDRESS field in the packet */
-	ES2lpApiPacketFormat PCKT_FRMT;  /* Packet format */
-	ES2lpApiRxMode RX_MODE;          /* RX mode */
-	BIT_FIELD(BYTE_SWAP, 1);         /* Send theFIFO bytes in 0: MSBit first, 1: LSBit first*/
-	BIT_FIELD(PREAMBLE_SEL, 2);      /* Select the preamble pattern (Table 52. in S2-LP datasheet)  */
-	BIT_FIELD(MANCHESTER_EN, 1);     /* Enable Manchester encoding */
-	BIT_FIELD(FIX_VAR_LEN, 1);       /* Packet length mode 0: fixed, 1: variable */
-	ES2lpApiCrcMode CRC_MODE;
-	THalfWord PCKTLEN;
-	TWord SYNC;
-	TByte PCKT_PSTMBL;
-} SS2lpApiPacketControlConfig;
+typedef enum ES2lpApiInterruptEvent {
+	ES2lpApiInterruptEvent_RxDataReady = 0,
+	ES2lpApiInterruptEvent_RxDataDiscarded,
+	ES2lpApiInterruptEvent_TxDataSent,
+	ES2lpApiInterruptEvent_MaxReTxReached,
+	ES2lpApiInterruptEvent_CrcError,
+	ES2lpApiInterruptEvent_TxFifoOverflowUnderflowError,
+	ES2lpApiInterruptEvent_RxFifoOverflowUnderflowError,
+	ES2lpApiInterruptEvent_TxFifoAlmostFull,
+	ES2lpApiInterruptEvent_TxFifoAlmostEmpty,
+	ES2lpApiInterruptEvent_RxFifoAlmostFull,
+	ES2lpApiInterruptEvent_RxFifoAlmostEmpty,
+	ES2lpApiInterruptEvent_MaxNoOfBackOffDuringCca,
+	ES2lpApiInterruptEvent_ValidPreambleDetected,
+	ES2lpApiInterruptEvent_SyncWordDetected,
+	ES2lpApiInterruptEvent_RssiAboveThreshold,
+	ES2lpApiInterruptEvent_WakeUpTimeoutInLdcrMode,
+	ES2lpApiInterruptEvent_Ready,
+	ES2lpApiInterruptEvent_StandbyStateSwitchingInProgress,
+	ES2lpApiInterruptEvent_LowBatteryLevel,
+	ES2lpApiInterruptEvent_PowerOnReset,
+	ES2lpApiInterruptEvent_RxTimerTimeout,
+	ES2lpApiInterruptEvent_SniffTimerTimeout
+} ES2lpApiInterruptEvent;
 
 /*---------------------------------------------- Function prototypes ----------------------------------------------*/
 
@@ -243,10 +232,10 @@ ES2lpApiRet S2lpApi_FlushTxFifo(void);
  * @brief Specify GPIO I/O signal
  * @param gpio GPIO to configure
  * @param mode GPIO mode
- * @param signal GPIO I/O signal
+ * @param sig GPIO I/O signal
  * @retval ES2lpApiRet Status
  */
-ES2lpApiRet S2lpApi_ConfigureGpio(ES2lpApiGpioPin gpio, ES2lpApiGpioMode mode, ES2lpApiGpioSignal signal);
+ES2lpApiRet S2lpApi_ConfigGpio(ES2lpApiGpioPin gpio, ES2lpApiGpioMode mode, ES2lpApiGpioSignal sig);
 
 /**
  * @brief Set charge pump current
@@ -259,6 +248,7 @@ ES2lpApiRet S2lpApi_SetChargePumpCurrent(ES2lpApiIcp icp);
  * @brief Set base frequency
  * @param config Configuration structure
  * @retval ES2lpApiRet Status
+ * @note f_base = (f_xo * SYNT) / 2^(BANDSELECT + REFDIV + 21)
  */
 ES2lpApiRet S2lpApi_SetBaseFrequency(SS2lpApiBaseFrequencyConfig config);
 
@@ -292,28 +282,6 @@ ES2lpApiRet S2lpApi_SetDataRate(TWord mantissa, TByte exponent);
 ES2lpApiRet S2lpApi_SetModulationType(ES2lpApiModulationType type);
 
 /**
- * @brief Set the bandwidth of the receiver channel filter
- * @param mantissa 4-bit mantissa value of the receiver channel filter
- * @param exponent 4-bit exponent value of the receiver channel filter
- * @retval ES2lpApiRet Status
- */
-ES2lpApiRet S2lpApi_SetRxChannelFilterBandwidth(TByte mantissa, TByte exponent);
-
-/**
- * @brief Set the gain of the RSSI filter
- * @param gain 4-bit gain value
- * @retval ES2lpApiRet Status
- */
-ES2lpApiRet S2lpApi_SetRssiFilterGain(TByte gain);
-
-/**
- * @brief Select carrier sense mode
- * @param mode Carrier sense mode
- * @retval ES2lpApiRet Status
- */
-ES2lpApiRet S2lpApi_SelectCarrierSenseMode(ES2lpApiCarrierSenseMode mode);
-
-/**
  * @brief Set signal detect threshold
  * @param rssiThreshold Value to write to register RSSI_TH
  * @retval ES2lpApiRet Status
@@ -322,11 +290,63 @@ ES2lpApiRet S2lpApi_SelectCarrierSenseMode(ES2lpApiCarrierSenseMode mode);
 ES2lpApiRet S2lpApi_SetSignalDetectThreshold(TByte rssiThreshold);
 
 /**
- * @brief Configure packet control
- * @param config Configuration structure
+ * @brief Set a fixed packet length
+ * @param length Packet length
  * @retval ES2lpApiRet Status
  */
-ES2lpApiRet S2lpApi_ConfigPacketControl(SS2lpApiPacketControlConfig config);
+ES2lpApiRet S2lpApi_SetPacketLength(THalfWord length);
+
+/**
+ * @brief Enable/disable Manchester encoding
+ * @param enable True to enable Manchester encoding, false otherwise
+ * @retval ES2lpApiRet Status
+ */
+ES2lpApiRet S2lpApi_EnableManchester(bool enable);
+
+/**
+ * @brief Configure CRC calculation
+ * @param mode CRC mode
+ * @retval ES2lpApiRet Status
+ */
+ES2lpApiRet S2lpApi_ConfigCrc(ES2lpApiCrcMode mode);
+
+/**
+ * @brief Set synchronization word
+ * @param sync Synchronization word
+ * @retval ES2lpApiRet Status
+ */
+ES2lpApiRet S2lpApi_SetSyncWord(TWord sync);
+
+/**
+ * @brief Read the RSSI level captured at the end of the SYNC word detection of the received packet
+ * @param rssiPtr Buffer to pass the RSSI value out of the function
+ * @retval ES2lpApiRet Status
+ */
+ES2lpApiRet S2lpApi_ReadRssi(TByte* rssiPtr);
+
+/**
+ * @brief Enable/disable IRQ generation on a given event
+ * @param event Interrupt event
+ * @param enable True to enable IRQ generation, false otherwise
+ * @retval ES2lpApiRet Status
+ */
+ES2lpApiRet S2lpApi_EnableInterrupt(ES2lpApiInterruptEvent event, bool enable);
+
+/**
+ * @brief Test if a given interrupt event occured
+ * @param event Interrupt event
+ * @param booleanPtr Buffer to pass the Boolean value out of the function
+ * @retval ES2lpApiRet Status
+ */
+ES2lpApiRet S2lpApi_TestInterrupt(ES2lpApiInterruptEvent event, bool* booleanPtr);
+
+/**
+ * @brief Read RX payload
+ * @param bufPtr Buffer to pass the payload out of the function
+ * @param numOfBytes Number of bytes to read
+ * @retval ES2lpApiRet Status
+ */
+ES2lpApiRet S2lpApi_ReadRxPayload(TByte* bufPtr, TSize numOfBytes);
 
 
 #endif /* __S2LP_API_H_ */

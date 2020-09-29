@@ -172,6 +172,7 @@ typedef enum ES2lpLldRet {
 #define IRQ_STATUS2_ADDR          ((TByte) 0xFB)
 #define IRQ_STATUS1_ADDR          ((TByte) 0xFC)
 #define IRQ_STATUS0_ADDR          ((TByte) 0xFD)
+#define FIFO_ADDR                 ((TByte) 0xFF)
 
 /* S2-LP default register values */
 #define GPIO0_CONF_DEFAULT        ((TByte) 0x0A)
