@@ -17,7 +17,7 @@
 /**
  * @brief Structure facilitating communication with the CAN peripheral gatekeeper
  */
-typedef struct {
+typedef struct SCanFrame {
 	CAN_TxHeaderTypeDef TxHeader;          /* Tx header */
 	CAN_RxHeaderTypeDef RxHeader;          /* Rx header */
 	uint8_t PayloadTbl[CAN_PAYLOAD_SIZE];  /* Payload */

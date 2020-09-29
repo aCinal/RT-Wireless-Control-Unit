@@ -1476,122 +1476,155 @@ bool *booleanPtr) {
 
 	if (ES2lpApiRet_Ok == status) {
 
-		/* Test the interrupt status bit */
+		/* Test the interrupt status bit and clear it */
 		switch (event) {
 
 		case ES2lpApiInterruptEvent_RxDataReady:
 
 			*booleanPtr = (reg & 0x01) ? true : false;
+			SET_BITS(reg, 0x01, 0x00);
 			break;
 
 		case ES2lpApiInterruptEvent_RxDataDiscarded:
 
 			*booleanPtr = (reg & 0x02) ? true : false;
+			SET_BITS(reg, 0x02, 0x00);
 			break;
 
 		case ES2lpApiInterruptEvent_TxDataSent:
 
 			*booleanPtr = (reg & 0x04) ? true : false;
+			SET_BITS(reg, 0x04, 0x00);
 			break;
 
 		case ES2lpApiInterruptEvent_MaxReTxReached:
 
 			*booleanPtr = (reg & 0x08) ? true : false;
+			SET_BITS(reg, 0x08, 0x00);
 			break;
 
 		case ES2lpApiInterruptEvent_CrcError:
 
 			*booleanPtr = (reg & 0x10) ? true : false;
+			SET_BITS(reg, 0x10, 0x00);
 			break;
 
 		case ES2lpApiInterruptEvent_TxFifoOverflowUnderflowError:
 
 			*booleanPtr = (reg & 0x20) ? true : false;
+			SET_BITS(reg, 0x20, 0x00);
 			break;
 
 		case ES2lpApiInterruptEvent_RxFifoOverflowUnderflowError:
 
 			*booleanPtr = (reg & 0x40) ? true : false;
+			SET_BITS(reg, 0x40, 0x00);
 			break;
 
 		case ES2lpApiInterruptEvent_TxFifoAlmostFull:
 
 			*booleanPtr = (reg & 0x80) ? true : false;
+			SET_BITS(reg, 0x80, 0x00);
 			break;
 
 		case ES2lpApiInterruptEvent_TxFifoAlmostEmpty:
 
 			*booleanPtr = (reg & 0x01) ? true : false;
+			SET_BITS(reg, 0x01, 0x00);
 			break;
 
 		case ES2lpApiInterruptEvent_RxFifoAlmostFull:
 
 			*booleanPtr = (reg & 0x02) ? true : false;
+			SET_BITS(reg, 0x02, 0x00);
 			break;
 
 		case ES2lpApiInterruptEvent_RxFifoAlmostEmpty:
 
 			*booleanPtr = (reg & 0x04) ? true : false;
+			SET_BITS(reg, 0x04, 0x00);
 			break;
 
 		case ES2lpApiInterruptEvent_MaxNoOfBackOffDuringCca:
 
 			*booleanPtr = (reg & 0x08) ? true : false;
+			SET_BITS(reg, 0x08, 0x00);
 			break;
 
 		case ES2lpApiInterruptEvent_ValidPreambleDetected:
 
 			*booleanPtr = (reg & 0x10) ? true : false;
+			SET_BITS(reg, 0x10, 0x00);
 			break;
 
 		case ES2lpApiInterruptEvent_SyncWordDetected:
 
 			*booleanPtr = (reg & 0x20) ? true : false;
+			SET_BITS(reg, 0x20, 0x00);
 			break;
 
 		case ES2lpApiInterruptEvent_RssiAboveThreshold:
 
 			*booleanPtr = (reg & 0x40) ? true : false;
+			SET_BITS(reg, 0x40, 0x00);
 			break;
 
 		case ES2lpApiInterruptEvent_WakeUpTimeoutInLdcrMode:
 
 			*booleanPtr = (reg & 0x80) ? true : false;
+			SET_BITS(reg, 0x80, 0x00);
 			break;
 
 		case ES2lpApiInterruptEvent_Ready:
 
 			*booleanPtr = (reg & 0x01) ? true : false;
+			SET_BITS(reg, 0x01, 0x00);
 			break;
 
 		case ES2lpApiInterruptEvent_StandbyStateSwitchingInProgress:
 
 			*booleanPtr = (reg & 0x02) ? true : false;
+			SET_BITS(reg, 0x02, 0x00);
 			break;
 
 		case ES2lpApiInterruptEvent_LowBatteryLevel:
 
 			*booleanPtr = (reg & 0x04) ? true : false;
+			SET_BITS(reg, 0x04, 0x00);
 			break;
 
 		case ES2lpApiInterruptEvent_PowerOnReset:
 
 			*booleanPtr = (reg & 0x08) ? true : false;
+			SET_BITS(reg, 0x08, 0x00);
 			break;
 
 		case ES2lpApiInterruptEvent_RxTimerTimeout:
 
 			*booleanPtr = (reg & 0x10) ? true : false;
+			SET_BITS(reg, 0x10, 0x00);
 			break;
 
 		case ES2lpApiInterruptEvent_SniffTimerTimeout:
 
 			*booleanPtr = (reg & 0x20) ? true : false;
+			SET_BITS(reg, 0x20, 0x00);
 			break;
 
 		default:
 
 			break;
+
+		}
+
+	}
+
+	if (ES2lpApiRet_Ok == status) {
+
+		/* Write back to register IRQ_MASKx */
+		if (ES2lpLldRet_Ok != S2lpLld_WriteReg(addr, &reg, 1)) {
+
+			status = ES2lpApiRet_Error;
 
 		}
 
