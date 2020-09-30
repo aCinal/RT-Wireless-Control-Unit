@@ -226,7 +226,7 @@ void USART1_IRQHandler(void) {
 	/* USER CODE BEGIN USART1_IRQn 0 */
 
 	/* Call the ring buffer handler */
-	UartRingBuf_IrqHandlerCallback(&gBtRxRingBuffer);
+	(void) UartRingBuf_IrqHandlerCallback(&gBtRxRingBuffer);
 
 	/* USER CODE END USART1_IRQn 0 */
 	HAL_UART_IRQHandler(&huart1);
@@ -242,7 +242,7 @@ void USART3_IRQHandler(void) {
 	/* USER CODE BEGIN USART3_IRQn 0 */
 
 	/* Call the ring buffer handler */
-	UartRingBuf_IrqHandlerCallback(&gGnssRxRingBuffer);
+	(void) UartRingBuf_IrqHandlerCallback(&gGnssRxRingBuffer);
 
 	/* USER CODE END USART3_IRQn 0 */
 	HAL_UART_IRQHandler(&huart3);
@@ -271,7 +271,7 @@ void UART4_IRQHandler(void) {
 	/* USER CODE BEGIN UART4_IRQn 0 */
 
 	/* Call the ring buffer handler */
-	UartRingBuf_IrqHandlerCallback(&gXbeeTxRxRingBuffer);
+	(void) UartRingBuf_IrqHandlerCallback(&gXbeeTxRxRingBuffer);
 
 	/* USER CODE END UART4_IRQn 0 */
 	HAL_UART_IRQHandler(&huart4);

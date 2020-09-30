@@ -11,14 +11,22 @@
 /**
  * @brief Enables interrupts and starts the data transfer to the ring buffer
  * @param ringBufPtr Pointer to the ring buffer structure
- * @retval EUartUartCircularBufferStatus Error code
+ * @retval EUartUartCircularBufferStatus Status
  */
 EUartRingBufRet UartRingBuf_Start(SUartRingBuf *ringBufPtr) {
 
-	EUartRingBufRet ret = EUartRingBufRet_Ok; /* Return value */
+	EUartRingBufRet status = EUartRingBufRet_Ok;
 
-	if ((NULL != ringBufPtr) && (NULL != ringBufPtr->PeriphHandlePtr)
-			&& (NULL != ringBufPtr->BufferPtr) && (0 < ringBufPtr->BufferSize)) {
+	/* Assert valid parameters */
+	if (( NULL == ringBufPtr) || (NULL == ringBufPtr->PeriphHandlePtr)
+			|| (NULL == ringBufPtr->BufferPtr)
+			|| (0 == ringBufPtr->BufferSize)) {
+
+		status = EUartRingBufRet_InvalidParams;
+
+	}
+
+	if (EUartRingBufRet_Ok == status) {
 
 		/* Reset the head and tail */
 		ringBufPtr->Head = 0;
@@ -32,48 +40,46 @@ EUartRingBufRet UartRingBuf_Start(SUartRingBuf *ringBufPtr) {
 				!= HAL_UART_Receive_DMA(ringBufPtr->PeriphHandlePtr,
 						ringBufPtr->BufferPtr, ringBufPtr->BufferSize)) {
 
-			ret = EUartRingBufRet_HalError;
+			status = EUartRingBufRet_HalError;
 
 		}
 
-	} else {
-
-		ret = EUartRingBufRet_InvalidParams;
-
 	}
 
-	return ret;
+	return status;
 
 }
 
 /**
  * @brief Disables interrupts and stops the data transfer
  * @param ringBufPtr Pointer to the ring buffer structure
- * @retval EUartRingBufRet Error code
+ * @retval EUartRingBufRet Status
  */
 EUartRingBufRet UartRingBuf_Stop(SUartRingBuf *ringBufPtr) {
 
-	EUartRingBufRet ret = EUartRingBufRet_Ok; /* Return value */
+	EUartRingBufRet status = EUartRingBufRet_Ok;
 
 	/* Assert valid parameters */
-	if (NULL != ringBufPtr) {
+	if (NULL == ringBufPtr) {
+
+		status = EUartRingBufRet_InvalidParams;
+
+	}
+
+	if (EUartRingBufRet_Ok == status) {
 
 		/* Disable the idle line detection interrupt */
 		__HAL_UART_DISABLE_IT(ringBufPtr->PeriphHandlePtr, UART_IT_IDLE);
 		/* Abort the data transfer */
 		if (HAL_OK != HAL_UART_Abort(ringBufPtr->PeriphHandlePtr)) {
 
-			ret = EUartRingBufRet_HalError;
+			status = EUartRingBufRet_HalError;
 
 		}
 
-	} else {
-
-		ret = EUartRingBufRet_InvalidParams;
-
 	}
 
-	return ret;
+	return status;
 
 }
 
@@ -81,12 +87,20 @@ EUartRingBufRet UartRingBuf_Stop(SUartRingBuf *ringBufPtr) {
  * @brief The ISR callback
  * @note This function must be called from the USARTx_IRQHandler
  * @param ringBufPtr Pointer to the ring buffer structure
- * @retval None
+ * @retval EUartRingBufRet Status
  */
-void UartRingBuf_IrqHandlerCallback(SUartRingBuf *ringBufPtr) {
+EUartRingBufRet UartRingBuf_IrqHandlerCallback(SUartRingBuf *ringBufPtr) {
+
+	EUartRingBufRet status = EUartRingBufRet_Ok;
 
 	/* Assert valid parameters */
-	if (NULL != ringBufPtr) {
+	if (NULL == ringBufPtr) {
+
+		status = EUartRingBufRet_InvalidParams;
+
+	}
+
+	if (EUartRingBufRet_Ok == status) {
 
 		/* Assert idle line detection interrupt is on and the line is idle */
 		if (__HAL_UART_GET_IT_SOURCE(ringBufPtr->PeriphHandlePtr,
@@ -111,95 +125,100 @@ void UartRingBuf_IrqHandlerCallback(SUartRingBuf *ringBufPtr) {
 
 	}
 
+	return status;
+
 }
 
 /**
  * @brief Moves the data from the ring buffer to the destination
  * @param ringBufPtr Pointer to the ring buffer structure
- * @param dstBuffPtr Destination address
- * @param dstBuffSize Size of the destination buffer
- * @retval EUartRingBufRet Error code
+ * @param dstBufPtr Destination address
+ * @param dstBufSize Size of the destination buffer
+ * @retval EUartRingBufRet Status
  */
-EUartRingBufRet UartRingBuf_Read(SUartRingBuf *ringBufPtr, uint8_t *dstBuffPtr,
-		size_t dstBuffSize) {
+EUartRingBufRet UartRingBuf_Read(SUartRingBuf *ringBufPtr, uint8_t *dstBufPtr,
+		size_t dstBufSize) {
 
-	EUartRingBufRet ret = EUartRingBufRet_Ok; /* Return value */
+	EUartRingBufRet status = EUartRingBufRet_Ok;
+
+	/* Disable interrupts */
+	__HAL_UART_DISABLE_IT(ringBufPtr->PeriphHandlePtr, UART_IT_IDLE);
 
 	/* Assert valid parameters */
-	if ((NULL != ringBufPtr) && (NULL != dstBuffPtr) && (dstBuffSize > 0)) {
+	if (( NULL == ringBufPtr) || ( NULL == dstBufPtr) || (0 == dstBufSize)) {
 
-		/* Disable interrupts */
-		__HAL_UART_DISABLE_IT(ringBufPtr->PeriphHandlePtr, UART_IT_IDLE);
-
-		if (ringBufPtr->Head != ringBufPtr->Tail) {
-
-			/* Test if the ring buffer has overflown */
-			if (ringBufPtr->Head > ringBufPtr->Tail) {
-
-				/* Assert no overflow in the destination buffer */
-				size_t len =
-						((ringBufPtr->Head - ringBufPtr->Tail) < dstBuffSize) ?
-								(ringBufPtr->Head - ringBufPtr->Tail) :
-								dstBuffSize;
-
-				/* Transfer the data */
-				for (size_t i = 0; i < len; i += 1UL) {
-
-					dstBuffPtr[i] = ringBufPtr->BufferPtr[ringBufPtr->Tail + i];
-
-				}
-
-				/* Move the tail forward in the buffer */
-				ringBufPtr->Tail += len;
-
-			} else {
-
-				/* Assert no overflow in the destination buffer from the upper part of the ring buffer */
-				size_t lenUpperBuffer =
-						((ringBufPtr->BufferSize - ringBufPtr->Tail) < dstBuffSize) ?
-								(ringBufPtr->BufferSize - ringBufPtr->Tail) :
-								dstBuffSize;
-
-				/* Transfer the data from the upper part of the ring buffer */
-				for (size_t i = 0; i < lenUpperBuffer; i += 1UL) {
-
-					dstBuffPtr[i] = ringBufPtr->BufferPtr[ringBufPtr->Tail + i];
-
-				}
-
-				/* Assert no overflow in the destination buffer from the lower part of the ring buffer */
-				size_t lenLowerBuffer =
-						(ringBufPtr->Head < (dstBuffSize - lenUpperBuffer)) ?
-								ringBufPtr->Head :
-								(dstBuffSize - lenUpperBuffer);
-
-				/* Transfer the data from the lower part of the ring buffer */
-				for (size_t i = 0; i < lenLowerBuffer; i += 1UL) {
-
-					dstBuffPtr[lenUpperBuffer + i] = ringBufPtr->BufferPtr[i];
-
-				}
-
-				/* Update the tail */
-				ringBufPtr->Tail = lenLowerBuffer;
-
-			}
-
-		} else {
-
-			ret = EUartRingBufRet_BufferEmpty;
-
-		}
-
-		/* Enable interrupts */
-		__HAL_UART_ENABLE_IT(ringBufPtr->PeriphHandlePtr, UART_IT_IDLE);
-
-	} else {
-
-		ret = EUartRingBufRet_InvalidParams;
+		status = EUartRingBufRet_InvalidParams;
 
 	}
 
-	return ret;
+	if (EUartRingBufRet_Ok == status) {
+
+		/* Test if the ring buffer is empty */
+		if (ringBufPtr->Head == ringBufPtr->Tail) {
+
+			status = EUartRingBufRet_BufferEmpty;
+
+		}
+
+	}
+
+	if (EUartRingBufRet_Ok == status) {
+
+		/* Test if the ring buffer has overflown */
+		if (ringBufPtr->Head > ringBufPtr->Tail) {
+
+			/* Assert no overflow in the destination buffer */
+			size_t len =
+					((ringBufPtr->Head - ringBufPtr->Tail) < dstBufSize) ?
+							(ringBufPtr->Head - ringBufPtr->Tail) : dstBufSize;
+
+			/* Transfer the data */
+			for (size_t i = 0; i < len; i += 1UL) {
+
+				dstBufPtr[i] = ringBufPtr->BufferPtr[ringBufPtr->Tail + i];
+
+			}
+
+			/* Move the tail forward in the buffer */
+			ringBufPtr->Tail += len;
+
+		} else {
+
+			/* Assert no overflow in the destination buffer from the upper part of the ring buffer */
+			size_t lenUpper =
+					((ringBufPtr->BufferSize - ringBufPtr->Tail) < dstBufSize) ?
+							(ringBufPtr->BufferSize - ringBufPtr->Tail) :
+							dstBufSize;
+
+			/* Transfer the data from the upper part of the ring buffer */
+			for (size_t i = 0; i < lenUpper; i += 1UL) {
+
+				dstBufPtr[i] = ringBufPtr->BufferPtr[ringBufPtr->Tail + i];
+
+			}
+
+			/* Assert no overflow in the destination buffer from the lower part of the ring buffer */
+			size_t lenLower =
+					(ringBufPtr->Head < (dstBufSize - lenUpper)) ?
+							ringBufPtr->Head : (dstBufSize - lenUpper);
+
+			/* Transfer the data from the lower part of the ring buffer */
+			for (size_t i = 0; i < lenLower; i += 1UL) {
+
+				dstBufPtr[lenUpper + i] = ringBufPtr->BufferPtr[i];
+
+			}
+
+			/* Update the tail */
+			ringBufPtr->Tail = lenLower;
+
+		}
+
+	}
+
+	/* Enable interrupts */
+	__HAL_UART_ENABLE_IT(ringBufPtr->PeriphHandlePtr, UART_IT_IDLE);
+
+	return status;
 
 }
