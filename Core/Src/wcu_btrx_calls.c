@@ -10,36 +10,36 @@
 #include "rt12e_libs_can.h"
 #include "rt12e_libs_generic.h"
 #include "rt12e_libs_r3tp.h"
-#include "rt12e_libs_uartcircularbuffer.h"
+#include "rt12e_libs_uartringbuffer.h"
 
 #include "cmsis_os.h"
 
-#define BTRX_CIRCULAR_BUFSIZE  ((uint32_t) 50)  /* UART circular buffer size */
+#define BTRX_RING_BUF_SIZE  ((uint32_t) 50)  /* UART ring buffer size */
 
 /**
  * @brief Circular buffer structure
  */
-SUartCirBuf gBtRxCircularBuffer;
+SUartRingBuf gBtRxRingBuffer;
 
 extern osThreadId btRxHandle;
 
-static void btRx_CircularBufferIdleCallback(void);
+static void btRx_RingBufferIdleCallback(void);
 
 /**
  * @brief Starts listening for incoming UART transmissions
- * @retval EUartCirBufRet Status
+ * @retval EUartRingBufRet Status
  */
-EUartCirBufRet btRx_StartCircularBufferIdleDetectionRx(void) {
+EUartRingBufRet btRx_StartRingBufferIdleDetectionRx(void) {
 
-	static uint8_t cirBufTbl[BTRX_CIRCULAR_BUFSIZE];
-	/* Configure the circular buffer structure */
-	gBtRxCircularBuffer.BufferPtr = cirBufTbl;
-	gBtRxCircularBuffer.BufferSize = BTRX_CIRCULAR_BUFSIZE;
-	gBtRxCircularBuffer.Callback = &btRx_CircularBufferIdleCallback;
-	gBtRxCircularBuffer.PeriphHandlePtr = &BT_UART_HANDLE;
+	static uint8_t cirBufTbl[BTRX_RING_BUF_SIZE];
+	/* Configure the ring buffer structure */
+	gBtRxRingBuffer.BufferPtr = cirBufTbl;
+	gBtRxRingBuffer.BufferSize = BTRX_RING_BUF_SIZE;
+	gBtRxRingBuffer.Callback = &btRx_RingBufferIdleCallback;
+	gBtRxRingBuffer.PeriphHandlePtr = &BT_UART_HANDLE;
 
 	/* Start listening */
-	return uartCirBuf_start(&gBtRxCircularBuffer);
+	return UartRingBuf_Start(&gBtRxRingBuffer);
 
 }
 
@@ -53,11 +53,11 @@ EBtRxRet btRx_HandleCom(void) {
 	EBtRxRet status = EBtRxRet_Ok;
 
 	/* Wait for notification from idle line detection callback */
-	if (0UL < ulTaskNotifyTake(pdTRUE, 0)) {
+	if (0UL < ulTaskNotifyTake(pdTRUE, WCU_COMMON_TIMEOUT)) {
 
 		static uint8_t rxBufTbl[R3TP_VER0_FRAME_SIZE];
-		/* Read the data from the circular buffer */
-		uartCirBuf_read(&gBtRxCircularBuffer, rxBufTbl, R3TP_VER0_FRAME_SIZE);
+		/* Read the data from the ring buffer */
+		UartRingBuf_Read(&gBtRxRingBuffer, rxBufTbl, R3TP_VER0_FRAME_SIZE);
 
 		/* Validate protocol version */
 		if (R3TP_VER0_VER_BYTE != rxBufTbl[0]) {
@@ -148,10 +148,10 @@ EBtRxRet btRx_HandleCom(void) {
 }
 
 /**
- * @brief Function registered as callback for idle line callback in the circular buffer implementation
+ * @brief Function registered as callback for idle line callback in the ring buffer implementation
  * @retval None
  */
-static void btRx_CircularBufferIdleCallback(void) {
+static void btRx_RingBufferIdleCallback(void) {
 
 	/* Notify the btRx task */
 	vTaskNotifyGiveFromISR(btRxHandle, NULL);

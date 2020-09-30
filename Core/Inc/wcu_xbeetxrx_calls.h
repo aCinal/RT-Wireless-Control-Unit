@@ -7,7 +7,7 @@
 #ifndef __WCU_XBEETXRX_CALLS_H_
 #define __WCU_XBEETXRX_CALLS_H_
 
-#include "rt12e_libs_uartcircularbuffer.h"
+#include "rt12e_libs_uartringbuffer.h"
 
 #include "stm32f4xx_hal.h"
 #include "cmsis_os.h"
@@ -34,9 +34,9 @@ typedef enum EXbeeTxRxInternalMail {
 
 /**
  * @brief Starts listening for incoming UART transmissions
- * @retval EUartCirBufRet Status
+ * @retval EUartRingBufRet Status
  */
-EUartCirBufRet xbeeTxRx_StartCircularBufferIdleDetectionRx(void);
+EUartRingBufRet xbeeTxRx_StartRingBufferIdleDetectionRx(void);
 
 /**
  * @brief Handles internal messages

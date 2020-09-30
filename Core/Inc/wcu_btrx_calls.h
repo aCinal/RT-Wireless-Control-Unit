@@ -7,7 +7,7 @@
 #ifndef __WCU_BTRX_CALLS_H_
 #define __WCU_BTRX_CALLS_H_
 
-#include "rt12e_libs_uartcircularbuffer.h"
+#include "rt12e_libs_uartringbuffer.h"
 
 #include "stm32f4xx_hal.h"
 
@@ -25,9 +25,9 @@ typedef enum EBtRxRet {
 
 /**
  * @brief Starts listening for incoming UART transmissions
- * @retval EUartCirBufRet Status
+ * @retval EUartRingBufRet Status
  */
-EUartCirBufRet btRx_StartCircularBufferIdleDetectionRx(void);
+EUartRingBufRet btRx_StartRingBufferIdleDetectionRx(void);
 
 /**
  * @brief Handles the BT message

@@ -327,6 +327,6 @@ ES2lpLldRet S2lpLld_ReadReg(TByte address, TByte* bufPtr, TSize numOfBytes);
  * @param command S2-LP command code
  * @retval ES2lpLldRet Status
  */
-ES2lpLldRet S2lpLld_Command(TByte command);
+ES2lpLldRet S2lpLld_SendCommand(TByte command);
 
 #endif /* __S2LP_LLD_H_ */

@@ -44,8 +44,6 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 
-#define WCU_DEFAULT_TASK_DELAY     ((TickType_t) 10)       /* Default task delay */
-
 #define TIM_1s_INSTANCE            (TIM7)                  /* Alias for the TIM7 timer instance */
 #define TIM_1s_HANDLE              (htim7)                 /* Alias for the TIM7 timer handle */
 
@@ -866,7 +864,7 @@ void StartCanGtkpTask(void const * argument)
 		/* Report to watchdog */
 		NOTIFY_WATCHDOG(NV_IWDGGTKP_CANGTKP);
 
-		vTaskDelay(WCU_DEFAULT_TASK_DELAY);
+		vTaskDelay(WCU_COMMON_TASK_DELAY);
 
 	}
 
@@ -904,7 +902,7 @@ void StartSdioGtkpTask(void const * argument)
 		/* Listen for new telemetry subscription */
 		(void) sdioGtkp_HandleNewSubscription();
 
-		vTaskDelay(WCU_DEFAULT_TASK_DELAY);
+		vTaskDelay(WCU_COMMON_TASK_DELAY);
 
 	}
 
@@ -952,7 +950,7 @@ void StartIwdgGtkpTask(void const * argument)
 
 		}
 
-		vTaskDelay(WCU_DEFAULT_TASK_DELAY);
+		vTaskDelay(WCU_COMMON_TASK_DELAY);
 
 	}
 
@@ -971,7 +969,7 @@ void StartBtRxTask(void const * argument)
   /* USER CODE BEGIN StartBtRxTask */
 
 	/* Start listening for incoming data */
-	(void) btRx_StartCircularBufferIdleDetectionRx();
+	(void) btRx_StartRingBufferIdleDetectionRx();
 
 	/* Infinite loop */
 	for (;;) {
@@ -982,7 +980,7 @@ void StartBtRxTask(void const * argument)
 		/* Report to watchdog */
 		NOTIFY_WATCHDOG(NV_IWDGGTKP_BTRX);
 
-		vTaskDelay(WCU_DEFAULT_TASK_DELAY);
+		vTaskDelay(WCU_COMMON_TASK_DELAY);
 
 	}
 
@@ -1000,11 +998,14 @@ void StartGnssRxTask(void const * argument)
 {
   /* USER CODE BEGIN StartGnssRxTask */
 
+	/* Wait for the device to turn on and set up */
+	vTaskDelay(pdMS_TO_TICKS(100));
+
 	/* Configure the device */
 	(void) gnssRx_DeviceConfig();
 
 	/* Start listening for incoming data */
-	(void) gnssRx_StartCircularBufferIdleDetectionRx();
+	(void) gnssRx_StartRingBufferIdleDetectionRx();
 
 	/* Infinite loop */
 	for (;;) {
@@ -1015,7 +1016,7 @@ void StartGnssRxTask(void const * argument)
 		/* Report to watchdog */
 		NOTIFY_WATCHDOG(NV_IWDGGTKP_GNSSRX);
 
-		vTaskDelay(WCU_DEFAULT_TASK_DELAY);
+		vTaskDelay(WCU_COMMON_TASK_DELAY);
 
 	}
 
@@ -1041,7 +1042,7 @@ void StartRfRxTask(void const * argument)
 		/* Report to watchdog */
 		NOTIFY_WATCHDOG(NV_IWDGGTKP_RFRX);
 
-		vTaskDelay(WCU_DEFAULT_TASK_DELAY);
+		vTaskDelay(WCU_COMMON_TASK_DELAY);
 
 	}
 
@@ -1063,7 +1064,7 @@ void StartXbeeTxRxTask(void const * argument)
 	(void) xbeeTxRx_DeviceConfig();
 
 	/* Start listening for incoming data */
-	(void) xbeeTxRx_StartCircularBufferIdleDetectionRx();
+	(void) xbeeTxRx_StartRingBufferIdleDetectionRx();
 
 	/* Start the timer */
 	(void) HAL_TIM_Base_Start_IT(&TIM_1s_HANDLE);
@@ -1080,7 +1081,7 @@ void StartXbeeTxRxTask(void const * argument)
 		/* Report to watchdog */
 		NOTIFY_WATCHDOG(NV_IWDGGTKP_XBEETXRX);
 
-		vTaskDelay(WCU_DEFAULT_TASK_DELAY);
+		vTaskDelay(WCU_COMMON_TASK_DELAY);
 
 	}
 

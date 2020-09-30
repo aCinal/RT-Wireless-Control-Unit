@@ -146,7 +146,7 @@ void sdioGtkp_HandleLogger(void) {
 
 	char *errMsgPtr;
 	/* Receive an error message */
-	if (pdPASS == xQueueReceive(sdioLogQueueHandle, &errMsgPtr, 0)) {
+	if (pdPASS == xQueueReceive(sdioLogQueueHandle, &errMsgPtr, WCU_COMMON_TIMEOUT)) {
 
 		FIL errorLogFile;
 		/* Try opening the log file */

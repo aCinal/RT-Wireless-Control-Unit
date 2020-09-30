@@ -20,16 +20,15 @@ typedef float float32_t;
 typedef double float64_t;
 
 /* Exported defines -------------------------------------------------------------------------- */
-/**
- * @brief Definitions increasing code clarity
- */
-#define CLEAR_NO_BITS_ON_ENTRY   ((uint32_t) 0x00000000UL)  /* Value to pass as ulBitsToClearOnEntry to xTaskNotifyWait */
-#define CLEAR_NO_BITS_ON_EXIT    ((uint32_t) 0x00000000UL)  /* Value to pass as ulBitsToClearOnExit to xTaskNotifyWait */
-#define CLEAR_ALL_BITS_ON_ENTRY  ((uint32_t) 0xFFFFFFFFUL)  /* Value to pass as ulBitsToClearOnEntry to xTaskNotifyWait */
-#define CLEAR_ALL_BITS_ON_EXIT   ((uint32_t) 0xFFFFFFFFUL)  /* Value to pass as ulBitsToClearOnExit to xTaskNotifyWait */
+#define WCU_COMMON_TIMEOUT         ((TickType_t) pdMS_TO_TICKS(5))  /* Common timeout */
+#define WCU_COMMON_TASK_DELAY      ((TickType_t) pdMS_TO_TICKS(1))  /* Common task delay */
 
-/* Exported function prototypes */
+#define CLEAR_NO_BITS_ON_ENTRY     ((uint32_t) 0x00000000UL)  /* Value to pass as ulBitsToClearOnEntry to xTaskNotifyWait */
+#define CLEAR_NO_BITS_ON_EXIT      ((uint32_t) 0x00000000UL)  /* Value to pass as ulBitsToClearOnExit to xTaskNotifyWait */
+#define CLEAR_ALL_BITS_ON_ENTRY    ((uint32_t) 0xFFFFFFFFUL)  /* Value to pass as ulBitsToClearOnEntry to xTaskNotifyWait */
+#define CLEAR_ALL_BITS_ON_EXIT     ((uint32_t) 0xFFFFFFFFUL)  /* Value to pass as ulBitsToClearOnExit to xTaskNotifyWait */
 
+/* Exported function prototypes -------------------------------------------------------------------------- */
 /**
  * @brief Log an error message to the SD card
  * @param messagePayloadTbl Error message

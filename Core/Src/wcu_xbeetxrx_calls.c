@@ -7,27 +7,22 @@
 #include "wcu_xbeetxrx_calls.h"
 
 #include "wcu_common.h"
+#include "xbeepro_api.h"
 #include "rt12e_libs_can.h"
 #include "rt12e_libs_generic.h"
 #include "rt12e_libs_r3tp.h"
-#include "rt12e_libs_uartcircularbuffer.h"
+#include "rt12e_libs_uartringbuffer.h"
 
 #include "main.h"
+#include <stdlib.h>
 #include <string.h>
 
-/**
- * @brief Returns the length of the string not counting the NULL character
- */
-#define StaticStrlen(str)         ((uint32_t)( ( sizeof(str) / sizeof(str[0]) ) - 1U))
-
-#define XBEETXRX_CIRCULAR_BUFSIZE ((uint32_t) (2 * R3TP_MAX_FRAME_SIZE))  /* UART circular buffer size */
-#define CAN_ID_TELEMETRY_DIAG     ((uint32_t) 0x733)                      /* CAN ID: _733_TELEMETRY_DIAG */
-#define TELEMETRY_STATE_BIT       ((uint8_t) 0x80)                        /* Telemetry_State bit of the TELEMETRY_DIAG CAN frame */
-#define TELEMETRY_WARNING_BIT     ((uint8_t) 0x40)                        /* Telemetry_Warning bit of the TELEMETRY_DIAG CAN frame */
-#define TELEMETRY_PIT_BIT         ((uint8_t) 0x20)                        /* Telemetry_Pit bit of the TELEMETRY_DIAG CAN frame */
-#define XBEE_GT_DEFAULT           ((uint16_t) 0x0CE4)                     /* XBEE Pro Guard Times default value */
-#define XBEE_GT_DESIRED           ((uint16_t) 0x000A)                     /* XBEE Pro Guard Times desired value */
-#define XBEE_CONTROL_UART_TIMEOUT ((uint32_t) 10)                         /* XBEE control UART Tx timeout */
+#define XBEETXRX_RING_BUF_SIZE  ((uint32_t) (2 * R3TP_MAX_FRAME_SIZE))  /* UART ring buffer size */
+#define CAN_ID_TELEMETRY_DIAG   ((uint32_t) 0x733)                      /* CAN ID: _733_TELEMETRY_DIAG */
+#define TELEMETRY_STATE_BIT     ((uint8_t) 0x80)                        /* Telemetry_State bit of the TELEMETRY_DIAG CAN frame */
+#define TELEMETRY_WARNING_BIT   ((uint8_t) 0x40)                        /* Telemetry_Warning bit of the TELEMETRY_DIAG CAN frame */
+#define TELEMETRY_PIT_BIT       ((uint8_t) 0x20)                        /* Telemetry_Pit bit of the TELEMETRY_DIAG CAN frame */
+#define XBEE_GUARD_TIMES        ((uint16_t) 0x000A)                     /* Desired value of the Guard Times parameter */
 
 /**
  * @brief Telemetry diagnostics structure
@@ -41,7 +36,7 @@ typedef struct STelemetryDiagnostics {
 /**
  * @brief Circular buffer structure
  */
-SUartCirBuf gXbeeTxRxCircularBuffer;
+SUartRingBuf gXbeeTxRxRingBuffer;
 
 extern osThreadId canGtkpHandle;
 extern osThreadId sdioGtkpHandle;
@@ -50,18 +45,13 @@ extern osMessageQId canSubQueueHandle;
 extern osMessageQId sdioSubQueueHandle;
 extern osMessageQId xbeeTxRxInternalMailQueueHandle;
 
-/**
- * @brief Guard Times parameter of XBEE Pro
- */
-static uint16_t gGT = XBEE_GT_DEFAULT;
-
-static void xbeeTxRx_CircularBufferIdleCallback(void);
+static void xbeeTxRx_RingBufferIdleCallback(void);
 static EXbeeTxRxRet xbeeTxRx_HandleNewSubscription(uint8_t rxBufTbl[]);
 static EXbeeTxRxRet xbeeTxRx_HandleDriverWarning(uint8_t rxBufTbl[],
 		STelemetryDiagnostics *diagPtr);
 static void xbeeTxRx_SendDiagnostics(STelemetryDiagnostics *diagPtr);
 static void xbeeTxRx_UpdateWarnings(STelemetryDiagnostics *diagPtr);
-static EXbeeTxRxRet xbeeTxRx_PollForRssi(uint8_t *rssiPtr);
+static EXbeeTxRxRet xbeeTxRx_ReadRssi(uint8_t *rssiPtr);
 static EXbeeTxRxRet xbeeTxRx_SendSubscriptionToCanGtkp(uint32_t ids[],
 		size_t count);
 static EXbeeTxRxRet xbeeTxRx_SendSubscriptionToSdioGtkp(uint32_t ids[],
@@ -75,52 +65,10 @@ EXbeeTxRxRet xbeeTxRx_DeviceConfig(void) {
 
 	EXbeeTxRxRet status = EXbeeTxRxRet_Ok;
 
-	/* Wait the default guard time */
-	vTaskDelay(pdMS_TO_TICKS(XBEE_GT_DEFAULT));
+	/* Set the guard time */
+	if(EXbeeProApiRet_Ok != XbeeProApi_SetGuardTimes(XBEE_GUARD_TIMES)) {
 
-	/* Enter command mode */
-	const uint8_t ENTER_COMMAND_MODE[] = "+++";
-	if (HAL_OK
-			!= HAL_UART_Transmit(&XBEE_UART_HANDLE,
-					(uint8_t*) ENTER_COMMAND_MODE,
-					StaticStrlen(ENTER_COMMAND_MODE),
-					XBEE_CONTROL_UART_TIMEOUT)) {
-
-		LogPrint("Failed to send ENTER_COMMAND_MODE string in xbeeTxRx");
 		status = EXbeeTxRxRet_Error;
-
-	}
-
-	if(EXbeeTxRxRet_Ok == status) {
-
-		/* Wait the default guard time */
-		vTaskDelay(pdMS_TO_TICKS(XBEE_GT_DEFAULT));
-
-		/* Set required period of silence before and after the Command Sequence Characters */
-		const uint8_t SET_GT[] = "ATGT000A\r";
-		if (HAL_OK
-				!= HAL_UART_Transmit(&XBEE_UART_HANDLE, (uint8_t*) SET_GT,
-						StaticStrlen(SET_GT), XBEE_CONTROL_UART_TIMEOUT)) {
-
-			LogPrint("Failed to send SET_GT string in xbeeTxRx");
-
-		}
-
-		/* Exit command mode */
-		const uint8_t EXIT_COMMAND_MODE[] = "ATCN\r";
-		if (HAL_OK
-				!= HAL_UART_Transmit(&XBEE_UART_HANDLE,
-						(uint8_t*) EXIT_COMMAND_MODE,
-						(sizeof(EXIT_COMMAND_MODE) - 1U),
-						XBEE_CONTROL_UART_TIMEOUT)) {
-
-			LogPrint("Failed to send EXIT_COMMAND_MODE string in xbeeTxRx");
-
-		}
-
-		/* Set the Guard Times global variable */
-		/* The desired value is hard-coded because it is also contained in the SET_GL command string */
-		gGT = 0x000AU;
 
 	}
 
@@ -130,20 +78,20 @@ EXbeeTxRxRet xbeeTxRx_DeviceConfig(void) {
 
 /**
  * @brief Starts listening for incoming UART transmissions
- * @retval EUartCirBufRet Status
+ * @retval EUartRingBufRet Status
  */
-EUartCirBufRet xbeeTxRx_StartCircularBufferIdleDetectionRx(void) {
+EUartRingBufRet xbeeTxRx_StartRingBufferIdleDetectionRx(void) {
 
-	static uint8_t cirBufTbl[XBEETXRX_CIRCULAR_BUFSIZE ]; /* Circular buffer */
+	static uint8_t cirBufTbl[XBEETXRX_RING_BUF_SIZE]; /* Circular buffer */
 
-	/* Configure the circular buffer structure */
-	gXbeeTxRxCircularBuffer.BufferPtr = cirBufTbl;
-	gXbeeTxRxCircularBuffer.BufferSize = XBEETXRX_CIRCULAR_BUFSIZE;
-	gXbeeTxRxCircularBuffer.Callback = &xbeeTxRx_CircularBufferIdleCallback;
-	gXbeeTxRxCircularBuffer.PeriphHandlePtr = &XBEE_UART_HANDLE;
+	/* Configure the ring buffer structure */
+	gXbeeTxRxRingBuffer.BufferPtr = cirBufTbl;
+	gXbeeTxRxRingBuffer.BufferSize = XBEETXRX_RING_BUF_SIZE;
+	gXbeeTxRxRingBuffer.Callback = &xbeeTxRx_RingBufferIdleCallback;
+	gXbeeTxRxRingBuffer.PeriphHandlePtr = &XBEE_UART_HANDLE;
 
 	/* Start listening */
-	return uartCirBuf_start(&gXbeeTxRxCircularBuffer);
+	return UartRingBuf_Start(&gXbeeTxRxRingBuffer);
 
 }
 
@@ -156,7 +104,7 @@ EXbeeTxRxRet xbeeTxRx_HandleInternalMail(void) {
 	EXbeeTxRxRet status = EXbeeTxRxRet_Ok;
 
 	EXbeeTxRxInternalMail mail;
-	/* Wait for messages */
+	/* Check for messages */
 	if (pdPASS == xQueueReceive(xbeeTxRxInternalMailQueueHandle, &mail, 0)) {
 
 		static uint8_t rxBufTbl[R3TP_MAX_FRAME_SIZE];
@@ -166,19 +114,19 @@ EXbeeTxRxRet xbeeTxRx_HandleInternalMail(void) {
 
 		case EXbeeTxRxInternalMail_MessageReceived:
 
-			/* Read the data from the circular buffer */
-			(void) uartCirBuf_read(&gXbeeTxRxCircularBuffer, rxBufTbl,
-					R3TP_MAX_FRAME_SIZE);
+			/* Read the data from the ring buffer */
+			(void) UartRingBuf_Read(&gXbeeTxRxRingBuffer, rxBufTbl,
+			R3TP_MAX_FRAME_SIZE);
 
 			/* Identify the protocol version */
 			switch (rxBufTbl[0]) {
 
-			case R3TP_VER1_VER_BYTE :
+			case R3TP_VER1_VER_BYTE:
 
 				status = xbeeTxRx_HandleNewSubscription(rxBufTbl);
 				break;
 
-			case R3TP_VER2_VER_BYTE :
+			case R3TP_VER2_VER_BYTE:
 
 				status = xbeeTxRx_HandleDriverWarning(rxBufTbl, &diagnostics);
 				break;
@@ -191,10 +139,10 @@ EXbeeTxRxRet xbeeTxRx_HandleInternalMail(void) {
 
 			}
 
-			if(EXbeeTxRxRet_Ok == status) {
+			if (EXbeeTxRxRet_Ok == status) {
 
 				/* Poll the device for the RSSI value */
-				status = xbeeTxRx_PollForRssi(&diagnostics.rssi);
+				status = xbeeTxRx_ReadRssi(&diagnostics.rssi);
 
 			}
 			break;
@@ -228,9 +176,9 @@ void xbeeTxRx_HandleOutgoingR3tpCom(void) {
 	SCanFrame frBuf; /* Buffer for the CAN frame */
 
 	/* Listen on the canRxQueue for messages to send */
-	if (pdPASS == xQueueReceive(canRxQueueHandle, &frBuf, 0)) {
+	if (pdPASS == xQueueReceive(canRxQueueHandle, &frBuf, WCU_COMMON_TIMEOUT)) {
 
-		static uint8_t txBufTbl[R3TP_VER0_FRAME_SIZE ]; /* UART Tx buffer */
+		static uint8_t txBufTbl[R3TP_VER0_FRAME_SIZE]; /* UART Tx buffer */
 		/* Clear the buffer */
 		(void) memset(txBufTbl, 0, R3TP_VER0_FRAME_SIZE);
 
@@ -269,18 +217,17 @@ void xbeeTxRx_HandleOutgoingR3tpCom(void) {
 		txBufTbl[3] = _bits8_15(calculatedCrc);
 
 		/* Transmit the frame */
-		(void) HAL_UART_Transmit(&XBEE_UART_HANDLE, txBufTbl,
-		R3TP_VER0_FRAME_SIZE, XBEE_CONTROL_UART_TIMEOUT);
+		XbeeProApi_SendPayload(txBufTbl, R3TP_VER0_FRAME_SIZE);
 
 	}
 
 }
 
 /**
- * @brief Function registered as callback for idle line callback in the circular buffer implementation
+ * @brief Function registered as callback for idle line callback in the ring buffer implementation
  * @retval None
  */
-static void xbeeTxRx_CircularBufferIdleCallback(void) {
+static void xbeeTxRx_RingBufferIdleCallback(void) {
 
 	/* Notify the xbeeTxRx task */
 	EXbeeTxRxInternalMail mail = EXbeeTxRxInternalMail_MessageReceived;
@@ -293,7 +240,7 @@ static void xbeeTxRx_CircularBufferIdleCallback(void) {
  * @param rxBufTbl UART Rx Buffer
  * @retval EXbeeTxRxRet Status
  */
-static EXbeeTxRxRet xbeeTxRx_HandleNewSubscription(uint8_t rxBufTbl[]) {
+static EXbeeTxRxRet xbeeTxRx_HandleNewSubscription(uint8_t* rxBufTbl) {
 
 	EXbeeTxRxRet status = EXbeeTxRxRet_Ok;
 
@@ -309,10 +256,11 @@ static EXbeeTxRxRet xbeeTxRx_HandleNewSubscription(uint8_t rxBufTbl[]) {
 
 	}
 
-	if(EXbeeTxRxRet_Ok == status) {
+	if (EXbeeTxRxRet_Ok == status) {
 
 		/* Validate the END SEQ field */
-		if ((R3TP_END_SEQ_LOW_BYTE != rxBufTbl[R3TP_VER1_MESSAGE_LENGTH(frNum) - 2U])
+		if ((R3TP_END_SEQ_LOW_BYTE
+				!= rxBufTbl[R3TP_VER1_MESSAGE_LENGTH(frNum) - 2U])
 				|| (R3TP_END_SEQ_HIGH_BYTE
 						!= rxBufTbl[R3TP_VER1_MESSAGE_LENGTH(frNum) - 1U])) {
 
@@ -323,7 +271,7 @@ static EXbeeTxRxRet xbeeTxRx_HandleNewSubscription(uint8_t rxBufTbl[]) {
 
 	}
 
-	if(EXbeeTxRxRet_Ok == status) {
+	if (EXbeeTxRxRet_Ok == status) {
 
 		/* Read the CHECKSUM field - note that the CRC is transmitted as little endian */
 		uint16_t readCrc = _reinterpret16bits(rxBufTbl[3], rxBufTbl[2]);
@@ -333,7 +281,8 @@ static EXbeeTxRxRet xbeeTxRx_HandleNewSubscription(uint8_t rxBufTbl[]) {
 		rxBufTbl[3] = 0x00U;
 
 		/* Calculate the CRC */
-		uint16_t calculatedCrc = GetR3tpCrc(rxBufTbl, R3TP_VER1_MESSAGE_LENGTH(frNum));
+		uint16_t calculatedCrc = GetR3tpCrc(rxBufTbl,
+				R3TP_VER1_MESSAGE_LENGTH(frNum));
 
 		/* Validate the CRC */
 		if (readCrc != calculatedCrc) {
@@ -346,9 +295,9 @@ static EXbeeTxRxRet xbeeTxRx_HandleNewSubscription(uint8_t rxBufTbl[]) {
 
 	}
 
-	if(EXbeeTxRxRet_Ok == status) {
+	if (EXbeeTxRxRet_Ok == status) {
 
-		uint32_t subscription[R3TP_VER1_MAX_FRAME_NUM ]; /* Buffer for telemetry subscription CAN IDs */
+		uint32_t subscription[R3TP_VER1_MAX_FRAME_NUM]; /* Buffer for telemetry subscription CAN IDs */
 		/* Read the payload */
 		uint8_t *payload = R3TP_VER1_PAYLOAD(rxBufTbl);
 		for (uint32_t i = 0; i < frNum; i += 1UL) {
@@ -373,11 +322,11 @@ static EXbeeTxRxRet xbeeTxRx_HandleNewSubscription(uint8_t rxBufTbl[]) {
 
 /**
  * @brief Handles the driver warning
- * @param[in] rxBufTbl UART Rx Buffer
- * @param[out] diagPtr Pointer to the diagnostics structure
+ * @param rxBufTbl UART Rx Buffer
+ * @param diagPtr Pointer to the diagnostics structure
  * @retval EXbeeTxRxRet Status
  */
-static EXbeeTxRxRet xbeeTxRx_HandleDriverWarning(uint8_t rxBufTbl[],
+static EXbeeTxRxRet xbeeTxRx_HandleDriverWarning(uint8_t* rxBufTbl,
 		STelemetryDiagnostics *diagPtr) {
 
 	EXbeeTxRxRet status = EXbeeTxRxRet_Ok;
@@ -391,7 +340,7 @@ static EXbeeTxRxRet xbeeTxRx_HandleDriverWarning(uint8_t rxBufTbl[],
 
 	}
 
-	if(EXbeeTxRxRet_Ok == status) {
+	if (EXbeeTxRxRet_Ok == status) {
 
 		/* Read the CHECKSUM field - note that the CRC is transmitted as little endian */
 		uint16_t readCrc = _reinterpret16bits(rxBufTbl[3], rxBufTbl[2]);
@@ -413,18 +362,18 @@ static EXbeeTxRxRet xbeeTxRx_HandleDriverWarning(uint8_t rxBufTbl[],
 
 	}
 
-	if(EXbeeTxRxRet_Ok == status) {
+	if (EXbeeTxRxRet_Ok == status) {
 
 		/* Read the payload */
 		switch (rxBufTbl[4]) {
 
-		case R3TP_GREEN_WARNING_BYTE :
+		case R3TP_GREEN_WARNING_BYTE:
 
 			/* Set the green warning duration */
 			diagPtr->greenWarningDuration = rxBufTbl[5];
 			break;
 
-		case R3TP_RED_WARNING_BYTE :
+		case R3TP_RED_WARNING_BYTE:
 
 			/* Set the red warning duration */
 			diagPtr->redWarningDuration = rxBufTbl[5];
@@ -443,94 +392,39 @@ static EXbeeTxRxRet xbeeTxRx_HandleDriverWarning(uint8_t rxBufTbl[],
 }
 
 /**
- * @brief Polls the XBEE Pro device for the RSSI value of the last transmission received
- * @param[out] rssiPtr Address where the received RSSI value will be stored
+ * @brief Polls the XBEE-Pro device for the RSSI value of the last transmission received
+ * @param rssiPtr Pointer to pass the received value out of the function
  * @retval EXbeeTxRxRet Status
  */
-static EXbeeTxRxRet xbeeTxRx_PollForRssi(uint8_t *rssiPtr) {
+static EXbeeTxRxRet xbeeTxRx_ReadRssi(uint8_t *rssiPtr) {
 
 	EXbeeTxRxRet status = EXbeeTxRxRet_Ok;
 
-	/* Stop data transfer to the circular buffer */
-	if(EUartCirBufRet_Ok != uartCirBuf_stop(&gXbeeTxRxCircularBuffer)) {
+	/* Stop data transfer to the ring buffer */
+	if (EUartRingBufRet_Ok != UartRingBuf_Stop(&gXbeeTxRxRingBuffer)) {
 
-		LogPrint("Failed to stop data transfer to circular buffer in xbeeTxRx");
+		LogPrint("Failed to stop data transfer to ring buffer in xbeeTxRx");
 		status = EXbeeTxRxRet_Error;
 
 	}
 
-	if(EXbeeTxRxRet_Ok == status) {
+	if (EXbeeTxRxRet_Ok == status) {
 
-		/* Wait the guard time */
-		vTaskDelay(pdMS_TO_TICKS(gGT));
+		/* Read RSSI */
+		if(EXbeeProApiRet_Ok != XbeeProApi_ReadRssi(rssiPtr)) {
 
-		/* Enter command mode */
-		const uint8_t ENTER_COMMAND_MODE[] = "+++";
-		if (HAL_OK
-				!= HAL_UART_Transmit(&XBEE_UART_HANDLE,
-						(uint8_t*) ENTER_COMMAND_MODE,
-						StaticStrlen(ENTER_COMMAND_MODE),
-						XBEE_CONTROL_UART_TIMEOUT)) {
-
-			LogPrint("Failed to send ENTER_COMMAND_MODE string in xbeeTxRx");
+			LogPrint("Failed receive RSSI value in xbeeTxRx");
 			status = EXbeeTxRxRet_Error;
 
 		}
 
 	}
 
-	if(EXbeeTxRxRet_Ok == status) {
+	/* Resume data transfer to the ring buffer */
+	if (EUartRingBufRet_Ok != UartRingBuf_Start(&gXbeeTxRxRingBuffer)) {
 
-		/* Wait the guard time */
-		vTaskDelay(pdMS_TO_TICKS(gGT));
-
-		/* Request RSSI */
-		const uint8_t REQUEST_RSSI[] = "ATDB\r";
-		if (HAL_OK
-				!= HAL_UART_Transmit(&XBEE_UART_HANDLE, (uint8_t*) REQUEST_RSSI,
-						StaticStrlen(REQUEST_RSSI), XBEE_CONTROL_UART_TIMEOUT)) {
-
-			LogPrint("Failed to send REQUEST_RSSI string in xbeeTxRx");
-			status = EXbeeTxRxRet_Error;
-
-		}
-
-	}
-
-	if(EXbeeTxRxRet_Ok == status) {
-
-		/* Receive RSSI */
-		if (HAL_OK != HAL_UART_Receive(&XBEE_UART_HANDLE, rssiPtr, 1,
-		XBEE_CONTROL_UART_TIMEOUT)) {
-
-			LogPrint("Failed to receive RSSI value in xbeeTxRx");
-			status = EXbeeTxRxRet_Error;
-
-		}
-
-	}
-
-	if(EXbeeTxRxRet_Ok == status) {
-
-		/* Exit command mode */
-		const uint8_t EXIT_COMMAND_MODE[] = "ATCN\r";
-		if (HAL_OK
-				!= HAL_UART_Transmit(&XBEE_UART_HANDLE,
-						(uint8_t*) EXIT_COMMAND_MODE,
-						StaticStrlen(EXIT_COMMAND_MODE),
-						XBEE_CONTROL_UART_TIMEOUT)) {
-
-			LogPrint("Failed to send EXIT_COMMAND_MODE string in xbeeTxRx");
-			status = EXbeeTxRxRet_Error;
-
-		}
-
-	}
-
-	/* Resume data transfer to the circular buffer */
-	if(EUartCirBufRet_Ok != uartCirBuf_start(&gXbeeTxRxCircularBuffer)) {
-
-		LogPrint("Failed to resume data transfer to the circular buffer in xbeeTxRx");
+		LogPrint(
+				"Failed to resume data transfer to the ring buffer in xbeeTxRx");
 		status = EXbeeTxRxRet_Error;
 
 	}
@@ -642,7 +536,7 @@ static EXbeeTxRxRet xbeeTxRx_SendSubscriptionToCanGtkp(uint32_t ids[],
 
 	}
 
-	if(EXbeeTxRxRet_Ok == status) {
+	if (EXbeeTxRxRet_Ok == status) {
 
 		/* Notify CAN gatekeeper */
 		(void) xTaskNotify(canGtkpHandle, count, eSetValueWithOverwrite);
@@ -680,7 +574,7 @@ static EXbeeTxRxRet xbeeTxRx_SendSubscriptionToSdioGtkp(uint32_t ids[],
 
 	}
 
-	if(EXbeeTxRxRet_Ok == status) {
+	if (EXbeeTxRxRet_Ok == status) {
 
 		/* Notify SDIO gatekeeper */
 		(void) xTaskNotify(sdioGtkpHandle, count, eSetValueWithOverwrite);

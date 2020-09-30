@@ -18,17 +18,17 @@
 #define CAN_ID_GPS_POS2          ((uint32_t) 0x501)  /* CAN ID: _501_GPS_POS2 */
 #define CAN_ID_GPS_STATUS        ((uint32_t) 0x502)  /* CAN ID: _502_GPS_STATUS */
 
-#define GNSSRX_READ_BUFSIZE      ((uint32_t) 50U)      /* Read buffer size */
-#define GNSSRX_CIRCULAR_BUFSIZE  ((uint32_t) 200U)     /* UART circular buffer size */
+#define GNSSRX_READ_BUF_SIZE      ((uint32_t) 50U)      /* Read buffer size */
+#define GNSSRX_RING_BUF_SIZE  ((uint32_t) 200U)     /* UART ring buffer size */
 
 /**
  * @brief Circular buffer structure
  */
-SUartCirBuf gGnssRxCircularBuffer;
+SUartRingBuf gGnssRxRingBuffer;
 
 extern osThreadId gnssRxHandle;
 
-static void gnssRx_CircularBufferIdleCallback(void);
+static void gnssRx_RingBufferIdleCallback(void);
 static void gnssRx_Send_GPS_POS(SGnssData *gnssDataPtr);
 static void gnssRx_Send_GPS_POS2(SGnssData *gnssDataPtr);
 static void gnssRx_Send_GPS_STATUS(SGnssData *gnssDataPtr);
@@ -40,9 +40,6 @@ static void gnssRx_Send_GPS_STATUS(SGnssData *gnssDataPtr);
 EGnssRxRet gnssRx_DeviceConfig(void) {
 
 	EGnssRxRet status = EGnssRxRet_Ok;
-
-	/* Wait for the device to turn on and set up */
-	vTaskDelay(pdMS_TO_TICKS(1000));
 
 	/* Send packet 220 PMTK_SET_POS_FIX - set position fix interval to 100 ms */
 	const char PMTK_SET_POS_FIX[] = "$PMTK220,100*1F\r\n";
@@ -74,20 +71,20 @@ EGnssRxRet gnssRx_DeviceConfig(void) {
 
 /**
  * @brief Starts listening for incoming UART transmissions
- * @retval EUartCirBufRet Status
+ * @retval EUartRingBufRet Status
  */
-EUartCirBufRet gnssRx_StartCircularBufferIdleDetectionRx(void) {
+EUartRingBufRet gnssRx_StartRingBufferIdleDetectionRx(void) {
 
-	static uint8_t cirBufTbl[GNSSRX_CIRCULAR_BUFSIZE ];
+	static uint8_t cirBufTbl[GNSSRX_RING_BUF_SIZE ];
 
-	/* Configure the circular buffer structure */
-	gGnssRxCircularBuffer.BufferPtr = cirBufTbl;
-	gGnssRxCircularBuffer.BufferSize = GNSSRX_CIRCULAR_BUFSIZE;
-	gGnssRxCircularBuffer.Callback = &gnssRx_CircularBufferIdleCallback;
-	gGnssRxCircularBuffer.PeriphHandlePtr = &GNSS_UART_HANDLE;
+	/* Configure the ring buffer structure */
+	gGnssRxRingBuffer.BufferPtr = cirBufTbl;
+	gGnssRxRingBuffer.BufferSize = GNSSRX_RING_BUF_SIZE;
+	gGnssRxRingBuffer.Callback = &gnssRx_RingBufferIdleCallback;
+	gGnssRxRingBuffer.PeriphHandlePtr = &GNSS_UART_HANDLE;
 
 	/* Start listening */
-	return uartCirBuf_start(&gGnssRxCircularBuffer);
+	return UartRingBuf_Start(&gGnssRxRingBuffer);
 
 }
 
@@ -100,16 +97,16 @@ EGnssRxRet gnssRx_HandleCom(void) {
 	EGnssRxRet status = EGnssRxRet_Ok;
 
 	/* Wait for notification from idle line detection callback */
-	if (0UL < ulTaskNotifyTake(pdTRUE, 0)) {
+	if (0UL < ulTaskNotifyTake(pdTRUE, WCU_COMMON_TIMEOUT)) {
 
-		static uint8_t rxBufTbl[GNSSRX_READ_BUFSIZE];
-		/* Read the data from the circular buffer */
-		uartCirBuf_read(&gGnssRxCircularBuffer, rxBufTbl, GNSSRX_READ_BUFSIZE);
+		static uint8_t rxBufTbl[GNSSRX_READ_BUF_SIZE];
+		/* Read the data from the ring buffer */
+		UartRingBuf_Read(&gGnssRxRingBuffer, rxBufTbl, GNSSRX_READ_BUF_SIZE);
 
 		static SGnssData dataBuff; /* GNSS data buffer */
 		/* Try parsing the message */
 		switch (parseMessage(&dataBuff, (char*) rxBufTbl,
-		GNSSRX_READ_BUFSIZE)) {
+		GNSSRX_READ_BUF_SIZE)) {
 
 		case EGnssDataStatus_Ready: /* If the data is ready */
 
@@ -145,10 +142,10 @@ EGnssRxRet gnssRx_HandleCom(void) {
 }
 
 /**
- * @brief Function registered as callback for idle line callback in the circular buffer implementation
+ * @brief Function registered as callback for idle line callback in the ring buffer implementation
  * @retval None
  */
-static void gnssRx_CircularBufferIdleCallback(void) {
+static void gnssRx_RingBufferIdleCallback(void) {
 
 	/* Notify the gnssRx task */
 	vTaskNotifyGiveFromISR(gnssRxHandle, NULL);

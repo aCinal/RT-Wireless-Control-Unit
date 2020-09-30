@@ -20,7 +20,7 @@ ES2lpApiRet S2lpApi_GoToTxState(void) {
 
 	ES2lpApiRet status = ES2lpApiRet_Ok;
 
-	if (ES2lpLldRet_Ok != S2lpLld_Command(TX_COMMAND)) {
+	if (ES2lpLldRet_Ok != S2lpLld_SendCommand(TX_COMMAND)) {
 
 		status = ES2lpApiRet_Error;
 
@@ -38,7 +38,7 @@ ES2lpApiRet S2lpApi_GoToRxState(void) {
 
 	ES2lpApiRet status = ES2lpApiRet_Ok;
 
-	if (ES2lpLldRet_Ok != S2lpLld_Command(RX_COMMAND)) {
+	if (ES2lpLldRet_Ok != S2lpLld_SendCommand(RX_COMMAND)) {
 
 		status = ES2lpApiRet_Error;
 
@@ -56,7 +56,7 @@ ES2lpApiRet S2lpApi_GoToReadyState(void) {
 
 	ES2lpApiRet status = ES2lpApiRet_Ok;
 
-	if (ES2lpLldRet_Ok != S2lpLld_Command(READY_COMMAND)) {
+	if (ES2lpLldRet_Ok != S2lpLld_SendCommand(READY_COMMAND)) {
 
 		status = ES2lpApiRet_Error;
 
@@ -74,7 +74,7 @@ ES2lpApiRet S2lpApi_GoToStandbyState(void) {
 
 	ES2lpApiRet status = ES2lpApiRet_Ok;
 
-	if (ES2lpLldRet_Ok != S2lpLld_Command(STANDBY_COMMAND)) {
+	if (ES2lpLldRet_Ok != S2lpLld_SendCommand(STANDBY_COMMAND)) {
 
 		status = ES2lpApiRet_Error;
 
@@ -92,7 +92,7 @@ ES2lpApiRet S2lpApi_GoToSleepState(void) {
 
 	ES2lpApiRet status = ES2lpApiRet_Ok;
 
-	if (ES2lpLldRet_Ok != S2lpLld_Command(SLEEP_COMMAND)) {
+	if (ES2lpLldRet_Ok != S2lpLld_SendCommand(SLEEP_COMMAND)) {
 
 		status = ES2lpApiRet_Error;
 
@@ -110,7 +110,7 @@ ES2lpApiRet S2lpApi_AbortTransmission(void) {
 
 	ES2lpApiRet status = ES2lpApiRet_Ok;
 
-	if (ES2lpLldRet_Ok != S2lpLld_Command(SABORT_COMMAND)) {
+	if (ES2lpLldRet_Ok != S2lpLld_SendCommand(SABORT_COMMAND)) {
 
 		status = ES2lpApiRet_Error;
 
@@ -128,7 +128,7 @@ ES2lpApiRet S2lpApi_Reset(void) {
 
 	ES2lpApiRet status = ES2lpApiRet_Ok;
 
-	if (ES2lpLldRet_Ok != S2lpLld_Command(SRES_COMMAND)) {
+	if (ES2lpLldRet_Ok != S2lpLld_SendCommand(SRES_COMMAND)) {
 
 		status = ES2lpApiRet_Error;
 
@@ -146,7 +146,7 @@ ES2lpApiRet S2lpApi_FlushRxFifo(void) {
 
 	ES2lpApiRet status = ES2lpApiRet_Ok;
 
-	if (ES2lpLldRet_Ok != S2lpLld_Command(FLUSHRXFIFO_COMMAND)) {
+	if (ES2lpLldRet_Ok != S2lpLld_SendCommand(FLUSHRXFIFO_COMMAND)) {
 
 		status = ES2lpApiRet_Error;
 
@@ -164,7 +164,7 @@ ES2lpApiRet S2lpApi_FlushTxFifo(void) {
 
 	ES2lpApiRet status = ES2lpApiRet_Ok;
 
-	if (ES2lpLldRet_Ok != S2lpLld_Command(FLUSHTXFIFO_COMMAND)) {
+	if (ES2lpLldRet_Ok != S2lpLld_SendCommand(FLUSHTXFIFO_COMMAND)) {
 
 		status = ES2lpApiRet_Error;
 

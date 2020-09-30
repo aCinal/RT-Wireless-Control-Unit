@@ -27,7 +27,7 @@ void canGtkp_HandleOutbox(void) {
 
 	SCanFrame frBuf;
 	/* Check for outgoing messages */
-	if (pdPASS == xQueueReceive(canTxQueueHandle, &frBuf, 0)) {
+	if (pdPASS == xQueueReceive(canTxQueueHandle, &frBuf, WCU_COMMON_TIMEOUT)) {
 
 		uint32_t dummy; /* Buffer for the CAN Tx mailbox used */
 
