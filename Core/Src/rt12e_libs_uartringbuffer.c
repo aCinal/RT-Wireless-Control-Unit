@@ -184,7 +184,7 @@ EUartRingBufRet UartRingBuf_Read(SUartRingBuf *ringBufPtr, uint8_t *dstBufPtr,
 
 		} else {
 
-			/* Assert no overflow in the destination buffer from the upper part of the ring buffer */
+			/* Assert no overflow in the destination buffer from the upper part of the buffer */
 			size_t lenUpper =
 					((ringBufPtr->BufferSize - ringBufPtr->Tail) < dstBufSize) ?
 							(ringBufPtr->BufferSize - ringBufPtr->Tail) :
@@ -197,12 +197,12 @@ EUartRingBufRet UartRingBuf_Read(SUartRingBuf *ringBufPtr, uint8_t *dstBufPtr,
 
 			}
 
-			/* Assert no overflow in the destination buffer from the lower part of the ring buffer */
+			/* Assert no overflow in the destination buffer from the lower part of the buffer */
 			size_t lenLower =
 					(ringBufPtr->Head < (dstBufSize - lenUpper)) ?
 							ringBufPtr->Head : (dstBufSize - lenUpper);
 
-			/* Transfer the data from the lower part of the ring buffer */
+			/* Transfer the data from the lower part of the buffer */
 			for (size_t i = 0; i < lenLower; i += 1UL) {
 
 				dstBufPtr[lenUpper + i] = ringBufPtr->BufferPtr[i];

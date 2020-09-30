@@ -53,7 +53,7 @@ EXbeeProApiRet XbeeProApi_SetGuardTimes(uint16_t gt) {
 
 		/* Print the parameter value to the command string */
 		char SET_GT[] = "ATGT0000\r";
-		sprintf(&(SET_GT[4]), "%04x", gt);
+		(void) sprintf(&(SET_GT[4]), "%04X\r", gt);
 		/* Send command */
 		if (EXbeeProLldRet_Ok != XbeeProLld_SendCommand(SET_GT)) {
 
