@@ -45,6 +45,6 @@ EXbeeProApiRet XbeeProApi_ReadRssi(uint8_t* rssiPtr);
  * @param numOfBytes Size of the payload buffer in bytes
  * @retval EXbeeProLldRet Status
  */
-EXbeeProApiRet XbeeProApi_SendPayload(uint8_t* payloadPtr, size_t numOfBytes);
+EXbeeProApiRet XbeeProApi_SendPayload(uint8_t* payloadPtr, uint32_t numOfBytes);
 
 #endif /* __XBEEPRO_API_H */

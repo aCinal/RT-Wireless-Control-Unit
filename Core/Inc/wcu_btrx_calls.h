@@ -9,12 +9,6 @@
 
 #include "rt12e_libs_uartringbuffer.h"
 
-#include "stm32f4xx_hal.h"
-
-extern UART_HandleTypeDef huart1;
-#define BT_UART_HANDLE    (huart1)
-#define BT_UART_INSTANCE  (USART1)
-
 /**
  * @brief Error code return value enumeration
  */
@@ -24,14 +18,14 @@ typedef enum EBtRxRet {
 } EBtRxRet;
 
 /**
- * @brief Starts listening for incoming UART transmissions
+ * @brief Start listening for incoming UART transmissions
  * @retval EUartRingBufRet Status
  */
 EUartRingBufRet btRx_StartRingBufferIdleDetectionRx(void);
 
 /**
- * @brief Handles the BT message
- * @EBtRxRet Status
+ * @brief Handle the BT message
+ * @retval EBtRxRet Status
  */
 EBtRxRet btRx_HandleCom(void);
 

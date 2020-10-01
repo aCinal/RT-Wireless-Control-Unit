@@ -44,8 +44,10 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 
-#define TIM_1s_INSTANCE            (TIM7)                  /* Alias for the TIM7 timer instance */
-#define TIM_1s_HANDLE              (htim7)                 /* Alias for the TIM7 timer handle */
+#define TIM_1s_INSTANCE            (TIM7)                  /* TIM7 instance alias */
+#define TIM_1s_HANDLE              (htim7)                 /* TIM7 handle alias */
+#define TIM_TPMS_INSTANCE          (TIM10)                 /* TIM10 instance alias */
+#define TIM_TPMS_HANDLE            (htim10)                /* TIM10 handle alias */
 
 /**
  * @brief Watchdog task notification values
@@ -95,6 +97,7 @@ DMA_HandleTypeDef hdma_sdio_tx;
 SPI_HandleTypeDef hspi1;
 
 TIM_HandleTypeDef htim7;
+TIM_HandleTypeDef htim10;
 
 UART_HandleTypeDef huart4;
 UART_HandleTypeDef huart1;
@@ -117,6 +120,7 @@ osMessageQId canRxQueueHandle;
 osMessageQId canSubQueueHandle;
 osMessageQId sdioSubQueueHandle;
 osMessageQId sdioLogQueueHandle;
+osMessageQId rfRxInternalMailQueueHandle;
 osMessageQId xbeeTxRxInternalMailQueueHandle;
 osMutexId crcMutexHandle;
 /* USER CODE BEGIN PV */
@@ -138,6 +142,7 @@ static void MX_USART2_UART_Init(void);
 static void MX_USART3_UART_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_TIM7_Init(void);
+static void MX_TIM10_Init(void);
 void StartCanGtkpTask(void const * argument);
 void StartSdioGtkpTask(void const * argument);
 void StartIwdgGtkpTask(void const * argument);
@@ -197,6 +202,7 @@ int main(void)
   MX_FATFS_Init();
   MX_ADC1_Init();
   MX_TIM7_Init();
+  MX_TIM10_Init();
   /* USER CODE BEGIN 2 */
 
   /* USER CODE END 2 */
@@ -238,6 +244,10 @@ int main(void)
   /* definition and creation of sdioLogQueue */
   osMessageQDef(sdioLogQueue, 16, const char*);
   sdioLogQueueHandle = osMessageCreate(osMessageQ(sdioLogQueue), NULL);
+
+  /* definition and creation of rfRxInternalMailQueue */
+  osMessageQDef(rfRxInternalMailQueue, 4, ERfRxInternalMail);
+  rfRxInternalMailQueueHandle = osMessageCreate(osMessageQ(rfRxInternalMailQueue), NULL);
 
   /* definition and creation of xbeeTxRxInternalMailQueue */
   osMessageQDef(xbeeTxRxInternalMailQueue, 4, EXbeeTxRxInternalMail);
@@ -589,6 +599,37 @@ static void MX_TIM7_Init(void)
 }
 
 /**
+  * @brief TIM10 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM10_Init(void)
+{
+
+  /* USER CODE BEGIN TIM10_Init 0 */
+
+  /* USER CODE END TIM10_Init 0 */
+
+  /* USER CODE BEGIN TIM10_Init 1 */
+
+  /* USER CODE END TIM10_Init 1 */
+  htim10.Instance = TIM10;
+  htim10.Init.Prescaler = 3199;
+  htim10.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim10.Init.Period = 9999;
+  htim10.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim10.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim10) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM10_Init 2 */
+
+  /* USER CODE END TIM10_Init 2 */
+
+}
+
+/**
   * @brief UART4 Initialization Function
   * @param None
   * @retval None
@@ -826,8 +867,7 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc) {
 
 	if (DIAGNOSTIC_ADC_INSTANCE == hadc->Instance) {
 
-		/* Notify the diagnostic task */
-		vTaskNotifyGiveFromISR(diagnosticHandle, NULL);
+		diagnostic_AdcConvCpltcallback();
 
 	}
 
@@ -1033,11 +1073,15 @@ void StartGnssRxTask(void const * argument)
 void StartRfRxTask(void const * argument)
 {
   /* USER CODE BEGIN StartRfRxTask */
+
 	/* Configure the device */
 	(void) rfRx_DeviceConfig();
 
 	/* Infinite loop */
 	for (;;) {
+
+		/* Listen for internal communication */
+		(void) rfRx_HandleInternalMail();
 
 		/* Report to watchdog */
 		NOTIFY_WATCHDOG(NV_IWDGGTKP_RFRX);
@@ -1131,13 +1175,15 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
   }
   /* USER CODE BEGIN Callback 1 */
 
-	if (TIM_1s_INSTANCE == htim->Instance) {
+	else if (TIM_1s_INSTANCE == htim->Instance) {
 
-		/* Notify the xbeeTxRx task */
-		EXbeeTxRxInternalMail xbeeTxRxInternalMail =
-				EXbeeTxRxInternalMail_PeriodElapsed;
-		xQueueSendFromISR(xbeeTxRxInternalMailQueueHandle,
-				&xbeeTxRxInternalMail, NULL);
+		xbeeTxRx_PeriodElapsedCallback();
+
+	}
+
+	else if (TIM_TPMS_INSTANCE == htim->Instance) {
+
+		rfRx_PeriodElapsedCallback();
 
 	}
 

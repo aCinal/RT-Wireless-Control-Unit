@@ -14,6 +14,8 @@
 #include "rt12e_libs_uartringbuffer.h"
 
 #include "main.h"
+#include "stm32f4xx_hal.h"
+#include "cmsis_os.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -23,21 +25,20 @@
 #define TELEMETRY_WARNING_BIT   ((uint8_t) 0x40)                        /* Telemetry_Warning bit of the TELEMETRY_DIAG CAN frame */
 #define TELEMETRY_PIT_BIT       ((uint8_t) 0x20)                        /* Telemetry_Pit bit of the TELEMETRY_DIAG CAN frame */
 #define XBEE_GUARD_TIMES        ((uint16_t) 0x000A)                     /* Desired value of the Guard Times parameter */
+#define XBEE_UART_HANDLE        (huart4)                                /* UART handle alias */
+#define XBEE_UART_INSTANCE      (UART4)                                 /* UART instance alias */
 
 /**
  * @brief Telemetry diagnostics structure
  */
 typedef struct STelemetryDiagnostics {
-	uint8_t greenWarningDuration;  /* Green warning's duration */
-	uint8_t redWarningDuration;    /* Red warning's duration */
-	uint8_t rssi;                  /* RSSI value */
+	uint8_t greenWarningDuration;
+	uint8_t redWarningDuration;
+	uint8_t rssi;
 } STelemetryDiagnostics;
 
-/**
- * @brief Circular buffer structure
- */
 SUartRingBuf gXbeeTxRxRingBuffer;
-
+extern UART_HandleTypeDef XBEE_UART_HANDLE;
 extern osThreadId canGtkpHandle;
 extern osThreadId sdioGtkpHandle;
 extern osMessageQId canRxQueueHandle;
@@ -58,7 +59,7 @@ static EXbeeTxRxRet xbeeTxRx_SendSubscriptionToSdioGtkp(uint32_t ids[],
 		size_t count);
 
 /**
- * @brief Configures the XBEE Pro device
+ * @brief Configure the XBEE-Pro device
  * @retval EXbeeTxRxRet Status
  */
 EXbeeTxRxRet xbeeTxRx_DeviceConfig(void) {
@@ -66,7 +67,7 @@ EXbeeTxRxRet xbeeTxRx_DeviceConfig(void) {
 	EXbeeTxRxRet status = EXbeeTxRxRet_Ok;
 
 	/* Set the guard time */
-	if(EXbeeProApiRet_Ok != XbeeProApi_SetGuardTimes(XBEE_GUARD_TIMES)) {
+	if (EXbeeProApiRet_Ok != XbeeProApi_SetGuardTimes(XBEE_GUARD_TIMES)) {
 
 		status = EXbeeTxRxRet_Error;
 
@@ -77,7 +78,7 @@ EXbeeTxRxRet xbeeTxRx_DeviceConfig(void) {
 }
 
 /**
- * @brief Starts listening for incoming UART transmissions
+ * @brief Start listening for incoming UART transmissions
  * @retval EUartRingBufRet Status
  */
 EUartRingBufRet xbeeTxRx_StartRingBufferIdleDetectionRx(void) {
@@ -96,7 +97,7 @@ EUartRingBufRet xbeeTxRx_StartRingBufferIdleDetectionRx(void) {
 }
 
 /**
- * @brief Handles internal messages
+ * @brief Handle internal messages
  * @retval EXbeeTxRxRet Status
  */
 EXbeeTxRxRet xbeeTxRx_HandleInternalMail(void) {
@@ -168,7 +169,7 @@ EXbeeTxRxRet xbeeTxRx_HandleInternalMail(void) {
 }
 
 /**
- * @brief Handles transmitting telemetry data
+ * @brief Handle transmitting telemetry data
  * @retval None
  */
 void xbeeTxRx_HandleOutgoingR3tpCom(void) {
@@ -224,23 +225,37 @@ void xbeeTxRx_HandleOutgoingR3tpCom(void) {
 }
 
 /**
- * @brief Function registered as callback for idle line callback in the ring buffer implementation
+ * @brief Callback on timer period elapsed
+ * @retval None
+ */
+void xbeeTxRx_PeriodElapsedCallback(void) {
+
+	/* Notify the task */
+	EXbeeTxRxInternalMail xbeeTxRxInternalMail =
+			EXbeeTxRxInternalMail_PeriodElapsed;
+	xQueueSendFromISR(xbeeTxRxInternalMailQueueHandle, &xbeeTxRxInternalMail,
+			NULL);
+
+}
+
+/**
+ * @brief Callback on idle line detection in the ring buffer implementation
  * @retval None
  */
 static void xbeeTxRx_RingBufferIdleCallback(void) {
 
-	/* Notify the xbeeTxRx task */
 	EXbeeTxRxInternalMail mail = EXbeeTxRxInternalMail_MessageReceived;
+	/* Notify the task */
 	(void) xQueueSendFromISR(xbeeTxRxInternalMailQueueHandle, &mail, NULL);
 
 }
 
 /**
- * @brief Handles the new telemetry subscription
+ * @brief Handle the new telemetry subscription
  * @param rxBufTbl UART Rx Buffer
  * @retval EXbeeTxRxRet Status
  */
-static EXbeeTxRxRet xbeeTxRx_HandleNewSubscription(uint8_t* rxBufTbl) {
+static EXbeeTxRxRet xbeeTxRx_HandleNewSubscription(uint8_t *rxBufTbl) {
 
 	EXbeeTxRxRet status = EXbeeTxRxRet_Ok;
 
@@ -321,12 +336,12 @@ static EXbeeTxRxRet xbeeTxRx_HandleNewSubscription(uint8_t* rxBufTbl) {
 }
 
 /**
- * @brief Handles the driver warning
+ * @brief Handle the driver warning
  * @param rxBufTbl UART Rx Buffer
  * @param diagPtr Pointer to the diagnostics structure
  * @retval EXbeeTxRxRet Status
  */
-static EXbeeTxRxRet xbeeTxRx_HandleDriverWarning(uint8_t* rxBufTbl,
+static EXbeeTxRxRet xbeeTxRx_HandleDriverWarning(uint8_t *rxBufTbl,
 		STelemetryDiagnostics *diagPtr) {
 
 	EXbeeTxRxRet status = EXbeeTxRxRet_Ok;
@@ -392,7 +407,7 @@ static EXbeeTxRxRet xbeeTxRx_HandleDriverWarning(uint8_t* rxBufTbl,
 }
 
 /**
- * @brief Polls the XBEE-Pro device for the RSSI value of the last transmission received
+ * @brief Poll the XBEE-Pro device for the RSSI value of the last transmission received
  * @param rssiPtr Pointer to pass the received value out of the function
  * @retval EXbeeTxRxRet Status
  */
@@ -411,7 +426,7 @@ static EXbeeTxRxRet xbeeTxRx_ReadRssi(uint8_t *rssiPtr) {
 	if (EXbeeTxRxRet_Ok == status) {
 
 		/* Read RSSI */
-		if(EXbeeProApiRet_Ok != XbeeProApi_ReadRssi(rssiPtr)) {
+		if (EXbeeProApiRet_Ok != XbeeProApi_ReadRssi(rssiPtr)) {
 
 			LogPrint("Failed receive RSSI value in xbeeTxRx");
 			status = EXbeeTxRxRet_Error;
@@ -434,7 +449,7 @@ static EXbeeTxRxRet xbeeTxRx_ReadRssi(uint8_t *rssiPtr) {
 }
 
 /**
- * @brief Sends the telemetry diagnostic frame to the CAN bus
+ * @brief Send the telemetry diagnostic frame to the CAN bus
  * @param diagPtr Pointer to the diagnostics structure
  * @retval None
  */
@@ -485,7 +500,7 @@ static void xbeeTxRx_SendDiagnostics(STelemetryDiagnostics *diagPtr) {
 }
 
 /**
- * @brief Decrements the warning duration counters and updates the warning active flags
+ * @brief Decrement the warning duration counters and updates the warning active flags
  * @param diagPtr Pointer to the diagnostics structure
  * @retval None
  */
@@ -510,7 +525,7 @@ static void xbeeTxRx_UpdateWarnings(STelemetryDiagnostics *diagPtr) {
 }
 
 /**
- * @brief Forwards the telemetry subscription to the CAN gatekeeper for the appropriate filters to be set
+ * @brief Forward the telemetry subscription to the CAN gatekeeper for the appropriate filters to be set
  * @param ids Pointer to the subscription memory block
  * @param count Length of the ids array
  * @retval EXbeeTxRxRet Status
@@ -548,7 +563,7 @@ static EXbeeTxRxRet xbeeTxRx_SendSubscriptionToCanGtkp(uint32_t ids[],
 }
 
 /**
- * @brief Forwards the telemetry subscription to the SDIO gatekeeper to be stored on the SD card
+ * @brief Forward the telemetry subscription to the SDIO gatekeeper to be stored on the SD card
  * @param ids Pointer to the subscription memory block
  * @param count Length of the ids array
  * @retval EXbeeTxRxRet Status

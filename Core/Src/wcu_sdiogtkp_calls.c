@@ -24,7 +24,7 @@ extern osMessageQId sdioLogQueueHandle;
 #define SDIOGTKP_SUBFILE_PATH  ("SUBSCR")      /* Subscription file path */
 
 /**
- * @brief Tries loading the telemetry subscription from the SD card and forwarding it to CAN gatekeeper
+ * @brief Try loading the telemetry subscription from the SD card and forwarding it to CAN gatekeeper
  * @retval ESdioGtkpRet Status
  */
 ESdioGtkpRet sdioGtkp_LoadTelemetrySubscription(void) {
@@ -139,7 +139,7 @@ ESdioGtkpRet sdioGtkp_LoadTelemetrySubscription(void) {
 }
 
 /**
- * @brief Handles the error logger
+ * @brief Handle the error logger
  * @retval None
  */
 void sdioGtkp_HandleLogger(void) {
@@ -170,7 +170,7 @@ void sdioGtkp_HandleLogger(void) {
 }
 
 /**
- * @brief Handles saving the new telemetry subscription to the SD card
+ * @brief Handle saving the new telemetry subscription to the SD card
  * @retval ESdioGtkpRet Status
  */
 ESdioGtkpRet sdioGtkp_HandleNewSubscription(void) {

@@ -29,7 +29,7 @@ extern osMessageQId sdioLogQueueHandle;
  * @param messagePayloadTbl Error message
  * @retval None
  */
-void LogPrint(const char messagePayloadTbl[]) {
+void LogPrint(const char* messagePayloadTbl) {
 
 	size_t payloadLength = strlen(messagePayloadTbl);
 	/* Allocate the memory for the error message */
@@ -76,5 +76,23 @@ uint16_t GetR3tpCrc(uint8_t* payloadPtr, uint32_t numOfBytes) {
 	CRC_SEM_POST();
 
 	return _bits0_15(crc);
+
+}
+
+/**
+ * @brief Calculate the CRC of payload and return the 16 least significant bits
+ * @param canFramePtr Pointer to the CAN frame structure
+ * @param errMsgTbl Error message to log in case of failure
+ * @retval None
+ */
+void AddToCanTxQueue(SCanFrame *canFramePtr, const char *errMsgTbl) {
+
+	/* Push the frame to the queue */
+	if (pdPASS != xQueueSend(canTxQueueHandle, canFramePtr, WCU_COMMON_TIMEOUT)) {
+
+		/* Log the error */
+		LogPrint(errMsgTbl);
+
+	}
 
 }

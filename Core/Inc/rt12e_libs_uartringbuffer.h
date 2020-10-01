@@ -24,7 +24,7 @@ typedef enum EUartRingBufRet {
 } EUartRingBufRet;
 
 /**
- * @brief Circular buffer structure
+ * @brief Ring buffer structure
  */
 typedef struct SUartRingBuf {
 	uint8_t *BufferPtr;                   /* Pointer to the buffer */

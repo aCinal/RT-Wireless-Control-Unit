@@ -12,21 +12,21 @@
 #include "rt12e_libs_r3tp.h"
 #include "rt12e_libs_uartringbuffer.h"
 
+#include "stm32f4xx_hal.h"
 #include "cmsis_os.h"
 
 #define BTRX_RING_BUF_SIZE  ((uint32_t) 50)  /* UART ring buffer size */
+#define BT_UART_HANDLE      (huart1)         /* UART handle alias */
+#define BT_UART_INSTANCE    (USART1)         /* UART instance alias */
 
-/**
- * @brief Circular buffer structure
- */
 SUartRingBuf gBtRxRingBuffer;
-
+extern UART_HandleTypeDef BT_UART_HANDLE;
 extern osThreadId btRxHandle;
 
 static void btRx_RingBufferIdleCallback(void);
 
 /**
- * @brief Starts listening for incoming UART transmissions
+ * @brief Start listening for incoming UART transmissions
  * @retval EUartRingBufRet Status
  */
 EUartRingBufRet btRx_StartRingBufferIdleDetectionRx(void) {
@@ -45,7 +45,7 @@ EUartRingBufRet btRx_StartRingBufferIdleDetectionRx(void) {
 
 
 /**
- * @brief Handles the BT message
+ * @brief Handle the BT message
  * @retval EBtRxRet Status
  */
 EBtRxRet btRx_HandleCom(void) {
@@ -80,7 +80,6 @@ EBtRxRet btRx_HandleCom(void) {
 			}
 
 		}
-
 
 		if(EBtRxRet_Ok == status) {
 
@@ -148,12 +147,12 @@ EBtRxRet btRx_HandleCom(void) {
 }
 
 /**
- * @brief Function registered as callback for idle line callback in the ring buffer implementation
+ * @brief Callback on idle line detection in the ring buffer implementation
  * @retval None
  */
 static void btRx_RingBufferIdleCallback(void) {
 
-	/* Notify the btRx task */
+	/* Notify the task */
 	vTaskNotifyGiveFromISR(btRxHandle, NULL);
 
 }

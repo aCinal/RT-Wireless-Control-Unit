@@ -14,8 +14,11 @@
 
 #define CAN_ID_WCU_DIAG  ((uint32_t) 0x733)  /* CAN ID: _733_WCU_DIAG */
 
+extern osThreadId diagnosticHandle;
+
 /**
- * @brief Runs diagnostics on the MCU and transmits the data via CAN bus
+ * @brief Run diagnostics on the MCU and transmit the data via CAN bus
+ * @retval None
  */
 void diagnostic_RunDiagnostics(void) {
 
@@ -63,9 +66,19 @@ void diagnostic_RunDiagnostics(void) {
 		canFrame.PayloadTbl[3] = _bits0_7(mcuUptime);
 
 		/* Transmit the frame */
-		AddToCanTxQueue(&canFrame,
-				"diagnostic failed to send to canTxQueue");
+		AddToCanTxQueue(&canFrame, "diagnostic failed to send to canTxQueue");
 
 	}
+
+}
+
+/**
+ * @brief Callback on ADC conversion complete
+ * @retval None
+ */
+void diagnostic_AdcConvCpltcallback(void) {
+
+	/* Notify the diagnostic task */
+	vTaskNotifyGiveFromISR(diagnosticHandle, NULL);
 
 }

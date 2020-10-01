@@ -11,21 +11,21 @@
 #include "rt12e_libs_can.h"
 #include "rt12e_libs_generic.h"
 
+#include "stm32f4xx_hal.h"
+
 #include "cmsis_os.h"
 #include <string.h>
 
-#define CAN_ID_GPS_POS           ((uint32_t) 0x500)  /* CAN ID: _500_GPS_POS */
-#define CAN_ID_GPS_POS2          ((uint32_t) 0x501)  /* CAN ID: _501_GPS_POS2 */
-#define CAN_ID_GPS_STATUS        ((uint32_t) 0x502)  /* CAN ID: _502_GPS_STATUS */
+#define CAN_ID_GPS_POS        ((uint32_t) 0x500)  /* CAN ID: _500_GPS_POS */
+#define CAN_ID_GPS_POS2       ((uint32_t) 0x501)  /* CAN ID: _501_GPS_POS2 */
+#define CAN_ID_GPS_STATUS     ((uint32_t) 0x502)  /* CAN ID: _502_GPS_STATUS */
+#define GNSSRX_READ_BUF_SIZE  ((uint32_t) 50U)    /* Read buffer size */
+#define GNSSRX_RING_BUF_SIZE  ((uint32_t) 200U)   /* UART ring buffer size */
+#define GNSS_UART_HANDLE      (huart3)            /* UART handle alias */
+#define GNSS_UART_INSTANCE    (USART3)            /* UART instance alias */
 
-#define GNSSRX_READ_BUF_SIZE      ((uint32_t) 50U)      /* Read buffer size */
-#define GNSSRX_RING_BUF_SIZE  ((uint32_t) 200U)     /* UART ring buffer size */
-
-/**
- * @brief Circular buffer structure
- */
 SUartRingBuf gGnssRxRingBuffer;
-
+extern UART_HandleTypeDef GNSS_UART_HANDLE;
 extern osThreadId gnssRxHandle;
 
 static void gnssRx_RingBufferIdleCallback(void);
@@ -34,7 +34,7 @@ static void gnssRx_Send_GPS_POS2(SGnssData *gnssDataPtr);
 static void gnssRx_Send_GPS_STATUS(SGnssData *gnssDataPtr);
 
 /**
- * @brief Configures the Quectel L26 device
+ * @brief Configure the Quectel L26 device
  * @retval EGnssRxRet Status
  */
 EGnssRxRet gnssRx_DeviceConfig(void) {
@@ -70,7 +70,7 @@ EGnssRxRet gnssRx_DeviceConfig(void) {
 }
 
 /**
- * @brief Starts listening for incoming UART transmissions
+ * @brief Start listening for incoming UART transmissions
  * @retval EUartRingBufRet Status
  */
 EUartRingBufRet gnssRx_StartRingBufferIdleDetectionRx(void) {
@@ -89,7 +89,7 @@ EUartRingBufRet gnssRx_StartRingBufferIdleDetectionRx(void) {
 }
 
 /**
- * @brief Listens for and handles the GNSS message
+ * @brief Listen for and handles the GNSS message
  * @retval EGnssRxRet Status
  */
 EGnssRxRet gnssRx_HandleCom(void) {
@@ -103,20 +103,20 @@ EGnssRxRet gnssRx_HandleCom(void) {
 		/* Read the data from the ring buffer */
 		UartRingBuf_Read(&gGnssRxRingBuffer, rxBufTbl, GNSSRX_READ_BUF_SIZE);
 
-		static SGnssData dataBuff; /* GNSS data buffer */
+		static SGnssData dataBuf; /* GNSS data buffer */
 		/* Try parsing the message */
-		switch (parseMessage(&dataBuff, (char*) rxBufTbl,
+		switch (parseMessage(&dataBuf, (char*) rxBufTbl,
 		GNSSRX_READ_BUF_SIZE)) {
 
 		case EGnssDataStatus_Ready: /* If the data is ready */
 
 			/* Send the data to CAN */
-			gnssRx_Send_GPS_POS(&dataBuff);
-			gnssRx_Send_GPS_POS2(&dataBuff);
-			gnssRx_Send_GPS_STATUS(&dataBuff);
+			gnssRx_Send_GPS_POS(&dataBuf);
+			gnssRx_Send_GPS_POS2(&dataBuf);
+			gnssRx_Send_GPS_STATUS(&dataBuf);
 
 			/* Clear the data buffer */
-			(void) memset(&dataBuff, 0, sizeof(dataBuff));
+			(void) memset(&dataBuf, 0, sizeof(dataBuf));
 			break;
 
 		case EGnssDataStatus_Pending: /* If the data is not complete */
@@ -142,18 +142,18 @@ EGnssRxRet gnssRx_HandleCom(void) {
 }
 
 /**
- * @brief Function registered as callback for idle line callback in the ring buffer implementation
+ * @brief Callback on idle line detection in the ring buffer implementation
  * @retval None
  */
 static void gnssRx_RingBufferIdleCallback(void) {
 
-	/* Notify the gnssRx task */
+	/* Notify the task */
 	vTaskNotifyGiveFromISR(gnssRxHandle, NULL);
 
 }
 
 /**
- * @brief Sends _GPS_POS CAN frame
+ * @brief Send _GPS_POS CAN frame
  * @param gnssDataPtr Pointer to the GNSS data structure
  * @retval None
  */
@@ -190,7 +190,7 @@ static void gnssRx_Send_GPS_POS(SGnssData *gnssDataPtr) {
 }
 
 /**
- * @brief Sends _GPS_POS CAN frame
+ * @brief Send _GPS_POS CAN frame
  * @param gnssDataPtr Pointer to the GNSS data structure
  * @retval None
  */
@@ -226,7 +226,7 @@ static void gnssRx_Send_GPS_POS2(SGnssData *gnssDataPtr) {
 }
 
 /**
- * @brief Sends _GPS_POS CAN frame
+ * @brief Send _GPS_POS CAN frame
  * @param gnssDataPtr Pointer to the GNSS data structure
  * @retval None
  */

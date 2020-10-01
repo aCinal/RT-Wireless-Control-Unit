@@ -14,8 +14,15 @@ extern ADC_HandleTypeDef hadc1;
 #define DIAGNOSTIC_ADC_INSTANCE  (ADC1)
 
 /**
- * @brief Runs diagnostics on the MCU and transmits the data via CAN bus
+ * @brief Run diagnostics on the MCU and transmit the data via CAN bus
+ * @retval None
  */
 void diagnostic_RunDiagnostics(void);
+
+/**
+ * @brief Callback on ADC conversion complete
+ * @retval None
+ */
+void diagnostic_AdcConvCpltcallback(void);
 
 #endif /* __WCU_DIAGNOSTIC_CALLS_H_ */

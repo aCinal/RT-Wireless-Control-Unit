@@ -20,7 +20,7 @@ extern osMessageQId canSubQueueHandle;
 extern osMessageQId sdioSubQueueHandle;
 
 /**
- * @brief Handles the CAN outgoing messages
+ * @brief Handle the CAN outgoing messages
  * @retval None
  */
 void canGtkp_HandleOutbox(void) {
@@ -40,7 +40,7 @@ void canGtkp_HandleOutbox(void) {
 }
 
 /**
- * @brief Handles the CAN incoming messages
+ * @brief Handle the CAN incoming messages
  * @retval EWcuCanGtkpRet Status
  */
 EWcuCanGtkpRet canGtkp_HandleInbox(void) {
@@ -69,7 +69,7 @@ EWcuCanGtkpRet canGtkp_HandleInbox(void) {
 }
 
 /**
- * @brief Handles setting CAN filters according to the new telemetry subscription
+ * @brief Handle setting CAN filters according to the new telemetry subscription
  * @retval EWcuCanGtkpRet Status
  */
 EWcuCanGtkpRet canGtkp_HandleNewSubscription(void) {

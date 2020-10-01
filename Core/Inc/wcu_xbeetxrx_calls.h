@@ -9,13 +9,6 @@
 
 #include "rt12e_libs_uartringbuffer.h"
 
-#include "stm32f4xx_hal.h"
-#include "cmsis_os.h"
-
-extern UART_HandleTypeDef huart4;
-#define XBEE_UART_HANDLE    (huart4)
-#define XBEE_UART_INSTANCE  (UART4)
-
 /**
  * @brief Error code return value enumeration
  */
@@ -33,27 +26,33 @@ typedef enum EXbeeTxRxInternalMail {
 } EXbeeTxRxInternalMail;
 
 /**
- * @brief Starts listening for incoming UART transmissions
+ * @brief Configure the XBEE-Pro device
+ * @retval EXbeeTxRxRet Status
+ */
+EXbeeTxRxRet xbeeTxRx_DeviceConfig(void);
+
+/**
+ * @brief Start listening for incoming UART transmissions
  * @retval EUartRingBufRet Status
  */
 EUartRingBufRet xbeeTxRx_StartRingBufferIdleDetectionRx(void);
 
 /**
- * @brief Handles internal messages
+ * @brief Handle internal messages
  * @retval EXbeeTxRxRet Status
  */
 EXbeeTxRxRet xbeeTxRx_HandleInternalMail(void);
 
 /**
- * @brief Handles transmitting telemetry data
+ * @brief Handle transmitting telemetry data
  * @retval None
  */
 void xbeeTxRx_HandleOutgoingR3tpCom(void);
 
 /**
- * @brief Configures the XBEE Pro device
- * @retval EXbeeTxRxRet Status
+ * @brief Callback on timer period elapsed
+ * @retval None
  */
-EXbeeTxRxRet xbeeTxRx_DeviceConfig(void);
+void xbeeTxRx_PeriodElapsedCallback(void);
 
 #endif /* __WCU_XBEETXRX_CALLS_H_ */

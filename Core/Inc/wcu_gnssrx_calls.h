@@ -9,12 +9,6 @@
 
 #include "rt12e_libs_uartringbuffer.h"
 
-#include "stm32f4xx_hal.h"
-
-extern UART_HandleTypeDef huart3;
-#define GNSS_UART_HANDLE    (huart3)
-#define GNSS_UART_INSTANCE  (USART3)
-
 /**
  * @brief Error code return value enumeration
  */
@@ -24,19 +18,19 @@ typedef enum EGnssRxRet {
 } EGnssRxRet;
 
 /**
- * @brief Configures the Quectel L26 device
+ * @brief Configure the Quectel L26 device
  * @retval EGnssRxRet Status
  */
 EGnssRxRet gnssRx_DeviceConfig(void);
 
 /**
- * @brief Starts listening for incoming UART transmissions
+ * @brief Start listening for incoming UART transmissions
  * @retval EUartRingBufRet Status
  */
 EUartRingBufRet gnssRx_StartRingBufferIdleDetectionRx(void);
 
 /**
- * @brief Handles the GNSS message
+ * @brief Handle the GNSS message
  * @retval Status
  */
 EGnssRxRet gnssRx_HandleCom(void);
