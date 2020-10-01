@@ -168,6 +168,8 @@ ERfRxRet rfRx_HandleInternalMail(void) {
 
 				/* TODO: Read data from the device's FIFO */
 
+				/* TODO: Validate the message (unless validated in hardware by S2-LP) */
+
 			}
 
 			if( (ERfRxRet_Ok == status) && dataReady ) {
@@ -197,16 +199,6 @@ ERfRxRet rfRx_HandleInternalMail(void) {
 			break;
 
 		}
-
-	}
-
-	/* Wait for notification from EXTI callback */
-	if(0UL < ulTaskNotifyTake(pdTRUE, WCU_COMMON_TIMEOUT)) {
-
-
-		/* TODO: Validate the message (unless validated in hardware by S2-LP) */
-
-		/* TODO: Messaging system */
 
 	}
 

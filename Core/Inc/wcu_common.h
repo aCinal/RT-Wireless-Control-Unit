@@ -45,7 +45,7 @@ void LogPrint(const char *messagePayloadTbl);
 uint16_t GetR3tpCrc(uint8_t *payloadPtr, uint32_t numOfBytes);
 
 /**
- * @brief Calculate the CRC of payload and return the 16 least significant bits
+ * @brief Add the CAN frame to canTxQueue
  * @param canFramePtr Pointer to the CAN frame structure
  * @param errMsgTbl Error message to log in case of failure
  * @retval None
