@@ -13,16 +13,16 @@
 #include <stdio.h>
 #include <string.h>
 
+#define CRC_SEM_WAIT()            ( (void) osMutexWait(crcMutexHandle, osWaitForever) )  /* Acquire the CRC semaphore */
+#define CRC_SEM_POST()            ( (void) osMutexRelease(crcMutexHandle) )              /* Release the CRC semaphore */
+#define LOG_HEADER_LENGTH         ( (uint32_t) 11 )                                      /* Length of the timestamp in decimal */
+#define LOG_TRAILER_LENGTH        ( (uint32_t) 3 )                                       /* <CR><LF><NUL> sequence length */
+#define LOG_PAYLOAD(log)          ( &( (log)[LOG_HEADER_LENGTH] ) )                      /* Get pointer to the log entry payload */
+#define LOG_TRAILER(log, payLen)  ( &( (log)[LOG_HEADER_LENGTH + (payLen)] ) )           /* Get pointer to the log entry trailer */
+
 extern CRC_HandleTypeDef hcrc;
 extern osMutexId crcMutexHandle;
 extern osMessageQId sdioLogQueueHandle;
-
-#define CRC_SEM_WAIT()            ((void) osMutexWait(crcMutexHandle, osWaitForever))  /* Acquire the CRC semaphore */
-#define CRC_SEM_POST()            ((void) osMutexRelease(crcMutexHandle))              /* Release the CRC semaphore */
-#define LOG_HEADER_LENGTH         ((uint32_t) 11)                                      /* Length of the timestamp in decimal */
-#define LOG_TRAILER_LENGTH        ((uint32_t) 3)                                       /* <CR><LF><NUL> sequence length */
-#define LOG_PAYLOAD(log)          (&((log)[LOG_HEADER_LENGTH]))                        /* Get pointer to the log entry payload */
-#define LOG_TRAILER(log, payLen)  (&((log)[LOG_HEADER_LENGTH + (payLen)]))             /* Get pointer to the log entry trailer */
 
 /**
  * @brief Log an error message to the SD card

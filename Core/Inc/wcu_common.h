@@ -20,13 +20,22 @@ typedef float float32_t;
 typedef double float64_t;
 
 /* Exported defines -------------------------------------------------------------------------- */
-#define WCU_COMMON_TIMEOUT         ((TickType_t) pdMS_TO_TICKS(5))  /* Common timeout */
-#define WCU_COMMON_TASK_DELAY      ((TickType_t) pdMS_TO_TICKS(1))  /* Common task delay */
+#define WCU_COMMON_TIMEOUT         ( (TickType_t) pdMS_TO_TICKS(5) )  /* Common timeout */
+#define WCU_COMMON_TASK_DELAY      ( (TickType_t) pdMS_TO_TICKS(1) )  /* Common task delay */
 
-#define CLEAR_NO_BITS_ON_ENTRY     ((uint32_t) 0x00000000UL)  /* Value to pass as ulBitsToClearOnEntry to xTaskNotifyWait */
-#define CLEAR_NO_BITS_ON_EXIT      ((uint32_t) 0x00000000UL)  /* Value to pass as ulBitsToClearOnExit to xTaskNotifyWait */
-#define CLEAR_ALL_BITS_ON_ENTRY    ((uint32_t) 0xFFFFFFFFUL)  /* Value to pass as ulBitsToClearOnEntry to xTaskNotifyWait */
-#define CLEAR_ALL_BITS_ON_EXIT     ((uint32_t) 0xFFFFFFFFUL)  /* Value to pass as ulBitsToClearOnExit to xTaskNotifyWait */
+#define CLEAR_NO_BITS_ON_ENTRY     ( (uint32_t) 0x00000000UL )        /* Value to pass as ulBitsToClearOnEntry to xTaskNotifyWait */
+#define CLEAR_NO_BITS_ON_EXIT      ( (uint32_t) 0x00000000UL )        /* Value to pass as ulBitsToClearOnExit to xTaskNotifyWait */
+#define CLEAR_ALL_BITS_ON_ENTRY    ( (uint32_t) 0xFFFFFFFFUL )        /* Value to pass as ulBitsToClearOnEntry to xTaskNotifyWait */
+#define CLEAR_ALL_BITS_ON_EXIT     ( (uint32_t) 0xFFFFFFFFUL )        /* Value to pass as ulBitsToClearOnExit to xTaskNotifyWait */
+
+/* Conditional compilation flags */
+#define RT11
+#define RT12e
+#undef RT11
+#if defined(RT11) && defined(RT12e)
+#error Both RT11 and RT12e defined
+#endif /* defined(RT11) && defined(RT12e) */
+
 
 /* Exported function prototypes -------------------------------------------------------------------------- */
 /**

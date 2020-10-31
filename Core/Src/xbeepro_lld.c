@@ -10,8 +10,8 @@
 
 #include <stdint.h>
 
-#define STATIC_STRLEN(str)       ((uint32_t)( ( sizeof(str) / sizeof(str[0]) ) - 1U))
-#define XBEEPROLLD_UART_TIMEOUT  ((uint32_t) 500)
+#define STATIC_STRLEN(str)       ( (uint32_t)( ( sizeof(str) / sizeof(str[0]) ) - 1U ) )
+#define XBEEPROLLD_UART_TIMEOUT  ( (uint32_t) 500 )
 
 /**
  * @brief Enter command mode

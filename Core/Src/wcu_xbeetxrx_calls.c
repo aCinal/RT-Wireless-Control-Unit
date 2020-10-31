@@ -19,14 +19,23 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define XBEETXRX_RING_BUF_SIZE  ((uint32_t) (2 * R3TP_MAX_FRAME_SIZE))  /* UART ring buffer size */
-#define CAN_ID_TELEMETRY_DIAG   ((uint32_t) 0x733)                      /* CAN ID: _733_TELEMETRY_DIAG */
-#define TELEMETRY_STATE_BIT     ((uint8_t) 0x80)                        /* Telemetry_State bit of the TELEMETRY_DIAG CAN frame */
-#define TELEMETRY_WARNING_BIT   ((uint8_t) 0x40)                        /* Telemetry_Warning bit of the TELEMETRY_DIAG CAN frame */
-#define TELEMETRY_PIT_BIT       ((uint8_t) 0x20)                        /* Telemetry_Pit bit of the TELEMETRY_DIAG CAN frame */
-#define XBEE_GUARD_TIMES        ((uint16_t) 0x000A)                     /* Desired value of the Guard Times parameter */
-#define XBEE_UART_HANDLE        (huart4)                                /* UART handle alias */
-#define XBEE_UART_INSTANCE      (UART4)                                 /* UART instance alias */
+#define XBEETXRX_RING_BUF_SIZE  ( (uint32_t) (2 * R3TP_MAX_FRAME_SIZE) )  /* UART ring buffer size */
+#define CAN_ID_TELEMETRY_DIAG   ( (uint32_t) 0x733 )                      /* CAN ID: _733_TELEMETRY_DIAG */
+#define TELEMETRY_STATE_BIT     ( (uint8_t) 0x80 )                        /* Telemetry_State bit of the TELEMETRY_DIAG CAN frame */
+#define TELEMETRY_WARNING_BIT   ( (uint8_t) 0x40 )                        /* Telemetry_Warning bit of the TELEMETRY_DIAG CAN frame */
+#define TELEMETRY_PIT_BIT       ( (uint8_t) 0x20 )                        /* Telemetry_Pit bit of the TELEMETRY_DIAG CAN frame */
+#define XBEE_GUARD_TIMES        ( (uint16_t) 0x000A )                     /* Desired value of the Guard Times parameter */
+#define XBEE_UART_HANDLE        (huart4)                                  /* UART handle alias */
+#define XBEE_UART_INSTANCE      (UART4)                                   /* UART instance alias */
+
+extern UART_HandleTypeDef XBEE_UART_HANDLE;
+extern osThreadId canGtkpHandle;
+extern osThreadId sdioGtkpHandle;
+extern osMessageQId canRxQueueHandle;
+extern osMessageQId canSubQueueHandle;
+extern osMessageQId sdioSubQueueHandle;
+extern osMessageQId xbeeTxRxInternalMailQueueHandle;
+SUartRingBuf gXbeeTxRxRingBuffer;
 
 /**
  * @brief Telemetry diagnostics structure
@@ -36,15 +45,6 @@ typedef struct STelemetryDiagnostics {
 	uint8_t redWarningDuration;
 	uint8_t rssi;
 } STelemetryDiagnostics;
-
-SUartRingBuf gXbeeTxRxRingBuffer;
-extern UART_HandleTypeDef XBEE_UART_HANDLE;
-extern osThreadId canGtkpHandle;
-extern osThreadId sdioGtkpHandle;
-extern osMessageQId canRxQueueHandle;
-extern osMessageQId canSubQueueHandle;
-extern osMessageQId sdioSubQueueHandle;
-extern osMessageQId xbeeTxRxInternalMailQueueHandle;
 
 static void xbeeTxRx_RingBufferIdleCallback(void);
 static EXbeeTxRxRet xbeeTxRx_HandleNewSubscription(uint8_t rxBufTbl[]);
@@ -65,6 +65,9 @@ static EXbeeTxRxRet xbeeTxRx_SendSubscriptionToSdioGtkp(uint32_t ids[],
 EXbeeTxRxRet xbeeTxRx_DeviceConfig(void) {
 
 	EXbeeTxRxRet status = EXbeeTxRxRet_Ok;
+
+	/* Set the RESET pin high */
+	HAL_GPIO_WritePin(XBEE_RESET_GPIO_Port, XBEE_RESET_Pin, GPIO_PIN_SET);
 
 	/* Set the guard time */
 	if (EXbeeProApiRet_Ok != XbeeProApi_SetGuardTimes(XBEE_GUARD_TIMES)) {
@@ -134,7 +137,7 @@ EXbeeTxRxRet xbeeTxRx_HandleInternalMail(void) {
 
 			default:
 
-				LogPrint("Invalid protocol version in xbeeTxRx");
+				LogPrint("Unknown protocol version in xbeeTxRx");
 				status = EXbeeTxRxRet_Error;
 				break;
 
@@ -418,7 +421,7 @@ static EXbeeTxRxRet xbeeTxRx_ReadRssi(uint8_t *rssiPtr) {
 	/* Stop data transfer to the ring buffer */
 	if (EUartRingBufRet_Ok != UartRingBuf_Stop(&gXbeeTxRxRingBuffer)) {
 
-		LogPrint("Failed to stop data transfer to ring buffer in xbeeTxRx");
+		LogPrint("UartRingBuf_Stop failed (xbeeTxRx)");
 		status = EXbeeTxRxRet_Error;
 
 	}
@@ -428,7 +431,7 @@ static EXbeeTxRxRet xbeeTxRx_ReadRssi(uint8_t *rssiPtr) {
 		/* Read RSSI */
 		if (EXbeeProApiRet_Ok != XbeeProApi_ReadRssi(rssiPtr)) {
 
-			LogPrint("Failed receive RSSI value in xbeeTxRx");
+			LogPrint("XbeeProApi_ReadRssi failed");
 			status = EXbeeTxRxRet_Error;
 
 		}
@@ -439,7 +442,7 @@ static EXbeeTxRxRet xbeeTxRx_ReadRssi(uint8_t *rssiPtr) {
 	if (EUartRingBufRet_Ok != UartRingBuf_Start(&gXbeeTxRxRingBuffer)) {
 
 		LogPrint(
-				"Failed to resume data transfer to the ring buffer in xbeeTxRx");
+				"UartRingBuf_Start failed (xbeeTxRx)");
 		status = EXbeeTxRxRet_Error;
 
 	}
@@ -495,7 +498,7 @@ static void xbeeTxRx_SendDiagnostics(STelemetryDiagnostics *diagPtr) {
 	}
 
 	/* Transmit the frame */
-	AddToCanTxQueue(&canFrame, "xbeeTxRx failed to send to canTxQueue");
+	AddToCanTxQueue(&canFrame, "AddToCanTxQueue failed (xbeeTxRx)");
 
 }
 

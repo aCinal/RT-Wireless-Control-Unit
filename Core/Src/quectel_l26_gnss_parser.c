@@ -11,67 +11,67 @@
 /**
  * @brief Tell the compiler that a variable is purposefully ignored, i.e. not used
  */
-#define UNUSED(x)  ((void) x)
+#define UNUSED(x)  ( (void) x )
 
 #define NMEA_PARSER_SENTENCE_BUFSIZE   ((uint32_t) 64UL)  /* Message parser sentence buffer size */
 #define NMEA_PARSER_DATAFIELD_BUFSIZE  ((uint32_t) 11UL)  /* Sentence parser data field buffer size */
 
-static ENmeaParserRet _NmeaParseRmcPayload(SGnssData *pDataBuff,
+static ENmeaParserRet NmeaParseRmcPayload(SGnssData *dataBufPtr,
 		const char *pPayload, size_t length);
-static ENmeaParserRet _NmeaParseVtgPayload(SGnssData *pDataBuff,
+static ENmeaParserRet NmeaParseVtgPayload(SGnssData *dataBufPtr,
 		const char *pPayload, size_t length);
-static ENmeaParserRet _NmeaParseGgaPayload(SGnssData *pDataBuff,
+static ENmeaParserRet NmeaParseGgaPayload(SGnssData *dataBufPtr,
 		const char *pPayload, size_t length);
-static ENmeaParserRet _NmeaParseGsaPayload(SGnssData *pDataBuff,
+static ENmeaParserRet NmeaParseGsaPayload(SGnssData *dataBufPtr,
 		const char *pPayload, size_t length);
-static ENmeaParserRet _NmeaParseGsvPayload(SGnssData *pDataBuff,
+static ENmeaParserRet NmeaParseGsvPayload(SGnssData *dataBufPtr,
 		const char *pPayload, size_t length, EGsvTalkerId talkerId);
-static ENmeaParserRet _NmeaParseGllPayload(SGnssData *pDataBuff,
+static ENmeaParserRet NmeaParseGllPayload(SGnssData *dataBufPtr,
 		const char *pPayload, size_t length);
-static ENmeaParserRet _NmeaParseTxtPayload(SGnssData *pDataBuff,
+static ENmeaParserRet NmeaParseTxtPayload(SGnssData *dataBufPtr,
 		const char *pPayload, size_t length);
 
 /**
- * @brief Tests if all NMEA sentences were received
- * @param pData Pointer to the GNSS data structure
+ * @brief Test if all NMEA sentences were received
+ * @param dataPtr Pointer to the GNSS data structure
  * @retval bool True if all sentences were received and the data is complete, false otherwise
  */
-bool isDataComplete(SGnssData *pData) {
+bool IsDataComplete(SGnssData *dataPtr) {
 
 	/* Test if all flags are set */
 	return ((NMEA_RMC_RECEIVED | NMEA_VTG_RECEIVED | NMEA_GGA_RECEIVED
 			| NMEA_GSA_RECEIVED | NMEA_GPGSV_RECEIVED | NMEA_GLGSV_RECEIVED
-			| NMEA_GLL_RECEIVED | NMEA_TXT_RECEIVED) == pData->SentencesReceived);
+			| NMEA_GLL_RECEIVED | NMEA_TXT_RECEIVED) == dataPtr->SentencesReceived);
 
 }
 
 /**
- * @brief Tries parsing the Quectel L26 message
- * @param[out] pDataBuff Pointer to the GNSS data structure where the parsed data will be stored
- * @param[in] pMessage Pointer to the message
+ * @brief Try parsing the Quectel L26 message
+ * @param[out] dataBufPtr Pointer to the GNSS data structure where the parsed data will be stored
+ * @param[in] messagePtr Pointer to the message
  * @param[in] length Length of the message
  */
-EGnssDataStatus parseMessage(SGnssData *pDataBuff, const char *pMessage,
+EGnssDataStatus ParseMessage(SGnssData *dataBufPtr, const char *messagePtr,
 		size_t length) {
 
-	static char SentenceBuffer[NMEA_PARSER_SENTENCE_BUFSIZE]; /* Sentence buffer */
-	static size_t SentenceLength = 0; /* Sentence length */
+	static char sentenceBuffer[NMEA_PARSER_SENTENCE_BUFSIZE];
+	static size_t sentenceLength = 0;
 
 	/* Go through the entire message */
 	for (size_t i = 0; i < length; i += 1UL) {
 
 		/* Test if the start character has been found */
-		if (0UL < SentenceLength) {
+		if (0UL < sentenceLength) {
 
 			/* Increment the length counter */
-			SentenceLength += 1UL;
+			sentenceLength += 1UL;
 			/* Save the next character of the message */
-			SentenceBuffer[SentenceLength - 1UL] = pMessage[i];
+			sentenceBuffer[sentenceLength - 1UL] = messagePtr[i];
 			/* Test for buffer overflow */
-			if (NMEA_PARSER_SENTENCE_BUFSIZE <= SentenceLength) {
+			if (NMEA_PARSER_SENTENCE_BUFSIZE <= sentenceLength) {
 
 				/* Reset the counter */
-				SentenceLength = 0;
+				sentenceLength = 0;
 				return EGnssDataStatus_Error;
 
 			}
@@ -79,38 +79,38 @@ EGnssDataStatus parseMessage(SGnssData *pDataBuff, const char *pMessage,
 		} else {
 
 			/* Search for the start character */
-			if ('$' == pMessage[i]) {
+			if ('$' == messagePtr[i]) {
 
 				/* Increment the length counter */
-				SentenceLength += 1UL;
+				sentenceLength += 1UL;
 				/* Save the start character */
-				SentenceBuffer[SentenceLength - 1UL] = pMessage[i];
+				sentenceBuffer[sentenceLength - 1UL] = messagePtr[i];
 
 			}
 
 		}
 
 		/* If the length exceeds the minimum sentence length necessary to validate the format */
-		if (5U <= SentenceLength) {
+		if (5U <= sentenceLength) {
 
 			/* Test if end sequence has been found */
-			if (('\r' == SentenceBuffer[SentenceLength - 2UL])
-					&& ('\n' == SentenceBuffer[SentenceLength - 1UL])
-					&& ('*' == SentenceBuffer[SentenceLength - 5UL])) {
+			if ( ('\r' == sentenceBuffer[sentenceLength - 2UL])
+					&& ('\n' == sentenceBuffer[sentenceLength - 1UL])
+					&& ('*' == sentenceBuffer[sentenceLength - 5UL]) ) {
 
 				/* Parse the received sentence */
 				if (ENmeaParserRet_Ok
-						!= parseNmeaSentence(pDataBuff, SentenceBuffer,
-								SentenceLength)) {
+						!= ParseNmeaSentence(dataBufPtr, sentenceBuffer,
+								sentenceLength)) {
 
 					/* Reset the counter */
-					SentenceLength = 0;
+					sentenceLength = 0;
 					return EGnssDataStatus_Error;
 
 				}
 
 				/* Reset the counter */
-				SentenceLength = 0;
+				sentenceLength = 0;
 
 			}
 
@@ -118,28 +118,28 @@ EGnssDataStatus parseMessage(SGnssData *pDataBuff, const char *pMessage,
 
 	}
 
-	return (isDataComplete(pDataBuff) ?
+	return (IsDataComplete(dataBufPtr) ?
 			EGnssDataStatus_Ready : EGnssDataStatus_Pending);
 
 }
 
 /**
- * @brief Parses an NMEA sentence
- * @param[out] pDataBuff Pointer to the GNSS data structure where the parsed data will be stored
- * @param[in] pSentence Pointer to the NMEA sentence
+ * @brief Parse an NMEA sentence
+ * @param[out] dataBufPtr Pointer to the GNSS data structure where the parsed data will be stored
+ * @param[in] sentencePtr Pointer to the NMEA sentence
  * @param[in] length Length of the sentence
  * @retval ENmeaParserRet Status
  */
-ENmeaParserRet parseNmeaSentence(SGnssData *pDataBuff, const char *pSentence,
+ENmeaParserRet ParseNmeaSentence(SGnssData *dataBufPtr, const char *sentencePtr,
 		size_t length) {
 
 	/* Retrieve the message ID */
 	char messageId[6];
-	strncpy(messageId, pSentence + 1U, 5);
+	strncpy(messageId, sentencePtr + 1U, 5);
 	messageId[5] = '\0';
 
 	/* Read the checksum */
-	char checksumString[3] = { pSentence[length - 4UL], pSentence[length - 3UL],
+	char checksumString[3] = { sentencePtr[length - 4UL], sentencePtr[length - 3UL],
 			'\0' };
 	uint8_t readChecksum = (uint8_t) strtoul(checksumString, NULL, 16);
 
@@ -147,7 +147,7 @@ ENmeaParserRet parseNmeaSentence(SGnssData *pDataBuff, const char *pSentence,
 	uint8_t calculatedChecksum = 0;
 	for (size_t i = 1; i < (length - 5UL); i += 1UL) {
 
-		calculatedChecksum ^= pSentence[i];
+		calculatedChecksum ^= sentencePtr[i];
 
 	}
 
@@ -159,36 +159,36 @@ ENmeaParserRet parseNmeaSentence(SGnssData *pDataBuff, const char *pSentence,
 	}
 
 	/* Identify the sentence by the message ID */
-	if ((0 == strcmp(messageId, "GPRMC"))
-			|| (0 == strcmp(messageId, "GNRMC"))) {
+	if ( ( 0 == strcmp(messageId, "GPRMC") )
+			|| ( 0 == strcmp(messageId, "GNRMC") ) ) {
 
 		/* Parse the payload */
-		return _NmeaParseRmcPayload(pDataBuff, NMEA_PAYLOAD_BEGIN(pSentence),
+		return NmeaParseRmcPayload(dataBufPtr, NMEA_PAYLOAD_BEGIN(sentencePtr),
 				NMEA_PAYLOAD_LENGTH(length));
 
 	}
 
-	if (0 == strcmp(messageId, "GPVTG")) {
+	if ( 0 == strcmp(messageId, "GPVTG") ) {
 
 		/* Parse the payload */
-		return _NmeaParseVtgPayload(pDataBuff, NMEA_PAYLOAD_BEGIN(pSentence),
+		return NmeaParseVtgPayload(dataBufPtr, NMEA_PAYLOAD_BEGIN(sentencePtr),
 				NMEA_PAYLOAD_LENGTH(length));
 
 	}
 
-	if (0 == strcmp(messageId, "GPGGA")) {
+	if ( 0 == strcmp(messageId, "GPGGA") ) {
 
 		/* Parse the payload */
-		return _NmeaParseGgaPayload(pDataBuff, NMEA_PAYLOAD_BEGIN(pSentence),
+		return NmeaParseGgaPayload(dataBufPtr, NMEA_PAYLOAD_BEGIN(sentencePtr),
 				NMEA_PAYLOAD_LENGTH(length));
 
 	}
 
-	if ((0 == strcmp(messageId, "GPGSA"))
-			|| (0 == strcmp(messageId, "GNGSA"))) {
+	if ( ( 0 == strcmp(messageId, "GPGSA") )
+			|| ( 0 == strcmp(messageId, "GNGSA") ) ) {
 
 		/* Parse the payload */
-		return _NmeaParseGsaPayload(pDataBuff, NMEA_PAYLOAD_BEGIN(pSentence),
+		return NmeaParseGsaPayload(dataBufPtr, NMEA_PAYLOAD_BEGIN(sentencePtr),
 				NMEA_PAYLOAD_LENGTH(length));
 
 	}
@@ -196,7 +196,7 @@ ENmeaParserRet parseNmeaSentence(SGnssData *pDataBuff, const char *pSentence,
 	if (0 == strcmp(messageId, "GLGSV")) {
 
 		/* Parse the payload */
-		return _NmeaParseGsvPayload(pDataBuff, NMEA_PAYLOAD_BEGIN(pSentence),
+		return NmeaParseGsvPayload(dataBufPtr, NMEA_PAYLOAD_BEGIN(sentencePtr),
 				NMEA_PAYLOAD_LENGTH(length), EGsvTalkerId_GL);
 
 	}
@@ -204,7 +204,7 @@ ENmeaParserRet parseNmeaSentence(SGnssData *pDataBuff, const char *pSentence,
 	if (0 == strcmp(messageId, "GPGSV")) {
 
 		/* Parse the payload */
-		return _NmeaParseGsvPayload(pDataBuff, NMEA_PAYLOAD_BEGIN(pSentence),
+		return NmeaParseGsvPayload(dataBufPtr, NMEA_PAYLOAD_BEGIN(sentencePtr),
 				NMEA_PAYLOAD_LENGTH(length), EGsvTalkerId_GP);
 
 	}
@@ -213,7 +213,7 @@ ENmeaParserRet parseNmeaSentence(SGnssData *pDataBuff, const char *pSentence,
 			|| (0 == strcmp(messageId, "GNGLL"))) {
 
 		/* Parse the payload */
-		return _NmeaParseGllPayload(pDataBuff, NMEA_PAYLOAD_BEGIN(pSentence),
+		return NmeaParseGllPayload(dataBufPtr, NMEA_PAYLOAD_BEGIN(sentencePtr),
 				NMEA_PAYLOAD_LENGTH(length));
 
 	}
@@ -221,7 +221,7 @@ ENmeaParserRet parseNmeaSentence(SGnssData *pDataBuff, const char *pSentence,
 	if (0 == strcmp(messageId, "GPTXT")) {
 
 		/* Parse the payload */
-		return _NmeaParseTxtPayload(pDataBuff, NMEA_PAYLOAD_BEGIN(pSentence),
+		return NmeaParseTxtPayload(dataBufPtr, NMEA_PAYLOAD_BEGIN(sentencePtr),
 				NMEA_PAYLOAD_LENGTH(length));
 
 	}
@@ -230,18 +230,18 @@ ENmeaParserRet parseNmeaSentence(SGnssData *pDataBuff, const char *pSentence,
 }
 
 /**
- * @brief Parses the payload of an NMEA --RMC sentence
- * @param[out] pDataBuff Pointer to the GNSS data structure where the parsed data will be stored
+ * @brief Parse the payload of an NMEA --RMC sentence
+ * @param[out] dataBufPtr Pointer to the GNSS data structure where the parsed data will be stored
  * @param[in] pPayload Pointer to the sentence payload
  * @param[in] length Length of the payload
  * @retval ENmeaParserRet Status
  */
-static ENmeaParserRet _NmeaParseRmcPayload(SGnssData *pDataBuff,
+static ENmeaParserRet NmeaParseRmcPayload(SGnssData *dataBufPtr,
 		const char *pPayload, size_t length) {
 
-	char dataFieldBuffer[NMEA_PARSER_DATAFIELD_BUFSIZE]; /* Buffer for the data field */
-	size_t bufferIndex = 0; /* Buffer index */
-	uint8_t dataFieldNumber = 0; /* Number of data field currently being parsed */
+	char dataFieldBuffer[NMEA_PARSER_DATAFIELD_BUFSIZE];
+	size_t bufferIndex = 0;
+	uint8_t dataFieldNumber = 0;
 
 	/* Go through the entire sentence */
 	for (size_t i = 0; i < length; i += 1UL) {
@@ -264,7 +264,7 @@ static ENmeaParserRet _NmeaParseRmcPayload(SGnssData *pDataBuff,
 
 			case 0: /* UTC Time */
 
-				pDataBuff->Time = strtod(dataFieldBuffer, NULL);
+				dataBufPtr->Time = strtod(dataFieldBuffer, NULL);
 				break;
 
 			case 1: /* Data Valid */
@@ -278,7 +278,7 @@ static ENmeaParserRet _NmeaParseRmcPayload(SGnssData *pDataBuff,
 
 			case 2: /* Latitude */
 
-				pDataBuff->Latitude = strtod(dataFieldBuffer, NULL);
+				dataBufPtr->Latitude = strtod(dataFieldBuffer, NULL);
 				break;
 
 			case 3: /* N/S */
@@ -287,12 +287,12 @@ static ENmeaParserRet _NmeaParseRmcPayload(SGnssData *pDataBuff,
 
 				case 'N':
 
-					pDataBuff->LatDir = ELatDir_LatitudeNorth;
+					dataBufPtr->LatDir = ELatDir_LatitudeNorth;
 					break;
 
 				case 'S':
 
-					pDataBuff->LatDir = ELatDir_LatitudeSouth;
+					dataBufPtr->LatDir = ELatDir_LatitudeSouth;
 					break;
 
 				default:
@@ -304,7 +304,7 @@ static ENmeaParserRet _NmeaParseRmcPayload(SGnssData *pDataBuff,
 
 			case 4: /* Longitude */
 
-				pDataBuff->Longitude = strtod(dataFieldBuffer, NULL);
+				dataBufPtr->Longitude = strtod(dataFieldBuffer, NULL);
 				break;
 
 			case 5: /* E/W */
@@ -313,12 +313,12 @@ static ENmeaParserRet _NmeaParseRmcPayload(SGnssData *pDataBuff,
 
 				case 'E':
 
-					pDataBuff->LonDir = ELonDir_LongitudeEast;
+					dataBufPtr->LonDir = ELonDir_LongitudeEast;
 					break;
 
 				case 'W':
 
-					pDataBuff->LonDir = ELonDir_LongitudeWest;
+					dataBufPtr->LonDir = ELonDir_LongitudeWest;
 					break;
 
 				default:
@@ -330,7 +330,7 @@ static ENmeaParserRet _NmeaParseRmcPayload(SGnssData *pDataBuff,
 
 			case 8: /* Date */
 
-				pDataBuff->Date = strtol(dataFieldBuffer, NULL, 10);
+				dataBufPtr->Date = strtol(dataFieldBuffer, NULL, 10);
 				break;
 
 			default: /* Ignore all other fields */
@@ -351,19 +351,19 @@ static ENmeaParserRet _NmeaParseRmcPayload(SGnssData *pDataBuff,
 	}
 
 	/* Set the flag */
-	pDataBuff->SentencesReceived |= NMEA_RMC_RECEIVED;
+	dataBufPtr->SentencesReceived |= NMEA_RMC_RECEIVED;
 	return ENmeaParserRet_Ok;
 
 }
 
 /**
- * @brief Parses the payload of an NMEA GPVTG sentence
- * @param[out] pDataBuff Pointer to the GNSS data structure where the parsed data will be stored
+ * @brief Parse the payload of an NMEA GPVTG sentence
+ * @param[out] dataBufPtr Pointer to the GNSS data structure where the parsed data will be stored
  * @param[in] pPayload Pointer to the sentence payload
  * @param[in] length Length of the payload
  * @retval ENmeaParserRet Status
  */
-static ENmeaParserRet _NmeaParseVtgPayload(SGnssData *pDataBuff,
+static ENmeaParserRet NmeaParseVtgPayload(SGnssData *dataBufPtr,
 		const char *pPayload, size_t length) {
 
 	char dataFieldBuffer[NMEA_PARSER_DATAFIELD_BUFSIZE]; /* Buffer for the data field */
@@ -394,12 +394,12 @@ static ENmeaParserRet _NmeaParseVtgPayload(SGnssData *pDataBuff,
 
 			case 0: /* Course over ground in degrees */
 
-				pDataBuff->COG = strtof(dataFieldBuffer, NULL);
+				dataBufPtr->COG = strtof(dataFieldBuffer, NULL);
 				break;
 
 			case 6: /* Speed over ground in km/h */
 
-				pDataBuff->Speed = strtof(dataFieldBuffer, NULL);
+				dataBufPtr->Speed = strtof(dataFieldBuffer, NULL);
 				break;
 
 			default: /* Ignore all other fields */
@@ -421,19 +421,19 @@ static ENmeaParserRet _NmeaParseVtgPayload(SGnssData *pDataBuff,
 	}
 
 	/* Set the flag */
-	pDataBuff->SentencesReceived |= NMEA_VTG_RECEIVED;
+	dataBufPtr->SentencesReceived |= NMEA_VTG_RECEIVED;
 	return ENmeaParserRet_Ok;
 
 }
 
 /**
- * @brief Parses the payload of an NMEA GPGGA sentence
- * @param[out] pDataBuff Pointer to the GNSS data structure where the parsed data will be stored
+ * @brief Parse the payload of an NMEA GPGGA sentence
+ * @param[out] dataBufPtr Pointer to the GNSS data structure where the parsed data will be stored
  * @param[in] pPayload Pointer to the sentence payload
  * @param[in] length Length of the payload
  * @retval ENmeaParserRet Status
  */
-static ENmeaParserRet _NmeaParseGgaPayload(SGnssData *pDataBuff,
+static ENmeaParserRet NmeaParseGgaPayload(SGnssData *dataBufPtr,
 		const char *pPayload, size_t length) {
 
 	char dataFieldBuffer[NMEA_PARSER_DATAFIELD_BUFSIZE]; /* Buffer for the data field */
@@ -464,13 +464,13 @@ static ENmeaParserRet _NmeaParseGgaPayload(SGnssData *pDataBuff,
 
 			case 6: /* Number of satellites being used (0-12) */
 
-				pDataBuff->SatellitesInUse = (uint8_t) strtol(dataFieldBuffer,
+				dataBufPtr->SatellitesInUse = (uint8_t) strtol(dataFieldBuffer,
 				NULL, 10);
 				break;
 
 			case 8: /* Altitude in meters according to WGS84 ellipsoid */
 
-				pDataBuff->Altitude = strtof(dataFieldBuffer, NULL);
+				dataBufPtr->Altitude = strtof(dataFieldBuffer, NULL);
 				break;
 
 			default: /* Ignore all other fields */
@@ -492,19 +492,19 @@ static ENmeaParserRet _NmeaParseGgaPayload(SGnssData *pDataBuff,
 	}
 
 	/* Set the flag */
-	pDataBuff->SentencesReceived |= NMEA_GGA_RECEIVED;
+	dataBufPtr->SentencesReceived |= NMEA_GGA_RECEIVED;
 	return ENmeaParserRet_Ok;
 
 }
 
 /**
- * @brief Parses the payload of an NMEA --GSA sentence
- * @param[out] pDataBuff Pointer to the GNSS data structure where the parsed data will be stored
+ * @brief Parse the payload of an NMEA --GSA sentence
+ * @param[out] dataBufPtr Pointer to the GNSS data structure where the parsed data will be stored
  * @param[in] pPayload Pointer to the sentence payload
  * @param[in] length Length of the payload
  * @retval ENmeaParserRet Status
  */
-static ENmeaParserRet _NmeaParseGsaPayload(SGnssData *pDataBuff,
+static ENmeaParserRet NmeaParseGsaPayload(SGnssData *dataBufPtr,
 		const char *pPayload, size_t length) {
 
 	char dataFieldBuffer[NMEA_PARSER_DATAFIELD_BUFSIZE]; /* Buffer for the data field */
@@ -539,17 +539,17 @@ static ENmeaParserRet _NmeaParseGsaPayload(SGnssData *pDataBuff,
 
 				case '1':
 
-					pDataBuff->FixStatus = EFixStatus_NoFix;
+					dataBufPtr->FixStatus = EFixStatus_NoFix;
 					break;
 
 				case '2':
 
-					pDataBuff->FixStatus = EFixStatus_2DFix;
+					dataBufPtr->FixStatus = EFixStatus_2DFix;
 					break;
 
 				case '3':
 
-					pDataBuff->FixStatus = EFixStatus_3DFix;
+					dataBufPtr->FixStatus = EFixStatus_3DFix;
 					break;
 
 				default:
@@ -578,20 +578,20 @@ static ENmeaParserRet _NmeaParseGsaPayload(SGnssData *pDataBuff,
 	}
 
 	/* Set the flag */
-	pDataBuff->SentencesReceived |= NMEA_GSA_RECEIVED;
+	dataBufPtr->SentencesReceived |= NMEA_GSA_RECEIVED;
 	return ENmeaParserRet_Ok;
 
 }
 
 /**
- * @brief Parses the payload of an NMEA --GSV sentence
- * @param[out] pDataBuff Pointer to the GNSS data structure where the parsed data will be stored
+ * @brief Parse the payload of an NMEA --GSV sentence
+ * @param[out] dataBufPtr Pointer to the GNSS data structure where the parsed data will be stored
  * @param[in] pPayload Pointer to the sentence payload
  * @param[in] length Length of the payload
  * @param[in] talkerId The --GSV sentence talker ID
  * @retval ENmeaParserRet Status
  */
-static ENmeaParserRet _NmeaParseGsvPayload(SGnssData *pDataBuff,
+static ENmeaParserRet NmeaParseGsvPayload(SGnssData *dataBufPtr,
 		const char *pPayload, size_t length, EGsvTalkerId talkerId) {
 
 	char dataFieldBuffer[NMEA_PARSER_DATAFIELD_BUFSIZE]; /* Buffer for the data field */
@@ -626,14 +626,14 @@ static ENmeaParserRet _NmeaParseGsvPayload(SGnssData *pDataBuff,
 
 				case EGsvTalkerId_GL:
 
-					pDataBuff->SatellitesInViewGLONASS = (uint8_t) strtol(
+					dataBufPtr->SatellitesInViewGLONASS = (uint8_t) strtol(
 							dataFieldBuffer,
 							NULL, 10);
 					break;
 
 				case EGsvTalkerId_GP:
 
-					pDataBuff->SatellitesInViewGPS = (uint8_t) strtol(
+					dataBufPtr->SatellitesInViewGPS = (uint8_t) strtol(
 							dataFieldBuffer,
 							NULL, 10);
 					break;
@@ -668,12 +668,12 @@ static ENmeaParserRet _NmeaParseGsvPayload(SGnssData *pDataBuff,
 
 	case EGsvTalkerId_GL:
 
-		pDataBuff->SentencesReceived |= NMEA_GLGSV_RECEIVED;
+		dataBufPtr->SentencesReceived |= NMEA_GLGSV_RECEIVED;
 		break;
 
 	case EGsvTalkerId_GP:
 
-		pDataBuff->SentencesReceived |= NMEA_GPGSV_RECEIVED;
+		dataBufPtr->SentencesReceived |= NMEA_GPGSV_RECEIVED;
 		break;
 
 	default:
@@ -687,54 +687,54 @@ static ENmeaParserRet _NmeaParseGsvPayload(SGnssData *pDataBuff,
 }
 
 /**
- * @brief Parses the payload of an NMEA --GLL sentence
- * @param[out] pDataBuff Pointer to the GNSS data structure where the parsed data will be stored
+ * @brief Parse the payload of an NMEA --GLL sentence
+ * @param[out] dataBufPtr Pointer to the GNSS data structure where the parsed data will be stored
  * @param[in] pPayload Pointer to the sentence payload
  * @param[in] length Length of the payload
  * @retval ENmeaParserRet Status
  */
-static ENmeaParserRet _NmeaParseGllPayload(SGnssData *pDataBuff,
+static ENmeaParserRet NmeaParseGllPayload(SGnssData *dataBufPtr,
 		const char *pPayload, size_t length) {
 
 	/* Message not used */
-	UNUSED(pDataBuff);
+	UNUSED(dataBufPtr);
 	UNUSED(pPayload);
 	UNUSED(length);
 
 	/* Set the flag */
-	pDataBuff->SentencesReceived |= NMEA_GLL_RECEIVED;
+	dataBufPtr->SentencesReceived |= NMEA_GLL_RECEIVED;
 	return ENmeaParserRet_Ok;
 
 }
 
 /**
- * @brief Parses the payload of an NMEA GPTXT sentence
- * @param[out] pDataBuff Pointer to the GNSS data structure where the parsed data will be stored
+ * @brief Parse the payload of an NMEA GPTXT sentence
+ * @param[out] dataBufPtr Pointer to the GNSS data structure where the parsed data will be stored
  * @param[in] pPayload Pointer to the sentence payload
  * @param[in] length Length of the payload
  * @retval ENmeaParserRet Status
  */
-static ENmeaParserRet _NmeaParseTxtPayload(SGnssData *pDataBuff,
+static ENmeaParserRet NmeaParseTxtPayload(SGnssData *dataBufPtr,
 		const char *pPayload, size_t length) {
 
 	/* Message not used */
-	UNUSED(pDataBuff);
+	UNUSED(dataBufPtr);
 	UNUSED(pPayload);
 	UNUSED(length);
 
 	/* Set the flag */
-	pDataBuff->SentencesReceived |= NMEA_TXT_RECEIVED;
+	dataBufPtr->SentencesReceived |= NMEA_TXT_RECEIVED;
 	return ENmeaParserRet_Ok;
 
 }
 
 /**
- * @brief Normalizes the coordinate (longitude/latitude) as degrees multiplied by 1,000,000
+ * @brief Normalize the coordinate (longitude/latitude) as degrees multiplied by 1,000,000
  * @param coordinate Coordinate in format 'dddmm.mmmm' (degree and minutes)
  * @param direction Direction flag (GNSS_LATITUDE_NORTH, GNSS_LATITUDE_SOUTH, GNSS_LATITUDE_EAST, GNSS_LATITUDE_WEST)
  * @retval int32_t Coordinate normalized as degrees multiplied by 1,000,000
  */
-int32_t normalizeCoordinate(float64_t coordinate, uint32_t direction) {
+int32_t NormalizeCoordinate(float64_t coordinate, uint32_t direction) {
 
 	/* Separate degrees from the minutes */
 	float64_t degrees = floor(coordinate / 100.0);
@@ -744,8 +744,8 @@ int32_t normalizeCoordinate(float64_t coordinate, uint32_t direction) {
 	float64_t floatResult = degrees + (minutes / 60.0);
 
 	/* Make the result negative if the direction is SOUTH or WEST */
-	if ((ELatDir_LatitudeSouth == direction)
-			|| (ELonDir_LongitudeWest == direction)) {
+	if ( (ELatDir_LatitudeSouth == direction)
+			|| (ELonDir_LongitudeWest == direction) ) {
 
 		floatResult *= -1.0;
 
@@ -759,44 +759,44 @@ int32_t normalizeCoordinate(float64_t coordinate, uint32_t direction) {
 }
 
 /**
- * @brief Normalizes the speed as kilometers per hour multiplied by 10
+ * @brief Normalize the speed as kilometers per hour multiplied by 10
  * @param speed Speed over ground in kilometers per hour
  * @retval uint16_t Speed normalized as kilometers per hour multiplied by 10
  */
-uint16_t normalizeSpeed(float32_t speed) {
+uint16_t NormalizeSpeed(float32_t speed) {
 
 	return lround(speed * 10.0);
 
 }
 
 /**
- * @brief Normalizes the direction as degrees multiplied by 10
+ * @brief Normalize the direction as degrees multiplied by 10
  * @param direction Direction in degrees
  * @retval uint16_t Direction normalized as degrees multiplied by 10
  */
-uint16_t normalizeDirection(float32_t direction) {
+uint16_t NormalizeDirection(float32_t direction) {
 
 	return lround(direction * 10.0);
 
 }
 
 /**
- * @brief Normalizes the altitude as meters multiplied by 10
+ * @brief Normalize the altitude as meters multiplied by 10
  * @param altitude Altitude in meters
  * @retval uint16_t Altitude normalized as meters multiplied by 10
  */
-uint16_t normalizeAltitude(float32_t altitude) {
+uint16_t NormalizeAltitude(float32_t altitude) {
 
 	return lround(altitude * 10.0);
 
 }
 
 /**
- * @brief Normalizes the time to the format hhmmsssss
+ * @brief Normalize the time to the format hhmmsssss
  * @param time Time in format hhmmss.sss
  * @retval uint32_t Time normalized to the format hhmmsssss
  */
-uint32_t normalizeTime(float64_t time) {
+uint32_t NormalizeTime(float64_t time) {
 
 	return llround(time * 1000.0);
 

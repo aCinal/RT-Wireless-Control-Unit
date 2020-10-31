@@ -8,10 +8,10 @@
 #include "s2lp_config.h"
 
 /* Set/reset pins based on the label */
-#define SET_PIN(label)    (HAL_GPIO_WritePin(label##_GPIO_Port, label##_Pin, GPIO_PIN_SET))
-#define RESET_PIN(label)  (HAL_GPIO_WritePin(label##_GPIO_Port, label##_Pin, GPIO_PIN_RESET))
+#define SET_PIN(label)    ( HAL_GPIO_WritePin(label##_GPIO_Port, label##_Pin, GPIO_PIN_SET) )
+#define RESET_PIN(label)  ( HAL_GPIO_WritePin(label##_GPIO_Port, label##_Pin, GPIO_PIN_RESET) )
 
-#define S2LP_SPI_TIMEOUT  ((uint32_t) 500U)  /* SPI timeout */
+#define S2LP_SPI_TIMEOUT  ( (uint32_t) 500U )  /* SPI timeout */
 
 /**
  * @brief Write data to S2-LP's registers
@@ -67,7 +67,7 @@ ES2lpLldRet S2lpLld_WriteReg(TByte address, TByte* bufPtr, TSize numOfBytes) {
 /**
  * @brief Read data from S2-LP's registers
  * @param address S2-LP memory map address
- * @param[out] bufPtr Buffer for the read data
+ * @param bufPtr Buffer for the read data
  * @param numOfBytes Number of bytes to be read
  * @retval ES2lpLldRet Status
  */

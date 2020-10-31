@@ -10,8 +10,8 @@
 #include "stm32f4xx_hal.h"
 
 /* Exported defines ------------------------------------------------------------*/
-#define CAN_FILTERBANKS_COUNT  ((uint32_t) 28)  /* Number of CAN filter banks */
-#define CAN_PAYLOAD_SIZE       ((uint32_t) 8U)  /* CAN payload size in bytes */
+#define CAN_FILTERBANKS_COUNT  ( (uint32_t) 28 )  /* Number of CAN filter banks */
+#define CAN_PAYLOAD_SIZE       ( (uint32_t) 8 )   /* CAN payload size in bytes */
 
 /* Exported typedef ------------------------------------------------------------*/
 /**

@@ -12,21 +12,20 @@
 #include "rt12e_libs_generic.h"
 
 #include "stm32f4xx_hal.h"
-
 #include "cmsis_os.h"
 #include <string.h>
 
-#define CAN_ID_GPS_POS        ((uint32_t) 0x500)  /* CAN ID: _500_GPS_POS */
-#define CAN_ID_GPS_POS2       ((uint32_t) 0x501)  /* CAN ID: _501_GPS_POS2 */
-#define CAN_ID_GPS_STATUS     ((uint32_t) 0x502)  /* CAN ID: _502_GPS_STATUS */
-#define GNSSRX_READ_BUF_SIZE  ((uint32_t) 50U)    /* Read buffer size */
-#define GNSSRX_RING_BUF_SIZE  ((uint32_t) 200U)   /* UART ring buffer size */
-#define GNSS_UART_HANDLE      (huart3)            /* UART handle alias */
-#define GNSS_UART_INSTANCE    (USART3)            /* UART instance alias */
+#define CAN_ID_GPS_POS        ( (uint32_t) 0x500 )  /* CAN ID: _500_GPS_POS */
+#define CAN_ID_GPS_POS2       ( (uint32_t) 0x501 )  /* CAN ID: _501_GPS_POS2 */
+#define CAN_ID_GPS_STATUS     ( (uint32_t) 0x502 )  /* CAN ID: _502_GPS_STATUS */
+#define GNSSRX_READ_BUF_SIZE  ( (uint32_t) 50 )     /* Read buffer size */
+#define GNSSRX_RING_BUF_SIZE  ( (uint32_t) 200 )    /* UART ring buffer size */
+#define GNSS_UART_HANDLE      (huart3)              /* UART handle alias */
+#define GNSS_UART_INSTANCE    (USART3)              /* UART instance alias */
 
-SUartRingBuf gGnssRxRingBuffer;
 extern UART_HandleTypeDef GNSS_UART_HANDLE;
 extern osThreadId gnssRxHandle;
+SUartRingBuf gGnssRxRingBuffer;
 
 static void gnssRx_RingBufferIdleCallback(void);
 static void gnssRx_Send_GPS_POS(SGnssData *gnssDataPtr);
@@ -103,9 +102,9 @@ EGnssRxRet gnssRx_HandleCom(void) {
 		/* Read the data from the ring buffer */
 		UartRingBuf_Read(&gGnssRxRingBuffer, rxBufTbl, GNSSRX_READ_BUF_SIZE);
 
-		static SGnssData dataBuf; /* GNSS data buffer */
+		static SGnssData dataBuf;
 		/* Try parsing the message */
-		switch (parseMessage(&dataBuf, (char*) rxBufTbl,
+		switch (ParseMessage(&dataBuf, (char*) rxBufTbl,
 		GNSSRX_READ_BUF_SIZE)) {
 
 		case EGnssDataStatus_Ready: /* If the data is ready */
@@ -125,7 +124,7 @@ EGnssRxRet gnssRx_HandleCom(void) {
 
 		case EGnssDataStatus_Error: /* If the parser failed */
 
-			LogPrint("parseMessage failed in gnssRx");
+			LogPrint("parseMessage failed (gnssRx)");
 			status = EGnssRxRet_Error;
 			break;
 
@@ -168,7 +167,7 @@ static void gnssRx_Send_GPS_POS(SGnssData *gnssDataPtr) {
 	canFrame.TxHeader.TransmitGlobalTime = DISABLE;
 
 	/* Write the longitude to the frame payload */
-	int32_t longitude = normalizeCoordinate(gnssDataPtr->Longitude,
+	int32_t longitude = NormalizeCoordinate(gnssDataPtr->Longitude,
 			gnssDataPtr->LonDir);
 	canFrame.PayloadTbl[0] = _bits24_31(longitude);
 	canFrame.PayloadTbl[1] = _bits16_23(longitude);
@@ -176,7 +175,7 @@ static void gnssRx_Send_GPS_POS(SGnssData *gnssDataPtr) {
 	canFrame.PayloadTbl[3] = _bits0_7(longitude);
 
 	/* Write the latitude to the frame payload */
-	int32_t latitude = normalizeCoordinate(gnssDataPtr->Latitude,
+	int32_t latitude = NormalizeCoordinate(gnssDataPtr->Latitude,
 			gnssDataPtr->LatDir);
 	canFrame.PayloadTbl[4] = _bits24_31(latitude);
 	canFrame.PayloadTbl[5] = _bits16_23(longitude);
@@ -184,8 +183,7 @@ static void gnssRx_Send_GPS_POS(SGnssData *gnssDataPtr) {
 	canFrame.PayloadTbl[7] = _bits0_7(longitude);
 
 	/* Transmit the frame */
-	AddToCanTxQueue(&canFrame,
-			"gnssRx_Send_GPS_POS failed to send to canTxQueue");
+	AddToCanTxQueue(&canFrame, "AddToCanTxQueue failed (gnssRx_Send_GPS_POS)");
 
 }
 
@@ -205,23 +203,23 @@ static void gnssRx_Send_GPS_POS2(SGnssData *gnssDataPtr) {
 	canFrame.TxHeader.TransmitGlobalTime = DISABLE;
 
 	/* Write the speed to the frame payload */
-	uint16_t speed = normalizeSpeed(gnssDataPtr->Speed);
+	uint16_t speed = NormalizeSpeed(gnssDataPtr->Speed);
 	canFrame.PayloadTbl[0] = _bits8_15(speed);
 	canFrame.PayloadTbl[1] = _bits0_7(speed);
 
 	/* Write the direction to the frame payload */
-	uint16_t direction = normalizeDirection(gnssDataPtr->COG);
+	uint16_t direction = NormalizeDirection(gnssDataPtr->COG);
 	canFrame.PayloadTbl[2] = _bits8_15(direction);
 	canFrame.PayloadTbl[3] = _bits0_7(direction);
 
 	/* Write the altitude to the frame payload */
-	uint16_t altitude = normalizeAltitude(gnssDataPtr->Altitude);
+	uint16_t altitude = NormalizeAltitude(gnssDataPtr->Altitude);
 	canFrame.PayloadTbl[4] = _bits8_15(altitude);
 	canFrame.PayloadTbl[5] = _bits0_7(altitude);
 
 	/* Transmit the frame */
 	AddToCanTxQueue(&canFrame,
-			"gnssRx_Send_GPS_POS2 failed to send to canTxQueue");
+			"AddToCanTxQueue failed (gnssRx_Send_GPS_POS2)");
 
 }
 
@@ -252,7 +250,7 @@ static void gnssRx_Send_GPS_STATUS(SGnssData *gnssDataPtr) {
 	canFrame.PayloadTbl[1] = gnssDataPtr->SatellitesInUse;
 
 	/* Write the time to the frame payload */
-	uint32_t time = normalizeTime(gnssDataPtr->Time);
+	uint32_t time = NormalizeTime(gnssDataPtr->Time);
 	canFrame.PayloadTbl[2] = _bits24_31(time);
 	canFrame.PayloadTbl[3] = _bits16_23(time);
 	canFrame.PayloadTbl[4] = _bits8_15(time);
@@ -265,6 +263,6 @@ static void gnssRx_Send_GPS_STATUS(SGnssData *gnssDataPtr) {
 
 	/* Transmit the frame */
 	AddToCanTxQueue(&canFrame,
-			"gnssRx_Send_GPS_STATUS failed to send to canTxQueue");
+			"AddToCanTxQueue failed (gnssRx_Send_GPS_STATUS)");
 
 }

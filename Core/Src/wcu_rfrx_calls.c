@@ -11,16 +11,33 @@
 
 #include "stm32f4xx_hal.h"
 #include "cmsis_os.h"
+#include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
 
-#define CAN_ID_TPMS_1       ((uint32_t) 0x411)  /* CAN ID: _411_WDTM_TPMS_1 */
-#define FREQ_XO             ((uint32_t) 16)     /* S2-LP crystal oscillator frequency in MHz */
-#define FREQ_TPMS           ((uint32_t) 433)    /* TPMS radio frequency in MHz */
-#define RFRX_READ_BUF_SIZE  ((uint32_t) 8)      /* RX buffer size */
+#define CAN_ID_TPMS_1       ( (uint32_t) 0x411 )       /* CAN ID: _411_WDTM_TPMS_1 */
+#define FREQ_XO             ( (uint32_t) 16 )          /* S2-LP crystal oscillator frequency in MHz */
+#define FREQ_TPMS           ( (uint32_t) 433 )         /* TPMS radio frequency in MHz */
+#define RFRX_READ_BUF_SIZE  ( (uint32_t) 8 )           /* RX buffer size */
+#define TPMS_FL_ID          ( (uint32_t) 0x00000000 )  /* Front-left TPMS sensor ID */
+#define TPMS_FR_ID          ( (uint32_t) 0x00000001 )  /* Front-right TPMS sensor ID */
+#define TPMS_RL_ID          ( (uint32_t) 0x00000002 )  /* Rear-left TPMS sensor ID */
+#define TPMS_RR_ID          ( (uint32_t) 0x00000003 )  /* Rear-right TPMS sensor ID */
 
 extern osThreadId rfRxHandle;
 extern osMessageQId rfRxInternalMailQueueHandle;
+
+/**
+ * @brief TPMS data structure
+ */
+typedef struct STpmsData {
+	uint8_t tireAirPressure;
+	uint8_t tireAirTemperature;
+	uint32_t sensorId;
+} STpmsData;
+
+static void rfRx_ParsePayload(STpmsData* tpmsDataPtr, uint8_t* payloadPtr);
+static void rfRx_AddDataToCanFrame(SCanFrame* canFramePtr, STpmsData* tpmsDataPtr);
 
 /**
  * @brief Configure the S2-LP device
@@ -40,9 +57,9 @@ ERfRxRet rfRx_DeviceConfig(void) {
 	if (ERfRxRet_Ok == status) {
 
 		SS2lpApiBaseFrequencyConfig config;
-		config.BANDSELECT = 0;
+		config.BANDSELECT = 1;
 		config.REFDIV = 0;
-		config.SYNT = 0x00200000 * FREQ_TPMS / FREQ_XO;
+		config.SYNT = 0x00400000 * FREQ_TPMS / FREQ_XO;
 		/* Set base frequency */
 		if (ES2lpApiRet_Ok != S2lpApi_SetBaseFrequency(config)) {
 
@@ -151,7 +168,9 @@ ERfRxRet rfRx_HandleInternalMail(void) {
 	if (pdPASS == xQueueReceive(rfRxInternalMailQueueHandle, &mail, WCU_COMMON_TIMEOUT)) {
 
 		static SCanFrame canFrame;
+		uint8_t rxBufTbl[RFRX_READ_BUF_SIZE];
 		bool dataReady;
+		STpmsData tpmsData;
 
 		switch(mail) {
 
@@ -160,24 +179,31 @@ ERfRxRet rfRx_HandleInternalMail(void) {
 			/* Assert data ready */
 			if(ES2lpApiRet_Ok != S2lpApi_TestInterrupt(ES2lpApiInterruptEvent_RxDataReady, &dataReady)) {
 
+				LogPrint("S2lpApi_TestInterrupt failed");
 				status = ERfRxRet_Error;
 
 			}
 
 			if( (ERfRxRet_Ok == status) && dataReady ) {
 
-				/* TODO: Read data from the device's FIFO */
+				/* Read data from the device's FIFO */
+				if(ES2lpApiRet_Ok != S2lpApi_ReadRxPayload(rxBufTbl, RFRX_READ_BUF_SIZE)) {
 
-				/* TODO: Validate the message (unless validated in hardware by S2-LP) */
+					LogPrint("S2lpApi_ReadRxPayload failed");
+					status = ERfRxRet_Error;
+
+				}
 
 			}
 
 			if( (ERfRxRet_Ok == status) && dataReady ) {
 
-				/* TODO: Identify the sensor, add data to CAN frame */
+				/* Parse the data */
+				rfRx_ParsePayload(&tpmsData, rxBufTbl);
+				/* Add the data to the CAN frame */
+				rfRx_AddDataToCanFrame(&canFrame, &tpmsData);
 
 			}
-
 			break;
 
 		case ERfRxInternalMail_PeriodElapsed:
@@ -189,7 +215,7 @@ ERfRxRet rfRx_HandleInternalMail(void) {
 			canFrame.TxHeader.StdId = CAN_ID_TPMS_1;
 			canFrame.TxHeader.TransmitGlobalTime = DISABLE;
 			/* Transmit the frame */
-			AddToCanTxQueue(&canFrame, "rfRx failed to send to canTxQueue");
+			AddToCanTxQueue(&canFrame, "AddToCanTxQueue failed (rfRx)");
 			/* Clear the frame */
 			(void) memset(&canFrame, 0, sizeof(canFrame));
 			break;
@@ -227,5 +253,61 @@ void rfRx_PeriodElapsedCallback(void) {
 	ERfRxInternalMail mail = ERfRxInternalMail_PeriodElapsed;
 	/* Notify the task */
 	(void) xQueueSendFromISR(rfRxInternalMailQueueHandle, &mail, NULL);
+
+}
+
+/**
+ * @brief Parse the TPMS sensor payload
+ * @param tpmsDataPtr Buffer for the parsed TPMS data
+ * @param payloadPtr Payload buffer
+ * @retval None
+ */
+static void rfRx_ParsePayload(STpmsData* tpmsDataPtr, uint8_t* payloadPtr) {
+
+	/* TODO: Parse the data */
+
+}
+
+/**
+ * @brief Add the TPMS data to the CAN frame
+ * @param canFramePtr CAN frame structure
+ * @param tpmsDataPtr TPMS data structure
+ * @retval None
+ */
+static void rfRx_AddDataToCanFrame(SCanFrame* canFramePtr, STpmsData* tpmsDataPtr) {
+
+	/* Identify the sensor */
+	switch(tpmsDataPtr->sensorId) {
+
+	case TPMS_FL_ID:
+
+		canFramePtr->PayloadTbl[0] = tpmsDataPtr->tireAirPressure;
+		canFramePtr->PayloadTbl[4] = tpmsDataPtr->tireAirTemperature;
+		break;
+
+	case TPMS_FR_ID:
+
+		canFramePtr->PayloadTbl[1] = tpmsDataPtr->tireAirPressure;
+		canFramePtr->PayloadTbl[5] = tpmsDataPtr->tireAirTemperature;
+		break;
+
+	case TPMS_RL_ID:
+
+		canFramePtr->PayloadTbl[2] = tpmsDataPtr->tireAirPressure;
+		canFramePtr->PayloadTbl[6] = tpmsDataPtr->tireAirTemperature;
+		break;
+
+	case TPMS_RR_ID:
+
+		canFramePtr->PayloadTbl[3] = tpmsDataPtr->tireAirPressure;
+		canFramePtr->PayloadTbl[7] = tpmsDataPtr->tireAirTemperature;
+		break;
+
+	default:
+
+		LogPrint("Unknown ID in rfRx_AddDataToCanFrame");
+		break;
+
+	}
 
 }

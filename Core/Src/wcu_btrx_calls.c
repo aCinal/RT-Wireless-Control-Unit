@@ -15,13 +15,13 @@
 #include "stm32f4xx_hal.h"
 #include "cmsis_os.h"
 
-#define BTRX_RING_BUF_SIZE  ((uint32_t) 50)  /* UART ring buffer size */
-#define BT_UART_HANDLE      (huart1)         /* UART handle alias */
-#define BT_UART_INSTANCE    (USART1)         /* UART instance alias */
+#define BTRX_RING_BUF_SIZE  ( (uint32_t) 50 )  /* UART ring buffer size */
+#define BT_UART_HANDLE      (huart1)           /* UART handle alias */
+#define BT_UART_INSTANCE    (USART1)           /* UART instance alias */
 
-SUartRingBuf gBtRxRingBuffer;
 extern UART_HandleTypeDef BT_UART_HANDLE;
 extern osThreadId btRxHandle;
+SUartRingBuf gBtRxRingBuffer;
 
 static void btRx_RingBufferIdleCallback(void);
 
@@ -55,7 +55,7 @@ EBtRxRet btRx_HandleCom(void) {
 	/* Wait for notification from idle line detection callback */
 	if (0UL < ulTaskNotifyTake(pdTRUE, WCU_COMMON_TIMEOUT)) {
 
-		static uint8_t rxBufTbl[R3TP_VER0_FRAME_SIZE];
+		uint8_t rxBufTbl[R3TP_VER0_FRAME_SIZE];
 		/* Read the data from the ring buffer */
 		UartRingBuf_Read(&gBtRxRingBuffer, rxBufTbl, R3TP_VER0_FRAME_SIZE);
 
@@ -136,7 +136,7 @@ EBtRxRet btRx_HandleCom(void) {
 			canFrame.TxHeader.TransmitGlobalTime = DISABLE;
 
 			/* Transmit the frame */
-			AddToCanTxQueue(&canFrame, "btRx failed to send to canTxQueue");
+			AddToCanTxQueue(&canFrame, "AddToCanTxQueue failed (btRx)");
 
 		}
 

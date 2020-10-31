@@ -15,13 +15,13 @@
 #include <string.h>
 #include <stddef.h>
 
+#define SDIOGTKP_LOGFILE_PATH  ("ERRLOG.TXT")  /* Error log file path */
+#define SDIOGTKP_SUBFILE_PATH  ("SUBSCR")      /* Subscription file path */
+
 extern osThreadId canGtkpHandle;
 extern osMessageQId canSubQueueHandle;
 extern osMessageQId sdioSubQueueHandle;
 extern osMessageQId sdioLogQueueHandle;
-
-#define SDIOGTKP_LOGFILE_PATH  ("ERRLOG.TXT")  /* Error log file path */
-#define SDIOGTKP_SUBFILE_PATH  ("SUBSCR")      /* Subscription file path */
 
 /**
  * @brief Try loading the telemetry subscription from the SD card and forwarding it to CAN gatekeeper
@@ -41,8 +41,6 @@ ESdioGtkpRet sdioGtkp_LoadTelemetrySubscription(void) {
 
 	}
 
-	uint32_t frNum;
-	uint32_t frBuf;
 	uint8_t temp[4];
 	UINT bytesRead;
 
@@ -61,6 +59,8 @@ ESdioGtkpRet sdioGtkp_LoadTelemetrySubscription(void) {
 
 	}
 
+	uint32_t frNum;
+
 	if(ESdioGtkpRet_Ok == status) {
 
 		/* Parse the number of frames */
@@ -77,6 +77,8 @@ ESdioGtkpRet sdioGtkp_LoadTelemetrySubscription(void) {
 	}
 
 	if(ESdioGtkpRet_Ok == status) {
+
+		uint32_t frBuf;
 
 		/* Read the payload and push it to the queue */
 		for (uint32_t i = 0; i < frNum; i += 1UL) {
@@ -182,14 +184,6 @@ ESdioGtkpRet sdioGtkp_HandleNewSubscription(void) {
 	if (pdTRUE
 			== xTaskNotifyWait(CLEAR_NO_BITS_ON_ENTRY, CLEAR_ALL_BITS_ON_EXIT,
 					&nv, 0)) {
-
-		/* Validate the notification */
-		if (28UL < nv) {
-
-			LogPrint("Invalid notification value in sdioGtkp");
-			status = ESdioGtkpRet_Error;
-
-		}
 
 		FIL subscriptionFile;
 

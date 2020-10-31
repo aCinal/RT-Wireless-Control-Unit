@@ -12,7 +12,15 @@
 
 #include <math.h>
 
-#define CAN_ID_WCU_DIAG  ((uint32_t) 0x733)  /* CAN ID: _733_WCU_DIAG */
+#define CAN_ID_WCU_DIAG   ( (uint32_t) 0x733 )            /* CAN ID: _733_WCU_DIAG */
+#define CAN_DLC_WCU_DIAG  ( (uint32_t) 4 )
+
+#define VDD               ( (float32_t) 3.3 )             /* Supply voltage */
+#define V25               ( (float32_t) 0.76)             /* Temperature sensor's voltage at 25 degreeC */
+#define AVG_SLOPE         ( (float32_t) (2.5 / 1000.0) )  /* Average slope: 2.5 mV/degreeC */
+
+/* Convert 12-bit ADC value to floating-point input voltage */
+#define _adc12BitToVoltage(val)  ( (float32_t) (val * (VDD / (float32_t) 0x0FFFU ) ) )
 
 extern osThreadId diagnosticHandle;
 
@@ -22,9 +30,9 @@ extern osThreadId diagnosticHandle;
  */
 void diagnostic_RunDiagnostics(void) {
 
-	static SCanFrame canFrame;
+	SCanFrame canFrame;
 	/* Configure the CAN Tx header */
-	canFrame.TxHeader.DLC = 4;
+	canFrame.TxHeader.DLC = CAN_DLC_WCU_DIAG;
 	canFrame.TxHeader.IDE = CAN_ID_STD;
 	canFrame.TxHeader.RTR = CAN_RTR_DATA;
 	canFrame.TxHeader.StdId = CAN_ID_WCU_DIAG;
@@ -38,24 +46,17 @@ void diagnostic_RunDiagnostics(void) {
 	if (0UL < ulTaskNotifyTake(pdTRUE,
 	portMAX_DELAY)) {
 
-		/* Temperature sensor characteristics */
-		static const float32_t VDD = 3.3; /* Supply voltage */
-		static const float32_t V25 = 0.76; /* Voltage at 25 degreeC */
-		static const float32_t AVG_SLOPE = 2.5 / 1000.0; /* Average slope: 2.5 mV/degreeC */
-
 		/* Calculate the sensed voltage */
-		float32_t Vsense = temperatureSensorAdcBuff / 4095.0 * VDD;
+		float32_t Vsense = _adc12BitToVoltage(temperatureSensorAdcBuff);
 
 		/* Calculate the MCU temperature based on the sensed voltage */
-		float32_t floatTemperature = ((Vsense - V25) / AVG_SLOPE) + 25.0;
+		float32_t floatTemperature = ( (Vsense - V25) / AVG_SLOPE ) + 25.0;
 
-		static int16_t mcuTemperature;
 		/* Normalize the temperature to fit it in the CAN frame */
-		mcuTemperature = (int16_t) lround(floatTemperature * 10.0);
+		int16_t mcuTemperature = (int16_t) lround(floatTemperature * 10.0);
 
-		static uint16_t mcuUptime;
 		/* Calculate the MCU uptime in seconds */
-		mcuUptime = (uint16_t) (HAL_GetTick() / 1000UL);
+		uint16_t mcuUptime = (uint16_t) (HAL_GetTick() / 1000UL);
 
 		/* Write the MCU temperature to the frame payload */
 		canFrame.PayloadTbl[0] = _bits8_15(mcuTemperature);
@@ -66,7 +67,7 @@ void diagnostic_RunDiagnostics(void) {
 		canFrame.PayloadTbl[3] = _bits0_7(mcuUptime);
 
 		/* Transmit the frame */
-		AddToCanTxQueue(&canFrame, "diagnostic failed to send to canTxQueue");
+		AddToCanTxQueue(&canFrame, "AddToCanTxQueue failed (diagnostic)");
 
 	}
 

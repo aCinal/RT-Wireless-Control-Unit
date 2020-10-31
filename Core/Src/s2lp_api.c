@@ -10,7 +10,7 @@
 #include <stddef.h>
 
 /* Set bits in a register based on a mask */
-#define SET_BITS(REG, MASK, BITS)  ((REG) = (((TByte)(REG) & ~(TByte)(MASK)) | ((TByte)(MASK) & ((TByte)(BITS)))))
+#define SET_BITS(REG, MASK, BITS)  ( (REG) = ( ( (TByte)(REG) & ~( (TByte)(MASK) ) ) | ( ( (TByte)(MASK) ) & ( (TByte)(BITS) ) ) ) )
 
 /**
  * @brief Send the S2-LP to TX state for transmission
@@ -696,7 +696,7 @@ ES2lpApiRet S2lpApi_SetBaseFrequency(SS2lpApiBaseFrequencyConfig config) {
  * @param chspace Value to write to register CHSPACE
  * @param chnum Value to write to register CHNUM
  * @retval ES2lpApiRet Status
- * @note frequency = f_base + f_xo / (2^15 * CHSPACE) * CHNUM
+ * @note frequency = f_base + f_xo / 2^15 * CHSPACE * CHNUM
  */
 ES2lpApiRet S2lpApi_SetCenterFrequency(TByte chspace, TByte chnum) {
 
