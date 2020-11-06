@@ -32,8 +32,8 @@ void canGtkp_HandleOutbox(void) {
 		uint32_t dummy; /* Buffer for the CAN Tx mailbox used */
 
 		/* Send the message */
-		(void) HAL_CAN_AddTxMessage(&hcan1, &frBuf.TxHeader,
-				frBuf.PayloadTbl, &dummy);
+		(void) HAL_CAN_AddTxMessage(&hcan1, &frBuf.TxHeader, frBuf.PayloadTbl,
+				&dummy);
 
 	}
 
@@ -57,7 +57,7 @@ EWcuCanGtkpRet canGtkp_HandleInbox(void) {
 		/* Send the frame to the telemetry queue */
 		if (pdPASS != xQueueSend(canRxQueueHandle, &frBuf, 0)) {
 
-			LogPrint("canGtkp failed to send to canRxQueue");
+			LogPrint("canGtkp_HandleInbox: Queue is full");
 			status = EWcuCanGtkpRet_Error;
 
 		}
@@ -88,14 +88,14 @@ EWcuCanGtkpRet canGtkp_HandleNewSubscription(void) {
 			if (pdPASS
 					!= xQueueReceive(canSubQueueHandle, &(subscrTbl[i]), 0)) {
 
-				LogPrint("canGtkp failed to receive from canSubQueue");
+				LogPrint("canGtkp_HandleNewSubscription: Queue is empty");
 				status = EWcuCanGtkpRet_Error;
 
 			}
 
 		}
 
-		if(EWcuCanGtkpRet_Ok == status) {
+		if (EWcuCanGtkpRet_Ok == status) {
 
 			/* Set the filters */
 			setCanFilterList(&hcan1, subscrTbl, nv);

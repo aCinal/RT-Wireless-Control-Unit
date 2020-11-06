@@ -29,7 +29,7 @@ extern osMessageQId sdioLogQueueHandle;
  * @param messagePayloadTbl Error message
  * @retval None
  */
-void LogPrint(const char* messagePayloadTbl) {
+void LogPrint(const char *messagePayloadTbl) {
 
 	size_t payloadLength = strlen(messagePayloadTbl);
 	/* Allocate the memory for the error message */
@@ -59,40 +59,40 @@ void LogPrint(const char* messagePayloadTbl) {
 }
 
 /**
- * @brief Calculate the CRC of payload and return the 16 least significant bits
- * @param payloadPtr Payload
- * @param numOfBytes Number of bytes
- * @retval uint16_t 16 least significant bits of the CRC
- */
-uint16_t GetR3tpCrc(uint8_t* payloadPtr, uint32_t numOfBytes) {
-
-	/* Acquire the semaphore */
-	CRC_SEM_WAIT();
-
-	/* Calculate the CRC */
-	uint32_t crc = HAL_CRC_Calculate(&hcrc, (uint32_t*) payloadPtr, numOfBytes / 4U);
-
-	/* Release the semaphore */
-	CRC_SEM_POST();
-
-	return _bits0_15(crc);
-
-}
-
-/**
  * @brief Add the CAN frame to canTxQueue
  * @param canFramePtr Pointer to the CAN frame structure
- * @param errMsgTbl Error message to log in case of failure
  * @retval None
  */
-void AddToCanTxQueue(SCanFrame *canFramePtr, const char *errMsgTbl) {
+void SendToCan(SCanFrame *canFramePtr) {
 
 	/* Push the frame to the queue */
 	if (pdPASS != xQueueSend(canTxQueueHandle, canFramePtr, WCU_COMMON_TIMEOUT)) {
 
 		/* Log the error */
-		LogPrint(errMsgTbl);
+		LogPrint("SendToCan: Queue is full");
 
 	}
+
+}
+
+/**
+ * @brief Calculate the CRC of payload and return the 16 least significant bits
+ * @param payloadPtr Payload
+ * @param numOfBytes Number of bytes
+ * @retval uint16_t 16 least significant bits of the CRC
+ */
+uint16_t GetR3tpCrc(uint8_t *payloadPtr, uint32_t numOfBytes) {
+
+	/* Acquire the semaphore */
+	CRC_SEM_WAIT();
+
+	/* Calculate the CRC */
+	uint32_t crc = HAL_CRC_Calculate(&hcrc, (uint32_t*) payloadPtr,
+			numOfBytes / 4U);
+
+	/* Release the semaphore */
+	CRC_SEM_POST();
+
+	return _bits0_15(crc);
 
 }

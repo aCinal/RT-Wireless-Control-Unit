@@ -46,7 +46,7 @@ EGnssRxRet gnssRx_DeviceConfig(void) {
 			!= HAL_UART_Transmit(&GNSS_UART_HANDLE, (uint8_t*) PMTK_SET_POS_FIX,
 					sizeof(PMTK_SET_POS_FIX), 1000)) {
 
-		LogPrint("Failed to send PMTK_SET_POS_FIX string in gnssRx");
+		LogPrint("gnssRx_DeviceConfig: Failed to send PMTK_SET_POS_FIX");
 		status = EGnssRxRet_Error;
 
 	}
@@ -59,7 +59,7 @@ EGnssRxRet gnssRx_DeviceConfig(void) {
 					sizeof(PMTK_API_SET_GNSS_SEARCH_MODE), 1000)) {
 
 		LogPrint(
-				"Failed to send PMTK_API_SET_GNSS_SEARCH_MODE string in gnssRx");
+				"gnssRx_DeviceConfig: Failed to send PMTK_API_SET_GNSS_SEARCH_MODE");
 		status = EGnssRxRet_Error;
 
 	}
@@ -74,10 +74,10 @@ EGnssRxRet gnssRx_DeviceConfig(void) {
  */
 EUartRingBufRet gnssRx_StartRingBufferIdleDetectionRx(void) {
 
-	static uint8_t cirBufTbl[GNSSRX_RING_BUF_SIZE ];
+	static uint8_t ringBufTbl[GNSSRX_RING_BUF_SIZE];
 
 	/* Configure the ring buffer structure */
-	gGnssRxRingBuffer.BufferPtr = cirBufTbl;
+	gGnssRxRingBuffer.BufferPtr = ringBufTbl;
 	gGnssRxRingBuffer.BufferSize = GNSSRX_RING_BUF_SIZE;
 	gGnssRxRingBuffer.Callback = &gnssRx_RingBufferIdleCallback;
 	gGnssRxRingBuffer.PeriphHandlePtr = &GNSS_UART_HANDLE;
@@ -124,7 +124,7 @@ EGnssRxRet gnssRx_HandleCom(void) {
 
 		case EGnssDataStatus_Error: /* If the parser failed */
 
-			LogPrint("parseMessage failed (gnssRx)");
+			LogPrint("gnssRx_HandleCom: Parser failed");
 			status = EGnssRxRet_Error;
 			break;
 
@@ -183,7 +183,7 @@ static void gnssRx_Send_GPS_POS(SGnssData *gnssDataPtr) {
 	canFrame.PayloadTbl[7] = _bits0_7(longitude);
 
 	/* Transmit the frame */
-	AddToCanTxQueue(&canFrame, "AddToCanTxQueue failed (gnssRx_Send_GPS_POS)");
+	SendToCan(&canFrame);
 
 }
 
@@ -218,8 +218,7 @@ static void gnssRx_Send_GPS_POS2(SGnssData *gnssDataPtr) {
 	canFrame.PayloadTbl[5] = _bits0_7(altitude);
 
 	/* Transmit the frame */
-	AddToCanTxQueue(&canFrame,
-			"AddToCanTxQueue failed (gnssRx_Send_GPS_POS2)");
+	SendToCan(&canFrame);
 
 }
 
@@ -262,7 +261,6 @@ static void gnssRx_Send_GPS_STATUS(SGnssData *gnssDataPtr) {
 	canFrame.PayloadTbl[7] = 0xFF & (gnssDataPtr->Date >> 12U);
 
 	/* Transmit the frame */
-	AddToCanTxQueue(&canFrame,
-			"AddToCanTxQueue failed (gnssRx_Send_GPS_STATUS)");
+	SendToCan(&canFrame);
 
 }

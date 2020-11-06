@@ -46,17 +46,22 @@
 
 #define TIM_1s_INSTANCE            (TIM7)                  /* TIM7 instance alias */
 #define TIM_1s_HANDLE              (htim7)                 /* TIM7 handle alias */
+
+#if defined (RT12e)
+
 #define TIM_TPMS_INSTANCE          (TIM10)                 /* TIM10 instance alias */
 #define TIM_TPMS_HANDLE            (htim10)                /* TIM10 handle alias */
+
+#endif /* defined (RT12e) */
 
 /**
  * @brief Watchdog task notification values
  */
-#define NV_IWDGGTKP_CANGTKP     ((uint32_t) 0x00000001UL)  /* canGtkp task's unique notification value for checking in with the watchdog */
-#define NV_IWDGGTKP_BTRX        ((uint32_t) 0x00000002UL)  /* btRx task's unique notification value for checking in with the watchdog */
-#define NV_IWDGGTKP_GNSSRX      ((uint32_t) 0x00000004UL)  /* gnssRx task's unique notification value for checking in with the watchdog */
-#define NV_IWDGGTKP_RFRX        ((uint32_t) 0x00000008UL)  /* rfRx task's unique notification value for checking in with the watchdog */
-#define NV_IWDGGTKP_XBEETXRX    ((uint32_t) 0x00000010UL)  /* xbeeTxRx task's unique notification value for checking in with the watchdog */
+#define NV_IWDGGTKP_CANGTKP     ( (uint32_t) 0x00000001UL )  /* canGtkp task's unique notification value for checking in with the watchdog */
+#define NV_IWDGGTKP_BTRX        ( (uint32_t) 0x00000002UL )  /* btRx task's unique notification value for checking in with the watchdog */
+#define NV_IWDGGTKP_GNSSRX      ( (uint32_t) 0x00000004UL )  /* gnssRx task's unique notification value for checking in with the watchdog */
+#define NV_IWDGGTKP_RFRX        ( (uint32_t) 0x00000008UL )  /* rfRx task's unique notification value for checking in with the watchdog */
+#define NV_IWDGGTKP_XBEETXRX    ( (uint32_t) 0x00000010UL )  /* xbeeTxRx task's unique notification value for checking in with the watchdog */
 
 /* USER CODE END PD */
 
@@ -66,17 +71,17 @@
 /**
  * @brief Check in with the watchdog thread
  */
-#define NOTIFY_WATCHDOG(nv)  ((void) xTaskNotify(iwdgGtkpHandle, (nv), eSetBits))
+#define NOTIFY_WATCHDOG(nv)  ( (void) xTaskNotify(iwdgGtkpHandle, (nv), eSetBits) )
 
 /**
  * @brief Clear the notification value bits based on the provided mask
  */
-#define CLEARNVBITS(nvMask)  ((void) xTaskNotifyWait((nvMask), 0, NULL, 0))
+#define CLEARNVBITS(nvMask)  ( (void) xTaskNotifyWait( (nvMask), 0, NULL, 0 ) )
 
 /**
  * @brief Clear the notification value
  */
-#define CLEARNV()            (CLEARNVBITS(CLEAR_ALL_BITS_ON_ENTRY))
+#define CLEARNV()            ( CLEARNVBITS(CLEAR_ALL_BITS_ON_ENTRY) )
 
 /* USER CODE END PM */
 
@@ -1165,11 +1170,15 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 
 	}
 
+#if defined (RT12e)
+
 	else if (TIM_TPMS_INSTANCE == htim->Instance) {
 
 		rfRx_PeriodElapsedCallback();
 
 	}
+
+#endif /* defined (RT12e) */
 
 	/* USER CODE END Callback 1 */
 }

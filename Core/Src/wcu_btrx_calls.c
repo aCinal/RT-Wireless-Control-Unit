@@ -31,9 +31,9 @@ static void btRx_RingBufferIdleCallback(void);
  */
 EUartRingBufRet btRx_StartRingBufferIdleDetectionRx(void) {
 
-	static uint8_t cirBufTbl[BTRX_RING_BUF_SIZE];
+	static uint8_t ringBufTbl[BTRX_RING_BUF_SIZE];
 	/* Configure the ring buffer structure */
-	gBtRxRingBuffer.BufferPtr = cirBufTbl;
+	gBtRxRingBuffer.BufferPtr = ringBufTbl;
 	gBtRxRingBuffer.BufferSize = BTRX_RING_BUF_SIZE;
 	gBtRxRingBuffer.Callback = &btRx_RingBufferIdleCallback;
 	gBtRxRingBuffer.PeriphHandlePtr = &BT_UART_HANDLE;
@@ -42,7 +42,6 @@ EUartRingBufRet btRx_StartRingBufferIdleDetectionRx(void) {
 	return UartRingBuf_Start(&gBtRxRingBuffer);
 
 }
-
 
 /**
  * @brief Handle the BT message
@@ -62,26 +61,26 @@ EBtRxRet btRx_HandleCom(void) {
 		/* Validate protocol version */
 		if (R3TP_VER0_VER_BYTE != rxBufTbl[0]) {
 
-			LogPrint("Invalid VER/RES/SEQ in btRx");
+			LogPrint("btRx_HandleCom: Unknown protocol version");
 			status = EBtRxRet_Error;
 
 		}
 
-		if(EBtRxRet_Ok == status) {
+		if (EBtRxRet_Ok == status) {
 
 			/* Validate end sequence */
 			if ((R3TP_END_SEQ_LOW_BYTE != rxBufTbl[R3TP_VER0_FRAME_SIZE - 2U])
 					|| (R3TP_END_SEQ_HIGH_BYTE
 							!= rxBufTbl[R3TP_VER0_FRAME_SIZE - 1U])) {
 
-				LogPrint("Invalid END SEQ in btRx");
+				LogPrint("btRx_HandleCom: Invalid end sequence");
 				status = EBtRxRet_Error;
 
 			}
 
 		}
 
-		if(EBtRxRet_Ok == status) {
+		if (EBtRxRet_Ok == status) {
 
 			/* Read the checksum - note that the checksum is transmitted as little endian */
 			uint16_t readCrc = _reinterpret16bits(rxBufTbl[3], rxBufTbl[2]);
@@ -96,7 +95,7 @@ EBtRxRet btRx_HandleCom(void) {
 			/* Validate the CRC */
 			if (readCrc != calculatedCrc) {
 
-				LogPrint("Invalid CRC in btRx");
+				LogPrint("btRx_HandleCom: Invalid CRC");
 				status = EBtRxRet_Error;
 
 			}
@@ -105,24 +104,24 @@ EBtRxRet btRx_HandleCom(void) {
 
 		SCanFrame canFrame;
 
-		if(EBtRxRet_Ok == status) {
+		if (EBtRxRet_Ok == status) {
 
 			/* Read the CAN ID - note that the CAN ID is transmitted as little endian */
-			canFrame.TxHeader.StdId = _reinterpret32bits(rxBufTbl[7], rxBufTbl[6],
-					rxBufTbl[5], rxBufTbl[4]);
+			canFrame.TxHeader.StdId = _reinterpret32bits(rxBufTbl[7],
+					rxBufTbl[6], rxBufTbl[5], rxBufTbl[4]);
 			/* Read the DLC */
 			canFrame.TxHeader.DLC = (uint32_t) rxBufTbl[8];
 			/* Assert valid DLC */
 			if (CAN_PAYLOAD_SIZE < canFrame.TxHeader.DLC) {
 
-				LogPrint("Invalid DLC in btRx");
+				LogPrint("btRx_HandleCom: Invalid DLC");
 				status = EBtRxRet_Error;
 
 			}
 
 		}
 
-		if(EBtRxRet_Ok == status) {
+		if (EBtRxRet_Ok == status) {
 
 			/* Read the payload */
 			for (uint8_t i = 0; i < canFrame.TxHeader.DLC; i += 1U) {
@@ -136,7 +135,7 @@ EBtRxRet btRx_HandleCom(void) {
 			canFrame.TxHeader.TransmitGlobalTime = DISABLE;
 
 			/* Transmit the frame */
-			AddToCanTxQueue(&canFrame, "AddToCanTxQueue failed (btRx)");
+			SendToCan(&canFrame);
 
 		}
 

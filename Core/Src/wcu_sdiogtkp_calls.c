@@ -36,7 +36,7 @@ ESdioGtkpRet sdioGtkp_LoadTelemetrySubscription(void) {
 	if (FR_OK != f_open(&subscriptionFile, SDIOGTKP_SUBFILE_PATH,
 	FA_READ | FA_OPEN_EXISTING)) {
 
-		LogPrint("sdioGtkp failed to open the subscription file");
+		LogPrint("sdioGtkp_LoadTelemetrySubscription: Open failed");
 		status = ESdioGtkpRet_Error;
 
 	}
@@ -44,7 +44,7 @@ ESdioGtkpRet sdioGtkp_LoadTelemetrySubscription(void) {
 	uint8_t temp[4];
 	UINT bytesRead;
 
-	if(ESdioGtkpRet_Ok == status) {
+	if (ESdioGtkpRet_Ok == status) {
 
 		/* Try reading the number of frames */
 		if (FR_OK != f_read(&subscriptionFile, temp, 4, &bytesRead)) {
@@ -52,7 +52,7 @@ ESdioGtkpRet sdioGtkp_LoadTelemetrySubscription(void) {
 			/* Cleanup */
 			(void) f_close(&subscriptionFile);
 
-			LogPrint("sdioGtkp failed to read from the subscription file");
+			LogPrint("sdioGtkp_LoadTelemetrySubscription: Read failed");
 			status = ESdioGtkpRet_Error;
 
 		}
@@ -61,7 +61,7 @@ ESdioGtkpRet sdioGtkp_LoadTelemetrySubscription(void) {
 
 	uint32_t frNum;
 
-	if(ESdioGtkpRet_Ok == status) {
+	if (ESdioGtkpRet_Ok == status) {
 
 		/* Parse the number of frames */
 		frNum = _reinterpret32bits(temp[3], temp[2], temp[1], temp[0]);
@@ -69,14 +69,15 @@ ESdioGtkpRet sdioGtkp_LoadTelemetrySubscription(void) {
 		/* Validate the number of frames */
 		if (frNum > R3TP_VER1_MAX_FRAME_NUM) {
 
-			LogPrint("Invalid FRAME NUM in the subscription file");
+			LogPrint(
+					"sdioGtkp_LoadTelemetrySubscription: Invalid frame number");
 			status = ESdioGtkpRet_Error;
 
 		}
 
 	}
 
-	if(ESdioGtkpRet_Ok == status) {
+	if (ESdioGtkpRet_Ok == status) {
 
 		uint32_t frBuf;
 
@@ -89,7 +90,7 @@ ESdioGtkpRet sdioGtkp_LoadTelemetrySubscription(void) {
 				/* Cleanup */
 				(void) xQueueReset(canSubQueueHandle);
 
-				LogPrint("sdioGtkp failed to read from the subscription file");
+				LogPrint("sdioGtkp_LoadTelemetrySubscription: Read failed");
 				status = ESdioGtkpRet_Error;
 				break;
 
@@ -101,7 +102,8 @@ ESdioGtkpRet sdioGtkp_LoadTelemetrySubscription(void) {
 				/* Cleanup */
 				(void) xQueueReset(canSubQueueHandle);
 
-				LogPrint("Invalid FRAME NUM in the subscription file");
+				LogPrint(
+						"sdioGtkp_LoadTelemetrySubscription: Invalid frame number");
 				status = ESdioGtkpRet_Error;
 				break;
 
@@ -116,7 +118,7 @@ ESdioGtkpRet sdioGtkp_LoadTelemetrySubscription(void) {
 				/* Cleanup */
 				(void) xQueueReset(canSubQueueHandle);
 
-				LogPrint("sdioGtkp failed to send to canSubQueue");
+				LogPrint("sdioGtkp_LoadTelemetrySubscription: Queue is full");
 				status = ESdioGtkpRet_Error;
 				break;
 
@@ -126,7 +128,7 @@ ESdioGtkpRet sdioGtkp_LoadTelemetrySubscription(void) {
 
 	}
 
-	if(ESdioGtkpRet_Ok == status) {
+	if (ESdioGtkpRet_Ok == status) {
 
 		/* Notify CAN gatekeeper of the pending subscription */
 		(void) xTaskNotify(canGtkpHandle, frNum, eSetValueWithOverwrite);
@@ -148,7 +150,8 @@ void sdioGtkp_HandleLogger(void) {
 
 	char *errMsgPtr;
 	/* Receive an error message */
-	if (pdPASS == xQueueReceive(sdioLogQueueHandle, &errMsgPtr, WCU_COMMON_TIMEOUT)) {
+	if (pdPASS == xQueueReceive(sdioLogQueueHandle, &errMsgPtr,
+	WCU_COMMON_TIMEOUT)) {
 
 		FIL errorLogFile;
 		/* Try opening the log file */
@@ -157,8 +160,8 @@ void sdioGtkp_HandleLogger(void) {
 
 			UINT bytesWritten;
 			/* Write the error message to the file */
-			(void) f_write(&errorLogFile, errMsgPtr,
-					strlen(errMsgPtr), &bytesWritten);
+			(void) f_write(&errorLogFile, errMsgPtr, strlen(errMsgPtr),
+					&bytesWritten);
 			/* Close the file */
 			(void) f_close(&errorLogFile);
 			/* Free the allocated memory */
@@ -187,20 +190,20 @@ ESdioGtkpRet sdioGtkp_HandleNewSubscription(void) {
 
 		FIL subscriptionFile;
 
-		if(ESdioGtkpRet_Ok == status) {
+		if (ESdioGtkpRet_Ok == status) {
 
 			/* Try opening the file */
 			if (FR_OK != f_open(&subscriptionFile, SDIOGTKP_SUBFILE_PATH,
 			FA_WRITE | FA_CREATE_ALWAYS)) {
 
-				LogPrint("sdioGtkp failed to open the subscription file");
+				LogPrint("sdioGtkp_HandleNewSubscription: Open failed");
 				status = ESdioGtkpRet_Error;
 
 			}
 
 		}
 
-		if(ESdioGtkpRet_Ok == status) {
+		if (ESdioGtkpRet_Ok == status) {
 
 			/* Print the number of frames to the SD card */
 			uint8_t temp[4];
@@ -217,7 +220,7 @@ ESdioGtkpRet sdioGtkp_HandleNewSubscription(void) {
 
 				if (pdPASS != xQueueReceive(sdioSubQueueHandle, &frBuf, 0)) {
 
-					LogPrint("sdioGtkp failed to receive from sdioSubQueue");
+					LogPrint("sdioGtkp_HandleNewSubscription: Queue is empty");
 					status = ESdioGtkpRet_Error;
 					break;
 

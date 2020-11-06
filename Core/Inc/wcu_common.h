@@ -46,19 +46,18 @@ typedef double float64_t;
 void LogPrint(const char *messagePayloadTbl);
 
 /**
+ * @brief Add the CAN frame to canTxQueue
+ * @param canFramePtr Pointer to the CAN frame structure
+ * @retval None
+ */
+void SendToCan(SCanFrame *canFramePtr);
+
+/**
  * @brief Calculate the CRC of payload and return the 16 least significant bits
  * @param payloadPtr Payload
  * @param numOfBytes Number of bytes
  * @retval uint16_t 16 least significant bits of the CRC
  */
 uint16_t GetR3tpCrc(uint8_t *payloadPtr, uint32_t numOfBytes);
-
-/**
- * @brief Add the CAN frame to canTxQueue
- * @param canFramePtr Pointer to the CAN frame structure
- * @param errMsgTbl Error message to log in case of failure
- * @retval None
- */
-void AddToCanTxQueue(SCanFrame *canFramePtr, const char *errMsgTbl);
 
 #endif /* __WCU_COMMON_H_ */

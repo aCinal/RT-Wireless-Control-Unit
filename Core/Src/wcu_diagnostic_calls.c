@@ -50,7 +50,7 @@ void diagnostic_RunDiagnostics(void) {
 		float32_t Vsense = _adc12BitToVoltage(temperatureSensorAdcBuff);
 
 		/* Calculate the MCU temperature based on the sensed voltage */
-		float32_t floatTemperature = ( (Vsense - V25) / AVG_SLOPE ) + 25.0;
+		float32_t floatTemperature = ((Vsense - V25) / AVG_SLOPE) + 25.0;
 
 		/* Normalize the temperature to fit it in the CAN frame */
 		int16_t mcuTemperature = (int16_t) lround(floatTemperature * 10.0);
@@ -67,7 +67,7 @@ void diagnostic_RunDiagnostics(void) {
 		canFrame.PayloadTbl[3] = _bits0_7(mcuUptime);
 
 		/* Transmit the frame */
-		AddToCanTxQueue(&canFrame, "AddToCanTxQueue failed (diagnostic)");
+		SendToCan(&canFrame);
 
 	}
 
