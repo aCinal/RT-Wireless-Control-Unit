@@ -32,6 +32,7 @@ static void btRx_RingBufferIdleCallback(void);
 EUartRingBufRet btRx_StartRingBufferIdleDetectionRx(void) {
 
 	static uint8_t ringBufTbl[BTRX_RING_BUF_SIZE];
+
 	/* Configure the ring buffer structure */
 	gBtRxRingBuffer.BufferPtr = ringBufTbl;
 	gBtRxRingBuffer.BufferSize = BTRX_RING_BUF_SIZE;

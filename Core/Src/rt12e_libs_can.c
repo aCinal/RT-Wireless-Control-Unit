@@ -44,6 +44,15 @@ void setCanFilterList(CAN_HandleTypeDef *hcan, uint32_t idsTbl[], uint32_t count
 		filterConfig.FilterActivation = CAN_FILTER_ENABLE;
 		for (uint32_t i = 0; i < count; i += 1UL) {
 
+#if !defined (CAN_SINGLE_FIFO)
+			if((count / 2UL) == i) {
+
+				/* Switch to the second FIFO */
+				filterConfig.FilterFIFOAssignment = CAN_FILTER_FIFO1;
+
+			}
+#endif /* !defined (CAN_SINGLE_FIFO) */
+
 			switch (i % 4UL) {
 
 			case 0:

@@ -86,7 +86,7 @@ EXbeeTxRxRet xbeeTxRx_DeviceConfig(void) {
  */
 EUartRingBufRet xbeeTxRx_StartRingBufferIdleDetectionRx(void) {
 
-	static uint8_t ringBufTbl[XBEETXRX_RING_BUF_SIZE]; /* Circular buffer */
+	static uint8_t ringBufTbl[XBEETXRX_RING_BUF_SIZE];
 
 	/* Configure the ring buffer structure */
 	gXbeeTxRxRingBuffer.BufferPtr = ringBufTbl;
