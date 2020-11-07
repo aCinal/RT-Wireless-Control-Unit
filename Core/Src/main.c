@@ -694,7 +694,7 @@ static void MX_USART2_UART_Init(void) {
 
 	/* USER CODE END USART2_Init 1 */
 	huart2.Instance = USART2;
-	huart2.Init.BaudRate = 19200;
+	huart2.Init.BaudRate = 115200;
 	huart2.Init.WordLength = UART_WORDLENGTH_8B;
 	huart2.Init.StopBits = UART_STOPBITS_1;
 	huart2.Init.Parity = UART_PARITY_NONE;
@@ -752,22 +752,22 @@ static void MX_DMA_Init(void) {
 
 	/* DMA interrupt init */
 	/* DMA1_Stream1_IRQn interrupt configuration */
-	HAL_NVIC_SetPriority(DMA1_Stream1_IRQn, 0, 0);
+	HAL_NVIC_SetPriority(DMA1_Stream1_IRQn, 5, 0);
 	HAL_NVIC_EnableIRQ(DMA1_Stream1_IRQn);
 	/* DMA1_Stream2_IRQn interrupt configuration */
-	HAL_NVIC_SetPriority(DMA1_Stream2_IRQn, 0, 0);
+	HAL_NVIC_SetPriority(DMA1_Stream2_IRQn, 5, 0);
 	HAL_NVIC_EnableIRQ(DMA1_Stream2_IRQn);
 	/* DMA2_Stream2_IRQn interrupt configuration */
-	HAL_NVIC_SetPriority(DMA2_Stream2_IRQn, 0, 0);
+	HAL_NVIC_SetPriority(DMA2_Stream2_IRQn, 5, 0);
 	HAL_NVIC_EnableIRQ(DMA2_Stream2_IRQn);
 	/* DMA2_Stream3_IRQn interrupt configuration */
-	HAL_NVIC_SetPriority(DMA2_Stream3_IRQn, 0, 0);
+	HAL_NVIC_SetPriority(DMA2_Stream3_IRQn, 5, 0);
 	HAL_NVIC_EnableIRQ(DMA2_Stream3_IRQn);
 	/* DMA2_Stream4_IRQn interrupt configuration */
-	HAL_NVIC_SetPriority(DMA2_Stream4_IRQn, 0, 0);
+	HAL_NVIC_SetPriority(DMA2_Stream4_IRQn, 5, 0);
 	HAL_NVIC_EnableIRQ(DMA2_Stream4_IRQn);
 	/* DMA2_Stream6_IRQn interrupt configuration */
-	HAL_NVIC_SetPriority(DMA2_Stream6_IRQn, 0, 0);
+	HAL_NVIC_SetPriority(DMA2_Stream6_IRQn, 5, 0);
 	HAL_NVIC_EnableIRQ(DMA2_Stream6_IRQn);
 
 }
@@ -794,6 +794,9 @@ static void MX_GPIO_Init(void) {
 			RF_PWR_UP_Pin | RF_TRX_CE_Pin | RF_TX_EN_Pin | GNSS_FORCE_ON_Pin
 					| GNSS_RESET_Pin, GPIO_PIN_RESET);
 
+	/*Configure GPIO pin Output Level */
+	HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
+
 	/*Configure GPIO pins : XBEE_STATUS_Pin XBEE_RSSI_Pin XBEE_RESET_Pin RF_AM_Pin */
 	GPIO_InitStruct.Pin = XBEE_STATUS_Pin | XBEE_RSSI_Pin | XBEE_RESET_Pin
 			| RF_AM_Pin;
@@ -801,12 +804,12 @@ static void MX_GPIO_Init(void) {
 	GPIO_InitStruct.Pull = GPIO_NOPULL;
 	HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-	/*Configure GPIO pin : RF_SPI1_CSN_Pin */
-	GPIO_InitStruct.Pin = RF_SPI1_CSN_Pin;
+	/*Configure GPIO pins : RF_SPI1_CSN_Pin LED_Pin */
+	GPIO_InitStruct.Pin = RF_SPI1_CSN_Pin | LED_Pin;
 	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
 	GPIO_InitStruct.Pull = GPIO_NOPULL;
 	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-	HAL_GPIO_Init(RF_SPI1_CSN_GPIO_Port, &GPIO_InitStruct);
+	HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
 	/*Configure GPIO pin : RF_DR_Pin */
 	GPIO_InitStruct.Pin = RF_DR_Pin;
@@ -830,7 +833,7 @@ static void MX_GPIO_Init(void) {
 	HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
 	/* EXTI interrupt init*/
-	HAL_NVIC_SetPriority(EXTI4_IRQn, 0, 0);
+	HAL_NVIC_SetPriority(EXTI4_IRQn, 5, 0);
 	HAL_NVIC_EnableIRQ(EXTI4_IRQn);
 
 }
