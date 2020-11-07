@@ -99,8 +99,8 @@ void Error_Handler(void);
 #define BT_UART1_TX_GPIO_Port GPIOA
 #define BT_UART1_RX_Pin GPIO_PIN_10
 #define BT_UART1_RX_GPIO_Port GPIOA
-#define LED_Pin GPIO_PIN_15
-#define LED_GPIO_Port GPIOA
+#define CAN_LED_Pin GPIO_PIN_15
+#define CAN_LED_GPIO_Port GPIOA
 #define GNSS_1PPS_Pin GPIO_PIN_3
 #define GNSS_1PPS_GPIO_Port GPIOB
 #define GNSS_FORCE_ON_Pin GPIO_PIN_4

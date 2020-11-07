@@ -13,6 +13,8 @@
 #include "stm32f4xx_hal.h"
 #include "cmsis_os.h"
 
+#include "main.h"
+
 extern CAN_HandleTypeDef hcan1;
 extern osMessageQId canTxQueueHandle;
 extern osMessageQId canRxQueueHandle;
@@ -116,6 +118,9 @@ static EWcuCanGtkpRet canGtkp_ForwardRxMessage(uint32_t rxFifo) {
 
 	EWcuCanGtkpRet status = EWcuCanGtkpRet_Ok;
 
+	/* Turn on the LED */
+	HAL_GPIO_WritePin(CAN_LED_GPIO_Port, CAN_LED_Pin, GPIO_PIN_SET);
+
 	SCanFrame frBuf;
 	/* Receive the message */
 	(void) HAL_CAN_GetRxMessage(&hcan1, rxFifo, &frBuf.RxHeader,
@@ -128,6 +133,9 @@ static EWcuCanGtkpRet canGtkp_ForwardRxMessage(uint32_t rxFifo) {
 		status = EWcuCanGtkpRet_Error;
 
 	}
+
+	/* Turn off the LED */
+	HAL_GPIO_WritePin(CAN_LED_GPIO_Port, CAN_LED_Pin, GPIO_PIN_RESET);
 
 	return status;
 

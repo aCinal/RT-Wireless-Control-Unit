@@ -44,7 +44,7 @@ EGnssRxRet gnssRx_DeviceConfig(void) {
 	const char PMTK_SET_POS_FIX[] = "$PMTK220,100*1F\r\n";
 	if (HAL_OK
 			!= HAL_UART_Transmit(&GNSS_UART_HANDLE, (uint8_t*) PMTK_SET_POS_FIX,
-					sizeof(PMTK_SET_POS_FIX), 1000)) {
+					sizeof(PMTK_SET_POS_FIX), WCU_COMMON_TIMEOUT)) {
 
 		LogPrint("gnssRx_DeviceConfig: Failed to send PMTK_SET_POS_FIX");
 		status = EGnssRxRet_Error;
@@ -56,7 +56,7 @@ EGnssRxRet gnssRx_DeviceConfig(void) {
 	if (HAL_OK
 			!= HAL_UART_Transmit(&GNSS_UART_HANDLE,
 					(uint8_t*) PMTK_API_SET_GNSS_SEARCH_MODE,
-					sizeof(PMTK_API_SET_GNSS_SEARCH_MODE), 1000)) {
+					sizeof(PMTK_API_SET_GNSS_SEARCH_MODE), WCU_COMMON_TIMEOUT)) {
 
 		LogPrint(
 				"gnssRx_DeviceConfig: Failed to send PMTK_API_SET_GNSS_SEARCH_MODE");

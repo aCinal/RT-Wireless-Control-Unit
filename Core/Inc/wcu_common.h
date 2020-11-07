@@ -35,7 +35,8 @@ typedef double float64_t;
 #if defined(RT11) && defined(RT12e)
 #error Both RT11 and RT12e defined
 #endif /* defined(RT11) && defined(RT12e) */
-
+#define USE_SERIAL_DEBUG_PRINTS
+#undef USE_SERIAL_DEBUG_PRINTS
 
 /* Exported function prototypes -------------------------------------------------------------------------- */
 /**

@@ -19,7 +19,12 @@
 #define LOG_TRAILER_LENGTH        ( (uint32_t) 3 )                                       /* <CR><LF><NUL> sequence length */
 #define LOG_PAYLOAD(log)          ( &( (log)[LOG_HEADER_LENGTH] ) )                      /* Get pointer to the log entry payload */
 #define LOG_TRAILER(log, payLen)  ( &( (log)[LOG_HEADER_LENGTH + (payLen)] ) )           /* Get pointer to the log entry trailer */
+#if defined (USE_SERIAL_DEBUG_PRINTS)
+#define DEBUG_UART_HANDLE         (huart2)                                               /* UART handle alias */
+#define DEBUG_UART_INSTANCE       (USART2)                                               /* UART instance alias */
 
+extern UART_HandleTypeDef DEBUG_UART_HANDLE;
+#endif /* defined (USE_SERIAL_DEBUG_PRINTS) */
 extern CRC_HandleTypeDef hcrc;
 extern osMutexId crcMutexHandle;
 extern osMessageQId sdioLogQueueHandle;
@@ -46,6 +51,14 @@ void LogPrint(const char *messagePayloadTbl) {
 		/* Write the message trailer to the memory block */
 		(void) sprintf(LOG_TRAILER(logEntryPtr, payloadLength), "\r\n");
 
+#if defined(USE_SERIAL_DEBUG_PRINTS)
+	taskENTER_CRITICAL();
+
+	HAL_UART_Transmit(&DEBUG_UART_HANDLE, (uint8_t*)logEntryPtr, strlen(logEntryPtr), WCU_COMMON_TIMEOUT);
+	vPortFree(logEntryPtr);
+
+	taskEXIT_CRITICAL();
+#else
 		/* Push the pointer to the message to the logErrorQueue */
 		if (pdPASS != xQueueSend(sdioLogQueueHandle, &logEntryPtr, 0)) {
 
@@ -53,6 +66,7 @@ void LogPrint(const char *messagePayloadTbl) {
 			vPortFree(logEntryPtr);
 
 		}
+#endif /* !defined (USE_SERIAL_DEBUG_PRINTS) */
 
 	}
 
