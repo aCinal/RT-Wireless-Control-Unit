@@ -15,8 +15,8 @@
 #include <string.h>
 #include <stddef.h>
 
-#define SDIOGTKP_LOGFILE_PATH  ("ERRLOG.TXT")  /* Error log file path */
-#define SDIOGTKP_SUBFILE_PATH  ("SUBSCR")      /* Subscription file path */
+#define SDIOGTKP_LOGFILE_PATH  ("ERR.LOG")   /* Error log file path */
+#define SDIOGTKP_SUBFILE_PATH  ("SUBS.TXT")  /* Subscription file path */
 
 extern osThreadId canGtkpHandle;
 extern osMessageQId canSubQueueHandle;
