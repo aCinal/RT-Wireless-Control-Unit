@@ -9,6 +9,7 @@
 
 #include "rt12e_libs_can.h"
 
+#include "main.h"
 #include "cmsis_os.h"
 #include <stdint.h>
 
@@ -20,8 +21,8 @@ typedef float float32_t;
 typedef double float64_t;
 
 /* Exported defines -------------------------------------------------------------------------- */
-#define WCU_COMMON_TIMEOUT         ( (TickType_t) pdMS_TO_TICKS(5) )  /* Common timeout */
-#define WCU_COMMON_TASK_DELAY      ( (TickType_t) pdMS_TO_TICKS(1) )  /* Common task delay */
+#define WCU_COMMON_TIMEOUT         ( (TickType_t) pdMS_TO_TICKS(500) )  /* Common timeout */
+#define WCU_COMMON_TASK_DELAY      ( (TickType_t) pdMS_TO_TICKS(1) )    /* Common task delay */
 
 #define CLEAR_NO_BITS_ON_ENTRY     ( (uint32_t) 0x00000000UL )        /* Value to pass as ulBitsToClearOnEntry to xTaskNotifyWait */
 #define CLEAR_NO_BITS_ON_EXIT      ( (uint32_t) 0x00000000UL )        /* Value to pass as ulBitsToClearOnExit to xTaskNotifyWait */
@@ -31,12 +32,17 @@ typedef double float64_t;
 /* Conditional compilation flags */
 #define RT11
 #define RT12e
-#undef RT11
+#undef RT12e
 #if defined(RT11) && defined(RT12e)
 #error Both RT11 and RT12e defined
 #endif /* defined(RT11) && defined(RT12e) */
 #define USE_SERIAL_DEBUG_PRINTS
-#undef USE_SERIAL_DEBUG_PRINTS
+//#undef USE_SERIAL_DEBUG_PRINTS
+
+/* Exported macros -------------------------------------------------------------------------- */
+/* Set/reset pins based on the label */
+#define SET_PIN(label)    ( HAL_GPIO_WritePin(label##_GPIO_Port, label##_Pin, GPIO_PIN_SET) )
+#define RESET_PIN(label)  ( HAL_GPIO_WritePin(label##_GPIO_Port, label##_Pin, GPIO_PIN_RESET) )
 
 /* Exported function prototypes -------------------------------------------------------------------------- */
 /**

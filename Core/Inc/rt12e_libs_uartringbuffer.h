@@ -11,6 +11,7 @@
 
 #include <stddef.h>
 #include <inttypes.h>
+#include <stdbool.h>
 
 /* Exported typedef ------------------------------------------------------------*/
 /**
@@ -24,27 +25,35 @@ typedef enum EUartRingBufRet {
 } EUartRingBufRet;
 
 /**
+ * @brief Ring buffer internal state structure
+ */
+typedef struct SUartRingBufInternalState {
+	volatile size_t Head;                 /* Position of the head */
+	volatile size_t Tail;                 /* Position of the tail */
+	volatile bool Dirty;                  /* Buffer dirty flag */
+} SUartRingBufInternalState;
+
+/**
  * @brief Ring buffer structure
  */
 typedef struct SUartRingBuf {
 	uint8_t *BufferPtr;                   /* Pointer to the buffer */
 	size_t BufferSize;                    /* Buffer size in bytes */
-	volatile size_t Head;                 /* Position of the head */
-	volatile size_t Tail;                 /* Position of the tail */
 	UART_HandleTypeDef *PeriphHandlePtr;  /* Peripheral handle */
 	void (*Callback)(void);               /* Callback */
+	SUartRingBufInternalState State;      /* Internal state */
 } SUartRingBuf;
 
 /* Exported function prototypes -----------------------------------------------*/
 /**
- * @brief Enables interrupts and starts the data transfer to the ring buffer
+ * @brief Enable interrupts and start the data transfer to the ring buffer
  * @param ringBufPtr Pointer to the ring buffer structure
  * @retval EUartRingBufRet Status
  */
 EUartRingBufRet UartRingBuf_Start(SUartRingBuf *ringBufPtr);
 
 /**
- * @brief Disables interrupts and stops the data transfer
+ * @brief Disable interrupts and stop the data transfer
  * @param ringBufPtr Pointer to the ring buffer structure
  * @retval EUartRingBufRet Status
  */
@@ -59,7 +68,14 @@ EUartRingBufRet UartRingBuf_Stop(SUartRingBuf *ringBufPtr);
 EUartRingBufRet UartRingBuf_IrqHandlerCallback(SUartRingBuf *ringBufPtr);
 
 /**
- * @brief Moves the data from the ring buffer to the destination
+ * @brief Test if there is unread data in the buffer
+ * @param ringBufPtr Pointer to the ring buffer structure
+ * @retval bool True if there is new data in the buffer, false otherwise
+ */
+bool UartRingBuf_IsDataReady(SUartRingBuf *ringBufPtr);
+
+/**
+ * @brief Move the data from the ring buffer to the destination
  * @param ringBufPtr Pointer to the ring buffer structure
  * @param dstBufPtr Destination address
  * @param dstBufSize Size of the destination buffer

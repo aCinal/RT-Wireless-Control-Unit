@@ -869,7 +869,11 @@ void StartCanGtkpTask(void const *argument) {
 	/* USER CODE BEGIN 5 */
 
 	/* Start the CAN module */
-	(void) HAL_CAN_Start(&hcan1);
+	if (HAL_OK == HAL_CAN_Start(&hcan1)) {
+
+		LogPrint("StartCanGtkpTask: CAN module started");
+
+	}
 
 	/* Infinite loop */
 	for (;;) {
@@ -912,7 +916,12 @@ void StartSdioGtkpTask(void const *argument) {
 
 	}
 
-	(void) sdioGtkp_LoadTelemetrySubscription();
+	/* Try reading the last active subscription */
+	if (ESdioGtkpRet_Ok == sdioGtkp_LoadTelemetrySubscription()) {
+
+		LogPrint("StartSdioGtkpTask: Loaded subscription from the SD card");
+
+	}
 
 	/* Infinite loop */
 	for (;;) {
@@ -944,7 +953,11 @@ void StartIwdgGtkpTask(void const *argument) {
 	vTaskDelay(pdMS_TO_TICKS(1000));
 
 	/* Initialize the watchdog */
-	(void) HAL_IWDG_Init(&hiwdg);
+	if (HAL_OK == HAL_IWDG_Init(&hiwdg)) {
+
+		LogPrint("StartIwdgGtkpTask: Watchdog started");
+
+	}
 
 	/* Infinite loop */
 	for (;;) {
@@ -994,14 +1007,17 @@ void StartBtRxTask(void const *argument) {
 	/* USER CODE BEGIN StartBtRxTask */
 
 	/* Start listening for incoming data */
-	(void) btRx_StartRingBufferIdleDetectionRx();
+	if (EUartRingBufRet_Ok == btRx_StartRingBufferIdleDetectionRx()) {
+
+		LogPrint("StartBtRxTask: Ring buffer initialized");
+
+	}
 
 	/* Infinite loop */
 	for (;;) {
 
 		/* Handle for the message */
 		(void) btRx_HandleCom();
-
 		/* Report to watchdog */
 		NOTIFY_WATCHDOG(NV_IWDGGTKP_BTRX);
 
@@ -1022,21 +1038,25 @@ void StartBtRxTask(void const *argument) {
 void StartGnssRxTask(void const *argument) {
 	/* USER CODE BEGIN StartGnssRxTask */
 
-	/* Wait for the device to turn on and set up */
-	vTaskDelay(pdMS_TO_TICKS(100));
-
 	/* Configure the device */
-	(void) gnssRx_DeviceConfig();
+	if (EGnssRxRet_Ok == gnssRx_DeviceConfig()) {
+
+		LogPrint("StartGnssRxTask: Device configured");
+
+	}
 
 	/* Start listening for incoming data */
-	(void) gnssRx_StartRingBufferIdleDetectionRx();
+	if (EUartRingBufRet_Ok == gnssRx_StartRingBufferIdleDetectionRx()) {
+
+		LogPrint("StartGnssRxTask: Ring buffer initialized");
+
+	}
 
 	/* Infinite loop */
 	for (;;) {
 
 		/* Handle for the message */
 		(void) gnssRx_HandleCom();
-
 		/* Report to watchdog */
 		NOTIFY_WATCHDOG(NV_IWDGGTKP_GNSSRX);
 
@@ -1065,10 +1085,18 @@ void StartRfRxTask(void const *argument) {
 #elif defined (RT12e)
 
 	/* Configure the device */
-	(void) rfRx_DeviceConfig();
+	if(ERfRxRet_Ok == rfRx_DeviceConfig()) {
+
+		LogPrint("StartRfRxTask: Device configured");
+
+	}
 
 	/* Start the timer */
-	(void) HAL_TIM_Base_Start_IT(&TIM_TPMS_HANDLE);
+	if(HAL_OK == HAL_TIM_Base_Start_IT(&TIM_TPMS_HANDLE)) {
+
+		LogPrint("StartRfRxTask: Timer started");
+
+	}
 
 	/* Infinite loop */
 	for (;;) {
@@ -1099,23 +1127,33 @@ void StartXbeeTxRxTask(void const *argument) {
 	/* USER CODE BEGIN StartXbeeTxRxTask */
 
 	/* Configure the device */
-	(void) xbeeTxRx_DeviceConfig();
+	if (EXbeeTxRxRet_Ok == xbeeTxRx_DeviceConfig()) {
+
+		LogPrint("StartXbeeTxRxTask: Device configured");
+
+	}
 
 	/* Start listening for incoming data */
-	(void) xbeeTxRx_StartRingBufferIdleDetectionRx();
+	if (EUartRingBufRet_Ok == xbeeTxRx_StartRingBufferIdleDetectionRx()) {
+
+		LogPrint("StartXbeeTxRxTask: Ring buffer initialized");
+
+	}
 
 	/* Start the timer */
-	(void) HAL_TIM_Base_Start_IT(&TIM_1s_HANDLE);
+	if (HAL_OK == HAL_TIM_Base_Start_IT(&TIM_1s_HANDLE)) {
+
+		LogPrint("StartXbeeTxRxTask: Timer started");
+
+	}
 
 	/* Infinite loop */
 	for (;;) {
 
 		/* Listen for internal communication */
 		(void) xbeeTxRx_HandleInternalMail();
-
 		/* Poll the queue for CAN frames to send */
 		xbeeTxRx_HandleOutgoingR3tpCom();
-
 		/* Report to watchdog */
 		NOTIFY_WATCHDOG(NV_IWDGGTKP_XBEETXRX);
 

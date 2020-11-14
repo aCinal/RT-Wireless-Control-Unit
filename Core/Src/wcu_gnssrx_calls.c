@@ -40,23 +40,30 @@ EGnssRxRet gnssRx_DeviceConfig(void) {
 
 	EGnssRxRet status = EGnssRxRet_Ok;
 
+	/* Set the appropriate pin levels */
+	RESET_PIN(GNSS_FORCE_ON);
+	SET_PIN(GNSS_RESET);
+
+	/* Wait for the device to turn on and set up */
+	vTaskDelay(pdMS_TO_TICKS(1000));
+
 	/* Send packet 220 PMTK_SET_POS_FIX - set position fix interval to 100 ms */
 	const char PMTK_SET_POS_FIX[] = "$PMTK220,100*1F\r\n";
 	if (HAL_OK
 			!= HAL_UART_Transmit(&GNSS_UART_HANDLE, (uint8_t*) PMTK_SET_POS_FIX,
-					sizeof(PMTK_SET_POS_FIX), WCU_COMMON_TIMEOUT)) {
+					sizeof(PMTK_SET_POS_FIX) - 1U, WCU_COMMON_TIMEOUT)) {
 
 		LogPrint("gnssRx_DeviceConfig: Failed to send PMTK_SET_POS_FIX");
 		status = EGnssRxRet_Error;
 
 	}
 
-	/* Send packet 353 PMTK_API_SET_GNSS_SEARCH_MODE - configure the receiver to start searching GPS and GLONASS satellites */
+	/* Send packet 353 PMTK_API_SET_GNSS_SEARCH_MODE - configure the receiver to start searching for GPS and GLONASS satellites */
 	const char PMTK_API_SET_GNSS_SEARCH_MODE[] = "$PMTK353,1,1,0,0,0*2B\r\n";
 	if (HAL_OK
 			!= HAL_UART_Transmit(&GNSS_UART_HANDLE,
 					(uint8_t*) PMTK_API_SET_GNSS_SEARCH_MODE,
-					sizeof(PMTK_API_SET_GNSS_SEARCH_MODE), WCU_COMMON_TIMEOUT)) {
+					sizeof(PMTK_API_SET_GNSS_SEARCH_MODE) - 1U, WCU_COMMON_TIMEOUT)) {
 
 		LogPrint(
 				"gnssRx_DeviceConfig: Failed to send PMTK_API_SET_GNSS_SEARCH_MODE");
@@ -107,7 +114,7 @@ EGnssRxRet gnssRx_HandleCom(void) {
 		switch (ParseMessage(&dataBuf, (char*) rxBufTbl,
 		GNSSRX_READ_BUF_SIZE)) {
 
-		case EGnssDataStatus_Ready: /* If the data is ready */
+		case EGnssDataStatus_Ready:
 
 			/* Send the data to CAN */
 			gnssRx_Send_GPS_POS(&dataBuf);
@@ -118,11 +125,12 @@ EGnssRxRet gnssRx_HandleCom(void) {
 			(void) memset(&dataBuf, 0, sizeof(dataBuf));
 			break;
 
-		case EGnssDataStatus_Pending: /* If the data is not complete */
+		case EGnssDataStatus_Pending:
 
+			/* If the data is not complete, continue listening */
 			break;
 
-		case EGnssDataStatus_Error: /* If the parser failed */
+		case EGnssDataStatus_Error:
 
 			LogPrint("gnssRx_HandleCom: Parser failed");
 			status = EGnssRxRet_Error;

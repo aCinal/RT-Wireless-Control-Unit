@@ -18,7 +18,7 @@ EUartRingBufRet UartRingBuf_Start(SUartRingBuf *ringBufPtr) {
 	EUartRingBufRet status = EUartRingBufRet_Ok;
 
 	/* Assert valid parameters */
-	if (( NULL == ringBufPtr) || (NULL == ringBufPtr->PeriphHandlePtr)
+	if ((NULL == ringBufPtr) || (NULL == ringBufPtr->PeriphHandlePtr)
 			|| (NULL == ringBufPtr->BufferPtr)
 			|| (0 == ringBufPtr->BufferSize)) {
 
@@ -29,8 +29,11 @@ EUartRingBufRet UartRingBuf_Start(SUartRingBuf *ringBufPtr) {
 	if (EUartRingBufRet_Ok == status) {
 
 		/* Reset the head and tail */
-		ringBufPtr->Head = 0;
-		ringBufPtr->Tail = 0;
+		ringBufPtr->State.Head = 0;
+		ringBufPtr->State.Tail = 0;
+
+		/* Reset the dirty flag */
+		ringBufPtr->State.Dirty = false;
 
 		/* Enable interrupts on idle line */
 		__HAL_UART_ENABLE_IT(ringBufPtr->PeriphHandlePtr, UART_IT_IDLE);
@@ -111,8 +114,11 @@ EUartRingBufRet UartRingBuf_IrqHandlerCallback(SUartRingBuf *ringBufPtr) {
 			__HAL_UART_CLEAR_IDLEFLAG(ringBufPtr->PeriphHandlePtr);
 
 			/* Update the head */
-			ringBufPtr->Head = ringBufPtr->BufferSize
+			ringBufPtr->State.Head = ringBufPtr->BufferSize
 					- ringBufPtr->PeriphHandlePtr->hdmarx->Instance->NDTR;
+
+			/* Set the dirty flag */
+			ringBufPtr->State.Dirty = true;
 
 			/* Callback */
 			if (NULL != ringBufPtr->Callback) {
@@ -126,6 +132,32 @@ EUartRingBufRet UartRingBuf_IrqHandlerCallback(SUartRingBuf *ringBufPtr) {
 	}
 
 	return status;
+
+}
+
+/**
+ * @brief Test if there is unread data in the buffer
+ * @param ringBufPtr Pointer to the ring buffer structure
+ * @retval bool True if there is new data in the buffer, false otherwise
+ */
+bool UartRingBuf_IsDataReady(SUartRingBuf *ringBufPtr) {
+
+	bool ret = false;
+
+	/* Disable interrupts */
+	__HAL_UART_DISABLE_IT(ringBufPtr->PeriphHandlePtr, UART_IT_IDLE);
+
+	/* Assert valid parameters */
+	if (NULL != ringBufPtr) {
+
+		ret = ringBufPtr->State.Dirty;
+
+	}
+
+	/* Enable interrupts */
+	__HAL_UART_ENABLE_IT(ringBufPtr->PeriphHandlePtr, UART_IT_IDLE);
+
+	return ret;
 
 }
 
@@ -153,8 +185,8 @@ EUartRingBufRet UartRingBuf_Read(SUartRingBuf *ringBufPtr, uint8_t *dstBufPtr,
 
 	if (EUartRingBufRet_Ok == status) {
 
-		/* Test if the ring buffer is empty */
-		if (ringBufPtr->Head == ringBufPtr->Tail) {
+		/* Assert the ring buffer is dirty */
+		if (false == ringBufPtr->State.Dirty) {
 
 			status = EUartRingBufRet_BufferEmpty;
 
@@ -165,42 +197,76 @@ EUartRingBufRet UartRingBuf_Read(SUartRingBuf *ringBufPtr, uint8_t *dstBufPtr,
 	if (EUartRingBufRet_Ok == status) {
 
 		/* Test if the ring buffer has overflown */
-		if (ringBufPtr->Head > ringBufPtr->Tail) {
+		if (ringBufPtr->State.Head > ringBufPtr->State.Tail) {
 
-			/* Assert no overflow in the destination buffer */
-			size_t len =
-					((ringBufPtr->Head - ringBufPtr->Tail) < dstBufSize) ?
-							(ringBufPtr->Head - ringBufPtr->Tail) : dstBufSize;
+			size_t len;
+			/* Determine the size of the data to be copied */
+			if ((ringBufPtr->State.Head - ringBufPtr->State.Tail)
+					<= dstBufSize) {
+
+				len = (ringBufPtr->State.Head - ringBufPtr->State.Tail);
+				/* Clear the dirty flag, the entire buffer has been read */
+				ringBufPtr->State.Dirty = false;
+
+			} else {
+
+				len = dstBufSize;
+				/* The dirty flag remains set */
+				ringBufPtr->State.Dirty = true;
+
+			}
 
 			/* Transfer the data */
 			for (size_t i = 0; i < len; i += 1UL) {
 
-				dstBufPtr[i] = ringBufPtr->BufferPtr[ringBufPtr->Tail + i];
+				dstBufPtr[i] =
+						ringBufPtr->BufferPtr[ringBufPtr->State.Tail + i];
 
 			}
 
 			/* Move the tail forward in the buffer */
-			ringBufPtr->Tail += len;
+			ringBufPtr->State.Tail += len;
 
 		} else {
 
-			/* Assert no overflow in the destination buffer from the upper part of the buffer */
-			size_t lenUpper =
-					((ringBufPtr->BufferSize - ringBufPtr->Tail) < dstBufSize) ?
-							(ringBufPtr->BufferSize - ringBufPtr->Tail) :
-							dstBufSize;
+			size_t lenUpper;
+			/* Determine the size of the data to be copied from the upper part of the buffer */
+			if ((ringBufPtr->BufferSize - ringBufPtr->State.Tail)
+					<= dstBufSize) {
+
+				lenUpper = (ringBufPtr->BufferSize - ringBufPtr->State.Tail);
+
+			} else {
+
+				/* Assert no overflow in the destination buffer from the upper part of the buffer */
+				lenUpper = dstBufSize;
+
+			}
 
 			/* Transfer the data from the upper part of the ring buffer */
 			for (size_t i = 0; i < lenUpper; i += 1UL) {
 
-				dstBufPtr[i] = ringBufPtr->BufferPtr[ringBufPtr->Tail + i];
+				dstBufPtr[i] =
+						ringBufPtr->BufferPtr[ringBufPtr->State.Tail + i];
 
 			}
 
-			/* Assert no overflow in the destination buffer from the lower part of the buffer */
-			size_t lenLower =
-					(ringBufPtr->Head < (dstBufSize - lenUpper)) ?
-							ringBufPtr->Head : (dstBufSize - lenUpper);
+			size_t lenLower;
+			/* Determine the size of the data to be copied from the upper part of the buffer */
+			if (ringBufPtr->State.Head <= (dstBufSize - lenUpper)) {
+
+				lenLower = ringBufPtr->State.Head;
+				/* Clear the dirty flag, the entire buffer has been read */
+				ringBufPtr->State.Dirty = false;
+
+			} else {
+
+				/* Assert no overflow in the destination buffer from the lower part of the buffer */
+				lenLower = (dstBufSize - lenUpper);
+				/* The dirty flag remains set */
+				ringBufPtr->State.Dirty = true;
+
+			}
 
 			/* Transfer the data from the lower part of the buffer */
 			for (size_t i = 0; i < lenLower; i += 1UL) {
@@ -210,7 +276,7 @@ EUartRingBufRet UartRingBuf_Read(SUartRingBuf *ringBufPtr, uint8_t *dstBufPtr,
 			}
 
 			/* Update the tail */
-			ringBufPtr->Tail = lenLower;
+			ringBufPtr->State.Tail = lenLower;
 
 		}
 

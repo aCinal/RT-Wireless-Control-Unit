@@ -36,7 +36,7 @@ ESdioGtkpRet sdioGtkp_LoadTelemetrySubscription(void) {
 	if (FR_OK != f_open(&subscriptionFile, SDIOGTKP_SUBFILE_PATH,
 	FA_READ | FA_OPEN_EXISTING)) {
 
-		LogPrint("sdioGtkp_LoadTelemetrySubscription: Open failed");
+		LogPrint("sdioGtkp_LoadTelemetrySubscription: f_open failed");
 		status = ESdioGtkpRet_Error;
 
 	}
@@ -52,7 +52,7 @@ ESdioGtkpRet sdioGtkp_LoadTelemetrySubscription(void) {
 			/* Cleanup */
 			(void) f_close(&subscriptionFile);
 
-			LogPrint("sdioGtkp_LoadTelemetrySubscription: Read failed");
+			LogPrint("sdioGtkp_LoadTelemetrySubscription: f_read failed");
 			status = ESdioGtkpRet_Error;
 
 		}
@@ -90,7 +90,7 @@ ESdioGtkpRet sdioGtkp_LoadTelemetrySubscription(void) {
 				/* Cleanup */
 				(void) xQueueReset(canSubQueueHandle);
 
-				LogPrint("sdioGtkp_LoadTelemetrySubscription: Read failed");
+				LogPrint("sdioGtkp_LoadTelemetrySubscription: f_read failed");
 				status = ESdioGtkpRet_Error;
 				break;
 
@@ -196,7 +196,7 @@ ESdioGtkpRet sdioGtkp_HandleNewSubscription(void) {
 			if (FR_OK != f_open(&subscriptionFile, SDIOGTKP_SUBFILE_PATH,
 			FA_WRITE | FA_CREATE_ALWAYS)) {
 
-				LogPrint("sdioGtkp_HandleNewSubscription: Open failed");
+				LogPrint("sdioGtkp_HandleNewSubscription: f_open failed");
 				status = ESdioGtkpRet_Error;
 
 			}

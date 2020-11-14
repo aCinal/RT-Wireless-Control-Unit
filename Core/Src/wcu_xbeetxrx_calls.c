@@ -69,6 +69,9 @@ EXbeeTxRxRet xbeeTxRx_DeviceConfig(void) {
 	/* Set the RESET pin high */
 	HAL_GPIO_WritePin(XBEE_RESET_GPIO_Port, XBEE_RESET_Pin, GPIO_PIN_SET);
 
+	/* Allow the device the time to boot */
+	vTaskDelay(pdMS_TO_TICKS(50));
+
 	/* Set the guard time */
 	if (EXbeeProApiRet_Ok != XbeeProApi_SetGuardTimes(XBEE_GUARD_TIMES)) {
 
