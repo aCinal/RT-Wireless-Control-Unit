@@ -52,13 +52,16 @@ void LogPrint(const char *messagePayloadTbl) {
 		(void) sprintf(LOG_TRAILER(logEntryPtr, payloadLength), "\r\n");
 
 #if defined(USE_SERIAL_DEBUG_PRINTS)
+
 	taskENTER_CRITICAL();
 
 	HAL_UART_Transmit(&DEBUG_UART_HANDLE, (uint8_t*)logEntryPtr, strlen(logEntryPtr), WCU_COMMON_TIMEOUT);
 	vPortFree(logEntryPtr);
 
 	taskEXIT_CRITICAL();
+
 #else
+
 		/* Push the pointer to the message to the logErrorQueue */
 		if (pdPASS != xQueueSend(sdioLogQueueHandle, &logEntryPtr, 0)) {
 
@@ -66,6 +69,7 @@ void LogPrint(const char *messagePayloadTbl) {
 			vPortFree(logEntryPtr);
 
 		}
+
 #endif /* !defined (USE_SERIAL_DEBUG_PRINTS) */
 
 	}

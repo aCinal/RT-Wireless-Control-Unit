@@ -19,18 +19,18 @@ typedef enum EWcuCanGtkpRet {
  * @brief Handle setting CAN filters according to the new telemetry subscription
  * @retval EWcuCanGtkpRet Status
  */
-EWcuCanGtkpRet canGtkp_HandleNewSubscription(void);
+EWcuCanGtkpRet CanGtkpHandleNewSubscription(void);
 
 /**
  * @brief Handle the CAN outgoing messages
  * @retval None
  */
-void canGtkp_HandleOutbox(void);
+void CanGtkpHandleOutbox(void);
 
 /**
  * @brief Handle the CAN incoming messages
  * @retval EWcuCanGtkpRet Status
  */
-EWcuCanGtkpRet canGtkp_HandleInbox(void);
+EWcuCanGtkpRet CanGtkpHandleInbox(void);
 
 #endif /* __WCU_CANGTKP_CALLS_H_ */

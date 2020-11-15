@@ -27,7 +27,7 @@ extern osMessageQId sdioLogQueueHandle;
  * @brief Try loading the telemetry subscription from the SD card and forwarding it to CAN gatekeeper
  * @retval ESdioGtkpRet Status
  */
-ESdioGtkpRet sdioGtkp_LoadTelemetrySubscription(void) {
+ESdioGtkpRet SdioGtkpLoadTelemetrySubscription(void) {
 
 	ESdioGtkpRet status = ESdioGtkpRet_Ok;
 
@@ -36,7 +36,7 @@ ESdioGtkpRet sdioGtkp_LoadTelemetrySubscription(void) {
 	if (FR_OK != f_open(&subscriptionFile, SDIOGTKP_SUBFILE_PATH,
 	FA_READ | FA_OPEN_EXISTING)) {
 
-		LogPrint("sdioGtkp_LoadTelemetrySubscription: f_open failed");
+		LogPrint("SdioGtkpLoadTelemetrySubscription: f_open failed");
 		status = ESdioGtkpRet_Error;
 
 	}
@@ -52,7 +52,7 @@ ESdioGtkpRet sdioGtkp_LoadTelemetrySubscription(void) {
 			/* Cleanup */
 			(void) f_close(&subscriptionFile);
 
-			LogPrint("sdioGtkp_LoadTelemetrySubscription: f_read failed");
+			LogPrint("SdioGtkpLoadTelemetrySubscription: f_read failed");
 			status = ESdioGtkpRet_Error;
 
 		}
@@ -70,7 +70,7 @@ ESdioGtkpRet sdioGtkp_LoadTelemetrySubscription(void) {
 		if (frNum > R3TP_VER1_MAX_FRAME_NUM) {
 
 			LogPrint(
-					"sdioGtkp_LoadTelemetrySubscription: Invalid frame number");
+					"SdioGtkpLoadTelemetrySubscription: Invalid frame number");
 			status = ESdioGtkpRet_Error;
 
 		}
@@ -90,7 +90,7 @@ ESdioGtkpRet sdioGtkp_LoadTelemetrySubscription(void) {
 				/* Cleanup */
 				(void) xQueueReset(canSubQueueHandle);
 
-				LogPrint("sdioGtkp_LoadTelemetrySubscription: f_read failed");
+				LogPrint("SdioGtkpLoadTelemetrySubscription: f_read failed");
 				status = ESdioGtkpRet_Error;
 				break;
 
@@ -103,7 +103,7 @@ ESdioGtkpRet sdioGtkp_LoadTelemetrySubscription(void) {
 				(void) xQueueReset(canSubQueueHandle);
 
 				LogPrint(
-						"sdioGtkp_LoadTelemetrySubscription: Invalid frame number");
+						"SdioGtkpLoadTelemetrySubscription: Invalid frame number");
 				status = ESdioGtkpRet_Error;
 				break;
 
@@ -118,7 +118,7 @@ ESdioGtkpRet sdioGtkp_LoadTelemetrySubscription(void) {
 				/* Cleanup */
 				(void) xQueueReset(canSubQueueHandle);
 
-				LogPrint("sdioGtkp_LoadTelemetrySubscription: Queue is full");
+				LogPrint("SdioGtkpLoadTelemetrySubscription: Queue is full");
 				status = ESdioGtkpRet_Error;
 				break;
 
@@ -146,7 +146,7 @@ ESdioGtkpRet sdioGtkp_LoadTelemetrySubscription(void) {
  * @brief Handle the error logger
  * @retval None
  */
-void sdioGtkp_HandleLogger(void) {
+void SdioGtkpHandleLogger(void) {
 
 	char *errMsgPtr;
 	/* Receive an error message */
@@ -178,7 +178,7 @@ void sdioGtkp_HandleLogger(void) {
  * @brief Handle saving the new telemetry subscription to the SD card
  * @retval ESdioGtkpRet Status
  */
-ESdioGtkpRet sdioGtkp_HandleNewSubscription(void) {
+ESdioGtkpRet SdioGtkpHandleNewSubscription(void) {
 
 	ESdioGtkpRet status = ESdioGtkpRet_Ok;
 
@@ -196,7 +196,7 @@ ESdioGtkpRet sdioGtkp_HandleNewSubscription(void) {
 			if (FR_OK != f_open(&subscriptionFile, SDIOGTKP_SUBFILE_PATH,
 			FA_WRITE | FA_CREATE_ALWAYS)) {
 
-				LogPrint("sdioGtkp_HandleNewSubscription: f_open failed");
+				LogPrint("SdioGtkpHandleNewSubscription: f_open failed");
 				status = ESdioGtkpRet_Error;
 
 			}
@@ -220,7 +220,7 @@ ESdioGtkpRet sdioGtkp_HandleNewSubscription(void) {
 
 				if (pdPASS != xQueueReceive(sdioSubQueueHandle, &frBuf, 0)) {
 
-					LogPrint("sdioGtkp_HandleNewSubscription: Queue is empty");
+					LogPrint("SdioGtkpHandleNewSubscription: Queue is empty");
 					status = ESdioGtkpRet_Error;
 					break;
 

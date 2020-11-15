@@ -50,14 +50,14 @@ typedef struct SUartRingBuf {
  * @param ringBufPtr Pointer to the ring buffer structure
  * @retval EUartRingBufRet Status
  */
-EUartRingBufRet UartRingBuf_Start(SUartRingBuf *ringBufPtr);
+EUartRingBufRet UartRingBufStart(SUartRingBuf *ringBufPtr);
 
 /**
  * @brief Disable interrupts and stop the data transfer
  * @param ringBufPtr Pointer to the ring buffer structure
  * @retval EUartRingBufRet Status
  */
-EUartRingBufRet UartRingBuf_Stop(SUartRingBuf *ringBufPtr);
+EUartRingBufRet UartRingBufStop(SUartRingBuf *ringBufPtr);
 
 /**
  * @brief ISR callback
@@ -65,14 +65,14 @@ EUartRingBufRet UartRingBuf_Stop(SUartRingBuf *ringBufPtr);
  * @param ringBufPtr Pointer to the ring buffer structure
  * @retval EUartRingBufRet Status
  */
-EUartRingBufRet UartRingBuf_IrqHandlerCallback(SUartRingBuf *ringBufPtr);
+EUartRingBufRet UartRingBufIrqHandlerCallback(SUartRingBuf *ringBufPtr);
 
 /**
  * @brief Test if there is unread data in the buffer
  * @param ringBufPtr Pointer to the ring buffer structure
  * @retval bool True if there is new data in the buffer, false otherwise
  */
-bool UartRingBuf_IsDataReady(SUartRingBuf *ringBufPtr);
+bool UartRingBufIsDataReady(SUartRingBuf *ringBufPtr);
 
 /**
  * @brief Move the data from the ring buffer to the destination
@@ -81,7 +81,7 @@ bool UartRingBuf_IsDataReady(SUartRingBuf *ringBufPtr);
  * @param dstBufSize Size of the destination buffer
  * @retval EUartRingBufRet Status
  */
-EUartRingBufRet UartRingBuf_Read(SUartRingBuf *ringBufPtr,
+EUartRingBufRet UartRingBufRead(SUartRingBuf *ringBufPtr,
 		uint8_t *dstBufPtr, size_t dstBufSize);
 
 #endif /* __RT12E_LIBS_UARTRINGBUFFER_H_ */

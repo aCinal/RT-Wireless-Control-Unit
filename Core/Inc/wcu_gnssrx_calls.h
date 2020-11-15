@@ -21,18 +21,18 @@ typedef enum EGnssRxRet {
  * @brief Configure the Quectel L26 device
  * @retval EGnssRxRet Status
  */
-EGnssRxRet gnssRx_DeviceConfig(void);
+EGnssRxRet GnssRxDeviceConfig(void);
 
 /**
  * @brief Start listening for incoming UART transmissions
  * @retval EUartRingBufRet Status
  */
-EUartRingBufRet gnssRx_StartRingBufferIdleDetectionRx(void);
+EUartRingBufRet GnssRxStartRingBufferIdleDetectionRx(void);
 
 /**
  * @brief Handle the GNSS message
  * @retval Status
  */
-EGnssRxRet gnssRx_HandleCom(void);
+EGnssRxRet GnssRxHandleCom(void);
 
 #endif /* __WCU_GNSSRX_CALLS_H_ */

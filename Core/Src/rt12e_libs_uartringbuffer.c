@@ -13,7 +13,7 @@
  * @param ringBufPtr Pointer to the ring buffer structure
  * @retval EUartUartCircularBufferStatus Status
  */
-EUartRingBufRet UartRingBuf_Start(SUartRingBuf *ringBufPtr) {
+EUartRingBufRet UartRingBufStart(SUartRingBuf *ringBufPtr) {
 
 	EUartRingBufRet status = EUartRingBufRet_Ok;
 
@@ -28,11 +28,9 @@ EUartRingBufRet UartRingBuf_Start(SUartRingBuf *ringBufPtr) {
 
 	if (EUartRingBufRet_Ok == status) {
 
-		/* Reset the head and tail */
+		/* Reset the internal state */
 		ringBufPtr->State.Head = 0;
 		ringBufPtr->State.Tail = 0;
-
-		/* Reset the dirty flag */
 		ringBufPtr->State.Dirty = false;
 
 		/* Enable interrupts on idle line */
@@ -58,7 +56,7 @@ EUartRingBufRet UartRingBuf_Start(SUartRingBuf *ringBufPtr) {
  * @param ringBufPtr Pointer to the ring buffer structure
  * @retval EUartRingBufRet Status
  */
-EUartRingBufRet UartRingBuf_Stop(SUartRingBuf *ringBufPtr) {
+EUartRingBufRet UartRingBufStop(SUartRingBuf *ringBufPtr) {
 
 	EUartRingBufRet status = EUartRingBufRet_Ok;
 
@@ -92,7 +90,7 @@ EUartRingBufRet UartRingBuf_Stop(SUartRingBuf *ringBufPtr) {
  * @param ringBufPtr Pointer to the ring buffer structure
  * @retval EUartRingBufRet Status
  */
-EUartRingBufRet UartRingBuf_IrqHandlerCallback(SUartRingBuf *ringBufPtr) {
+EUartRingBufRet UartRingBufIrqHandlerCallback(SUartRingBuf *ringBufPtr) {
 
 	EUartRingBufRet status = EUartRingBufRet_Ok;
 
@@ -140,7 +138,7 @@ EUartRingBufRet UartRingBuf_IrqHandlerCallback(SUartRingBuf *ringBufPtr) {
  * @param ringBufPtr Pointer to the ring buffer structure
  * @retval bool True if there is new data in the buffer, false otherwise
  */
-bool UartRingBuf_IsDataReady(SUartRingBuf *ringBufPtr) {
+bool UartRingBufIsDataReady(SUartRingBuf *ringBufPtr) {
 
 	bool ret = false;
 
@@ -168,7 +166,7 @@ bool UartRingBuf_IsDataReady(SUartRingBuf *ringBufPtr) {
  * @param dstBufSize Size of the destination buffer
  * @retval EUartRingBufRet Status
  */
-EUartRingBufRet UartRingBuf_Read(SUartRingBuf *ringBufPtr, uint8_t *dstBufPtr,
+EUartRingBufRet UartRingBufRead(SUartRingBuf *ringBufPtr, uint8_t *dstBufPtr,
 		size_t dstBufSize) {
 
 	EUartRingBufRet status = EUartRingBufRet_Ok;

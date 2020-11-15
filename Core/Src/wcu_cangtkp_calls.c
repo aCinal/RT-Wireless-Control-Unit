@@ -19,13 +19,13 @@ extern osMessageQId canRxQueueHandle;
 extern osMessageQId canSubQueueHandle;
 extern osMessageQId sdioSubQueueHandle;
 
-static EWcuCanGtkpRet canGtkp_ForwardRxMessage(uint32_t rxFifo);
+static EWcuCanGtkpRet CanGtkpForwardRxMessage(uint32_t rxFifo);
 
 /**
  * @brief Handle setting CAN filters according to the new telemetry subscription
  * @retval EWcuCanGtkpRet Status
  */
-EWcuCanGtkpRet canGtkp_HandleNewSubscription(void) {
+EWcuCanGtkpRet CanGtkpHandleNewSubscription(void) {
 
 	EWcuCanGtkpRet status = EWcuCanGtkpRet_Ok;
 
@@ -41,7 +41,7 @@ EWcuCanGtkpRet canGtkp_HandleNewSubscription(void) {
 			if (pdPASS
 					!= xQueueReceive(canSubQueueHandle, &(subscrTbl[i]), 0)) {
 
-				LogPrint("canGtkp_HandleNewSubscription: Queue is empty");
+				LogPrint("CanGtkpHandleNewSubscription: Queue is empty");
 				status = EWcuCanGtkpRet_Error;
 
 			}
@@ -51,7 +51,7 @@ EWcuCanGtkpRet canGtkp_HandleNewSubscription(void) {
 		if (EWcuCanGtkpRet_Ok == status) {
 
 			/* Set the filters */
-			setCanFilterList(&hcan1, subscrTbl, nv);
+			SetCanFilterList(&hcan1, subscrTbl, nv);
 
 		}
 
@@ -65,7 +65,7 @@ EWcuCanGtkpRet canGtkp_HandleNewSubscription(void) {
  * @brief Handle the CAN outgoing messages
  * @retval None
  */
-void canGtkp_HandleOutbox(void) {
+void CanGtkpHandleOutbox(void) {
 
 	SCanFrame frBuf;
 	/* Check for outgoing messages */
@@ -85,20 +85,20 @@ void canGtkp_HandleOutbox(void) {
  * @brief Handle the CAN incoming messages
  * @retval EWcuCanGtkpRet Status
  */
-EWcuCanGtkpRet canGtkp_HandleInbox(void) {
+EWcuCanGtkpRet CanGtkpHandleInbox(void) {
 
 	EWcuCanGtkpRet status = EWcuCanGtkpRet_Ok;
 
 	/* Check both FIFOs for incoming messages */
 	if (0UL < HAL_CAN_GetRxFifoFillLevel(&hcan1, CAN_RX_FIFO0)) {
 
-		(void) canGtkp_ForwardRxMessage(CAN_RX_FIFO0);
+		(void) CanGtkpForwardRxMessage(CAN_RX_FIFO0);
 
 	}
 #if !defined (CAN_SINGLE_FIFO)
 	if (0UL < HAL_CAN_GetRxFifoFillLevel(&hcan1, CAN_RX_FIFO1)) {
 
-		(void) canGtkp_ForwardRxMessage(CAN_RX_FIFO1);
+		(void) CanGtkpForwardRxMessage(CAN_RX_FIFO1);
 
 	}
 #endif /* !defined (CAN_SINGLE_FIFO) */
@@ -112,7 +112,7 @@ EWcuCanGtkpRet canGtkp_HandleInbox(void) {
  * @param rxFifo RX FIFO number
  * @retval EWcuCanGtkpRet Status
  */
-static EWcuCanGtkpRet canGtkp_ForwardRxMessage(uint32_t rxFifo) {
+static EWcuCanGtkpRet CanGtkpForwardRxMessage(uint32_t rxFifo) {
 
 	EWcuCanGtkpRet status = EWcuCanGtkpRet_Ok;
 
@@ -127,7 +127,7 @@ static EWcuCanGtkpRet canGtkp_ForwardRxMessage(uint32_t rxFifo) {
 	/* Send the frame to the telemetry queue */
 	if (pdPASS != xQueueSend(canRxQueueHandle, &frBuf, 0)) {
 
-		LogPrint("canGtkp_ForwardRxMessage: Queue is full");
+		LogPrint("CanGtkpForwardRxMessage: Queue is full");
 		status = EWcuCanGtkpRet_Error;
 
 	}

@@ -29,30 +29,30 @@ typedef enum EXbeeTxRxInternalMail {
  * @brief Configure the XBEE-Pro device
  * @retval EXbeeTxRxRet Status
  */
-EXbeeTxRxRet xbeeTxRx_DeviceConfig(void);
+EXbeeTxRxRet XbeeTxRxDeviceConfig(void);
 
 /**
  * @brief Start listening for incoming UART transmissions
  * @retval EUartRingBufRet Status
  */
-EUartRingBufRet xbeeTxRx_StartRingBufferIdleDetectionRx(void);
+EUartRingBufRet XbeeTxRxStartRingBufferIdleDetectionRx(void);
 
 /**
  * @brief Handle internal messages
  * @retval EXbeeTxRxRet Status
  */
-EXbeeTxRxRet xbeeTxRx_HandleInternalMail(void);
+EXbeeTxRxRet XbeeTxRxHandleInternalMail(void);
 
 /**
  * @brief Handle transmitting telemetry data
  * @retval None
  */
-void xbeeTxRx_HandleOutgoingR3tpCom(void);
+void XbeeTxRxHandleOutgoingR3tpCom(void);
 
 /**
  * @brief Callback on timer period elapsed
  * @retval None
  */
-void xbeeTxRx_PeriodElapsedCallback(void);
+void XbeeTxRxPeriodElapsedCallback(void);
 
 #endif /* __WCU_XBEETXRX_CALLS_H_ */

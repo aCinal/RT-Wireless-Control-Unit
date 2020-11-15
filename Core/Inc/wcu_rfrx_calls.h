@@ -28,24 +28,24 @@ typedef enum ERfRxInternalMail {
  * @brief Configure the S2-LP device
  * @retval ERfRxRet Status
  */
-ERfRxRet rfRx_DeviceConfig(void);
+ERfRxRet RfRxDeviceConfig(void);
 
 /**
  * @brief Handle internal messages
  * @retval ERfRxRet Status
  */
-ERfRxRet rfRx_HandleInternalMail(void);
+ERfRxRet RfRxHandleInternalMail(void);
 
 /**
  * @brief Callback on external interrupt
  * @retval None
  */
-void rfRx_ExtiCallback(void);
+void RfRxExtiCallback(void);
 
 /**
  * @brief Callback on timer period elapsed
  * @retval None
  */
-void rfRx_PeriodElapsedCallback(void);
+void RfRxPeriodElapsedCallback(void);
 
 #endif /* __WCU_RFRX_CALLS_H_ */

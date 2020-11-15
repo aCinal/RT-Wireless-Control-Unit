@@ -36,15 +36,15 @@ typedef struct STpmsData {
 	uint32_t sensorId;
 } STpmsData;
 
-static void rfRx_ParsePayload(STpmsData *tpmsDataPtr, uint8_t *payloadPtr);
-static void rfRx_AddDataToCanFrame(SCanFrame *canFramePtr,
+static void RfRxParsePayload(STpmsData *tpmsDataPtr, uint8_t *payloadPtr);
+static void RfRxAddDataToCanFrame(SCanFrame *canFramePtr,
 		STpmsData *tpmsDataPtr);
 
 /**
  * @brief Configure the S2-LP device
  * @retval ERfRxRet Status
  */
-ERfRxRet rfRx_DeviceConfig(void) {
+ERfRxRet RfRxDeviceConfig(void) {
 
 	ERfRxRet status = ERfRxRet_Ok;
 
@@ -160,7 +160,7 @@ ERfRxRet rfRx_DeviceConfig(void) {
  * @brief Handle internal messages
  * @retval ERfRxRet Status
  */
-ERfRxRet rfRx_HandleInternalMail(void) {
+ERfRxRet RfRxHandleInternalMail(void) {
 
 	ERfRxRet status = ERfRxRet_Ok;
 
@@ -184,7 +184,7 @@ ERfRxRet rfRx_HandleInternalMail(void) {
 					!= S2lpApi_TestInterrupt(ES2lpApiInterruptEvent_RxDataReady,
 							&dataReady)) {
 
-				LogPrint("rfRx_HandleInternalMail: Test interrupt failed");
+				LogPrint("RfRxHandleInternalMail: Test interrupt failed");
 				status = ERfRxRet_Error;
 
 			}
@@ -196,7 +196,7 @@ ERfRxRet rfRx_HandleInternalMail(void) {
 						!= S2lpApi_ReadRxPayload(rxBufTbl,
 								RFRX_READ_BUF_SIZE)) {
 
-					LogPrint("rfRx_HandleInternalMail: Read payload failed");
+					LogPrint("RfRxHandleInternalMail: Read payload failed");
 					status = ERfRxRet_Error;
 
 				}
@@ -206,9 +206,9 @@ ERfRxRet rfRx_HandleInternalMail(void) {
 			if ((ERfRxRet_Ok == status) && dataReady) {
 
 				/* Parse the data */
-				rfRx_ParsePayload(&tpmsData, rxBufTbl);
+				RfRxParsePayload(&tpmsData, rxBufTbl);
 				/* Add the data to the CAN frame */
-				rfRx_AddDataToCanFrame(&canFrame, &tpmsData);
+				RfRxAddDataToCanFrame(&canFrame, &tpmsData);
 
 			}
 			break;
@@ -243,7 +243,7 @@ ERfRxRet rfRx_HandleInternalMail(void) {
  * @brief Callback on external interrupt
  * @retval None
  */
-void rfRx_ExtiCallback(void) {
+void RfRxExtiCallback(void) {
 
 	ERfRxInternalMail mail = ERfRxInternalMail_Exti;
 	/* Notify the task */
@@ -255,7 +255,7 @@ void rfRx_ExtiCallback(void) {
  * @brief Callback on timer period elapsed
  * @retval None
  */
-void rfRx_PeriodElapsedCallback(void) {
+void RfRxPeriodElapsedCallback(void) {
 
 	ERfRxInternalMail mail = ERfRxInternalMail_PeriodElapsed;
 	/* Notify the task */
@@ -269,7 +269,7 @@ void rfRx_PeriodElapsedCallback(void) {
  * @param payloadPtr Payload buffer
  * @retval None
  */
-static void rfRx_ParsePayload(STpmsData *tpmsDataPtr, uint8_t *payloadPtr) {
+static void RfRxParsePayload(STpmsData *tpmsDataPtr, uint8_t *payloadPtr) {
 
 	/* TODO: Parse the data */
 
@@ -281,7 +281,7 @@ static void rfRx_ParsePayload(STpmsData *tpmsDataPtr, uint8_t *payloadPtr) {
  * @param tpmsDataPtr TPMS data structure
  * @retval None
  */
-static void rfRx_AddDataToCanFrame(SCanFrame *canFramePtr,
+static void RfRxAddDataToCanFrame(SCanFrame *canFramePtr,
 		STpmsData *tpmsDataPtr) {
 
 	/* Identify the sensor */
@@ -313,7 +313,7 @@ static void rfRx_AddDataToCanFrame(SCanFrame *canFramePtr,
 
 	default:
 
-		LogPrint("rfRx_AddDataToCanFrame: Unknown ID");
+		LogPrint("RfRxAddDataToCanFrame: Unknown ID");
 		break;
 
 	}

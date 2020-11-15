@@ -21,18 +21,18 @@ typedef enum ESdioGtkpRet {
  * @brief Try loading the telemetry subscription from the SD card and forwarding it to CAN gatekeeper
  * @retval ESdioGtkpRet Status
  */
-ESdioGtkpRet sdioGtkp_LoadTelemetrySubscription(void);
+ESdioGtkpRet SdioGtkpLoadTelemetrySubscription(void);
 
 /**
  * @brief Handle the error logger
  * @retval None
  */
-void sdioGtkp_HandleLogger(void);
+void SdioGtkpHandleLogger(void);
 
 /**
  * @brief Handle saving the new telemetry subscription to the SD card
  * @retval ESdioGtkpRet Status
  */
-ESdioGtkpRet sdioGtkp_HandleNewSubscription(void);
+ESdioGtkpRet SdioGtkpHandleNewSubscription(void);
 
 #endif /* __WCU_SDIOGTKP_CALLS_H_ */

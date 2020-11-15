@@ -21,7 +21,7 @@ static uint16_t gGuardTimes = XBEEPRO_GT_DEFAULT;
  * @brief Return the local value of the XBee-PRO Guard Times parameter
  * @retval uint16_t Local value of the guard time
  */
-uint16_t XbeeProApi_ReadLocalGuardTime(void) {
+uint16_t XbeeProApiReadLocalGuardTime(void) {
 
 	return gGuardTimes;
 
@@ -32,7 +32,7 @@ uint16_t XbeeProApi_ReadLocalGuardTime(void) {
  * @param gt Guard Times parameter
  * @retval EXbeeProApiRet Status
  */
-EXbeeProApiRet XbeeProApi_SetGuardTimes(uint16_t gt) {
+EXbeeProApiRet XbeeProApiSetGuardTimes(uint16_t gt) {
 
 	EXbeeProApiRet status = EXbeeProApiRet_Ok;
 
@@ -90,7 +90,7 @@ EXbeeProApiRet XbeeProApi_SetGuardTimes(uint16_t gt) {
  * @param rssiPtr Pointer to pass the received value out of the function
  * @retval EXbeeProApiRet Status
  */
-EXbeeProApiRet XbeeProApi_ReadRssi(uint8_t *rssiPtr) {
+EXbeeProApiRet XbeeProApiReadRssi(uint8_t *rssiPtr) {
 
 	EXbeeProApiRet status = EXbeeProApiRet_Ok;
 
@@ -162,7 +162,7 @@ EXbeeProApiRet XbeeProApi_ReadRssi(uint8_t *rssiPtr) {
  * @param numOfBytes Size of the payload buffer in bytes
  * @retval EXbeeProLldRet Status
  */
-EXbeeProApiRet XbeeProApi_SendPayload(uint8_t* payloadPtr, uint32_t numOfBytes) {
+EXbeeProApiRet XbeeProApiSendPayload(uint8_t* payloadPtr, uint32_t numOfBytes) {
 
 	EXbeeProApiRet status = EXbeeProApiRet_Ok;
 

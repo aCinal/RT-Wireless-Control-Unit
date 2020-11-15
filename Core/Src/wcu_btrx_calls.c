@@ -23,24 +23,24 @@ extern UART_HandleTypeDef BT_UART_HANDLE;
 extern osThreadId btRxHandle;
 SUartRingBuf gBtRxRingBuffer;
 
-static void btRx_RingBufferIdleCallback(void);
+static void BtRxRingBufferIdleCallback(void);
 
 /**
  * @brief Start listening for incoming UART transmissions
  * @retval EUartRingBufRet Status
  */
-EUartRingBufRet btRx_StartRingBufferIdleDetectionRx(void) {
+EUartRingBufRet BtRxStartRingBufferIdleDetectionRx(void) {
 
 	static uint8_t ringBufTbl[BTRX_RING_BUF_SIZE];
 
 	/* Configure the ring buffer structure */
 	gBtRxRingBuffer.BufferPtr = ringBufTbl;
 	gBtRxRingBuffer.BufferSize = BTRX_RING_BUF_SIZE;
-	gBtRxRingBuffer.Callback = &btRx_RingBufferIdleCallback;
+	gBtRxRingBuffer.Callback = &BtRxRingBufferIdleCallback;
 	gBtRxRingBuffer.PeriphHandlePtr = &BT_UART_HANDLE;
 
 	/* Start listening */
-	return UartRingBuf_Start(&gBtRxRingBuffer);
+	return UartRingBufStart(&gBtRxRingBuffer);
 
 }
 
@@ -48,7 +48,7 @@ EUartRingBufRet btRx_StartRingBufferIdleDetectionRx(void) {
  * @brief Handle the BT message
  * @retval EBtRxRet Status
  */
-EBtRxRet btRx_HandleCom(void) {
+EBtRxRet BtRxHandleCom(void) {
 
 	EBtRxRet status = EBtRxRet_Ok;
 
@@ -57,12 +57,12 @@ EBtRxRet btRx_HandleCom(void) {
 
 		uint8_t rxBufTbl[R3TP_VER0_FRAME_SIZE];
 		/* Read the data from the ring buffer */
-		UartRingBuf_Read(&gBtRxRingBuffer, rxBufTbl, R3TP_VER0_FRAME_SIZE);
+		UartRingBufRead(&gBtRxRingBuffer, rxBufTbl, R3TP_VER0_FRAME_SIZE);
 
 		/* Validate protocol version */
 		if (R3TP_VER0_VER_BYTE != rxBufTbl[0]) {
 
-			LogPrint("btRx_HandleCom: Unknown protocol version");
+			LogPrint("BtRxHandleCom: Unknown protocol version");
 			status = EBtRxRet_Error;
 
 		}
@@ -74,7 +74,7 @@ EBtRxRet btRx_HandleCom(void) {
 					|| (R3TP_END_SEQ_HIGH_BYTE
 							!= rxBufTbl[R3TP_VER0_FRAME_SIZE - 1U])) {
 
-				LogPrint("btRx_HandleCom: Invalid end sequence");
+				LogPrint("BtRxHandleCom: Invalid end sequence");
 				status = EBtRxRet_Error;
 
 			}
@@ -96,7 +96,7 @@ EBtRxRet btRx_HandleCom(void) {
 			/* Validate the CRC */
 			if (readCrc != calculatedCrc) {
 
-				LogPrint("btRx_HandleCom: Invalid CRC");
+				LogPrint("BtRxHandleCom: Invalid CRC");
 				status = EBtRxRet_Error;
 
 			}
@@ -115,7 +115,7 @@ EBtRxRet btRx_HandleCom(void) {
 			/* Assert valid DLC */
 			if (CAN_PAYLOAD_SIZE < canFrame.TxHeader.DLC) {
 
-				LogPrint("btRx_HandleCom: Invalid DLC");
+				LogPrint("BtRxHandleCom: Invalid DLC");
 				status = EBtRxRet_Error;
 
 			}
@@ -150,7 +150,7 @@ EBtRxRet btRx_HandleCom(void) {
  * @brief Callback on idle line detection in the ring buffer implementation
  * @retval None
  */
-static void btRx_RingBufferIdleCallback(void) {
+static void BtRxRingBufferIdleCallback(void) {
 
 	/* Notify the task */
 	vTaskNotifyGiveFromISR(btRxHandle, NULL);

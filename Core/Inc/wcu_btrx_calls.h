@@ -21,12 +21,12 @@ typedef enum EBtRxRet {
  * @brief Start listening for incoming UART transmissions
  * @retval EUartRingBufRet Status
  */
-EUartRingBufRet btRx_StartRingBufferIdleDetectionRx(void);
+EUartRingBufRet BtRxStartRingBufferIdleDetectionRx(void);
 
 /**
  * @brief Handle the BT message
  * @retval EBtRxRet Status
  */
-EBtRxRet btRx_HandleCom(void);
+EBtRxRet BtRxHandleCom(void);
 
 #endif /* __WCU_BTRX_CALLS_H_ */

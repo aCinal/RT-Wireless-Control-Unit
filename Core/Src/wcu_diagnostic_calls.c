@@ -1,6 +1,6 @@
 /**
  * @author Adrian Cinal
- * @file wcu_diagnostic_calls.c
+ * @file wcu_Diagnosticcalls.c
  * @brief Source file defining functions called by the diagnostic task
  */
 
@@ -20,7 +20,7 @@
 #define AVG_SLOPE         ( (float32_t) (2.5 / 1000.0) )  /* Average slope: 2.5 mV/degreeC */
 
 /* Convert 12-bit ADC value to floating-point input voltage */
-#define _adc12BitToVoltage(val)  ( (float32_t) (val * (VDD / (float32_t) 0x0FFFU ) ) )
+#define Adc12BitToVoltage(val)  ( (float32_t) (val * (VDD / (float32_t) 0x0FFFU ) ) )
 
 extern osThreadId diagnosticHandle;
 
@@ -28,7 +28,7 @@ extern osThreadId diagnosticHandle;
  * @brief Run diagnostics on the MCU and transmit the data via CAN bus
  * @retval None
  */
-void diagnostic_RunDiagnostics(void) {
+void DiagnosticRunDiagnostics(void) {
 
 	SCanFrame canFrame;
 	/* Configure the CAN Tx header */
@@ -47,7 +47,7 @@ void diagnostic_RunDiagnostics(void) {
 	portMAX_DELAY)) {
 
 		/* Calculate the sensed voltage */
-		float32_t Vsense = _adc12BitToVoltage(temperatureSensorAdcBuff);
+		float32_t Vsense = Adc12BitToVoltage(temperatureSensorAdcBuff);
 
 		/* Calculate the MCU temperature based on the sensed voltage */
 		float32_t floatTemperature = ((Vsense - V25) / AVG_SLOPE) + 25.0;
@@ -77,7 +77,7 @@ void diagnostic_RunDiagnostics(void) {
  * @brief Callback on ADC conversion complete
  * @retval None
  */
-void diagnostic_AdcConvCpltcallback(void) {
+void DiagnosticAdcConvCpltcallback(void) {
 
 	/* Notify the diagnostic task */
 	vTaskNotifyGiveFromISR(diagnosticHandle, NULL);

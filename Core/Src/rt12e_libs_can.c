@@ -13,7 +13,7 @@
  * @param idsTbl Pointer to an array of 32-bit CAN IDs to filter for
  * @param count Length of the idsTbl array
  */
-void setCanFilterList(CAN_HandleTypeDef *hcan, uint32_t idsTbl[], uint32_t count) {
+void SetCanFilterList(CAN_HandleTypeDef *hcan, uint32_t idsTbl[], uint32_t count) {
 
 	/* Assert valid idsTbl array length */
 	if (count <= CAN_FILTERBANKS_COUNT * 4UL) {
@@ -111,7 +111,7 @@ void setCanFilterList(CAN_HandleTypeDef *hcan, uint32_t idsTbl[], uint32_t count
  * @param hcan pointer to a CAN_HandleTypeDef structure that contains
  *         the configuration information for the specified CAN.
  */
-void setCanFilterBlockAll(CAN_HandleTypeDef *hcan) {
+void SetCanFilterBlockAll(CAN_HandleTypeDef *hcan) {
 
 	/* Prepare the filter configuration structure */
 	CAN_FilterTypeDef filterConfig;
@@ -132,7 +132,7 @@ void setCanFilterBlockAll(CAN_HandleTypeDef *hcan) {
  * @param hcan pointer to a CAN_HandleTypeDef structure that contains
  *         the configuration information for the specified CAN.
  */
-void setCanFilterBlockNone(CAN_HandleTypeDef *hcan) {
+void SetCanFilterBlockNone(CAN_HandleTypeDef *hcan) {
 
 	/* Prepare the filter configuration structure */
 	CAN_FilterTypeDef filterConfig;
