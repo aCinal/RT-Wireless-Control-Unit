@@ -4,10 +4,10 @@
  * @brief Source file defining functions called by the gnssRx task
  */
 
+#include <l26_api.h>
 #include "wcu_gnssrx_calls.h"
 
 #include "wcu_common.h"
-#include "l26dr_api.h"
 #include "rt12e_libs_can.h"
 #include "rt12e_libs_generic.h"
 
@@ -29,12 +29,13 @@ extern UART_HandleTypeDef GNSS_UART_HANDLE;
 extern osThreadId gnssRxHandle;
 SUartRingBuf gGnssRxRingBuffer;
 
-static EGnssRxRet GnssRxSendCommand(char* message);
+static EGnssRxRet GnssRxSendCommand(char *message);
 static void GnssRxRingBufferIdleCallback(void);
-static void GnssRxTransmitGpsPos(SL26DrApiGnssData *gnssDataPtr);
-static void GnssRxTransmitGpsPos2(SL26DrApiGnssData *gnssDataPtr);
-static void GnssRxTransmitGpsStatus(SL26DrApiGnssData *gnssDataPtr);
-static int32_t GnssRxNormalizeCoordinate(float64_t coordinate, uint32_t direction);
+static void GnssRxTransmitGpsPos(SL26ApiGnssData *gnssDataPtr);
+static void GnssRxTransmitGpsPos2(SL26ApiGnssData *gnssDataPtr);
+static void GnssRxTransmitGpsStatus(SL26ApiGnssData *gnssDataPtr);
+static int32_t GnssRxNormalizeCoordinate(float64_t coordinate,
+		uint32_t direction);
 static uint16_t GnssRxNormalizeSpeed(float32_t speed);
 static uint16_t GnssRxNormalizeDirection(float32_t direction);
 static uint16_t GnssRxNormalizeAltitude(float32_t altitude);
@@ -55,7 +56,15 @@ EGnssRxRet GnssRxDeviceConfig(void) {
 	/* Wait for the device to turn on and set up */
 	vTaskDelay(pdMS_TO_TICKS(1000));
 
-	if(EGnssRxRet_Error == GnssRxSendCommand("$PSTMHOT*00\r\n")) {
+	/* Send packet 220 PMTK_SET_POS_FIX - set position fix interval to 100 ms */
+	if (EGnssRxRet_Error == GnssRxSendCommand("$PMTK220,100*00\r\n")) {
+
+		status = EGnssRxRet_Error;
+
+	}
+
+	/* Send packet 353 PMTK_API_SET_GNSS_SEARCH_MODE - configure the receiver to start searching GPS and GLONASS satellites */
+	if (EGnssRxRet_Error == GnssRxSendCommand("$PMTK353,1,1,0,0,0*00\r\n")) {
 
 		status = EGnssRxRet_Error;
 
@@ -99,12 +108,12 @@ EGnssRxRet GnssRxHandleCom(void) {
 		/* Read the data from the ring buffer */
 		UartRingBufRead(&gGnssRxRingBuffer, rxBufTbl, GNSSRX_READ_BUF_SIZE);
 
-		static SL26DrApiGnssData dataBuf;
+		static SL26ApiGnssData dataBuf;
 		/* Try parsing the message */
-		switch (L26DrApiParseMessage(&dataBuf, (char*) rxBufTbl,
+		switch (L26ApiParseMessage(&dataBuf, (char*) rxBufTbl,
 		GNSSRX_READ_BUF_SIZE)) {
 
-		case EL26DrApiDataStatus_Ready:
+		case EL26ApiDataStatus_Ready:
 
 			/* Send the data to CAN */
 			GnssRxTransmitGpsPos(&dataBuf);
@@ -115,12 +124,12 @@ EGnssRxRet GnssRxHandleCom(void) {
 			(void) memset(&dataBuf, 0, sizeof(dataBuf));
 			break;
 
-		case EL26DrApiDataStatus_Pending:
+		case EL26ApiDataStatus_Pending:
 
 			/* If the data is not complete, continue listening */
 			break;
 
-		case EL26DrApiDataStatus_Error:
+		case EL26ApiDataStatus_Error:
 
 			LogPrint("GnssRxHandleCom: Parser failed");
 			status = EGnssRxRet_Error;
@@ -143,14 +152,16 @@ EGnssRxRet GnssRxHandleCom(void) {
  * @param message Message string
  * @retval EGnssRxRet Status
  */
-static EGnssRxRet GnssRxSendCommand(char* message) {
+static EGnssRxRet GnssRxSendCommand(char *message) {
 
 	EGnssRxRet status = EGnssRxRet_Ok;
 
 	/* Print the checksum to the message string */
-	L26DrApiAddNmeaChecksum(message);
+	L26ApiAddNmeaChecksum(message);
 
-	if(HAL_OK != HAL_UART_Transmit(&GNSS_UART_HANDLE, (uint8_t*)message, strlen(message), WCU_COMMON_TIMEOUT)) {
+	if (HAL_OK
+			!= HAL_UART_Transmit(&GNSS_UART_HANDLE, (uint8_t*) message,
+					strlen(message), WCU_COMMON_TIMEOUT)) {
 
 		status = EGnssRxRet_Error;
 
@@ -176,7 +187,7 @@ static void GnssRxRingBufferIdleCallback(void) {
  * @param gnssDataPtr Pointer to the GNSS data structure
  * @retval None
  */
-static void GnssRxTransmitGpsPos(SL26DrApiGnssData *gnssDataPtr) {
+static void GnssRxTransmitGpsPos(SL26ApiGnssData *gnssDataPtr) {
 
 	SCanFrame canFrame;
 	/* Configure the CAN Tx header */
@@ -212,7 +223,7 @@ static void GnssRxTransmitGpsPos(SL26DrApiGnssData *gnssDataPtr) {
  * @param gnssDataPtr Pointer to the GNSS data structure
  * @retval None
  */
-static void GnssRxTransmitGpsPos2(SL26DrApiGnssData *gnssDataPtr) {
+static void GnssRxTransmitGpsPos2(SL26ApiGnssData *gnssDataPtr) {
 
 	SCanFrame canFrame;
 	/* Configure the CAN Tx header */
@@ -247,7 +258,7 @@ static void GnssRxTransmitGpsPos2(SL26DrApiGnssData *gnssDataPtr) {
  * @param gnssDataPtr Pointer to the GNSS data structure
  * @retval None
  */
-static void GnssRxTransmitGpsStatus(SL26DrApiGnssData *gnssDataPtr) {
+static void GnssRxTransmitGpsStatus(SL26ApiGnssData *gnssDataPtr) {
 
 	SCanFrame canFrame;
 	/* Configure the CAN Tx header */
@@ -291,7 +302,8 @@ static void GnssRxTransmitGpsStatus(SL26DrApiGnssData *gnssDataPtr) {
  * @param direction Direction flag (GNSS_LATITUDE_NORTH, GNSS_LATITUDE_SOUTH, GNSS_LATITUDE_EAST, GNSS_LATITUDE_WEST)
  * @retval int32_t Coordinate normalized as degrees multiplied by 1,000,000
  */
-static int32_t GnssRxNormalizeCoordinate(float64_t coordinate, uint32_t direction) {
+static int32_t GnssRxNormalizeCoordinate(float64_t coordinate,
+		uint32_t direction) {
 
 	/* Separate degrees from the minutes */
 	float64_t degrees = floor(coordinate / 100.0);
@@ -301,8 +313,8 @@ static int32_t GnssRxNormalizeCoordinate(float64_t coordinate, uint32_t directio
 	float64_t floatResult = degrees + (minutes / 60.0);
 
 	/* Make the result negative if the direction is SOUTH or WEST */
-	if ( (ELatDir_LatitudeSouth == direction)
-			|| (ELonDir_LongitudeWest == direction) ) {
+	if ((ELatDir_LatitudeSouth == direction)
+			|| (ELonDir_LongitudeWest == direction)) {
 
 		floatResult *= -1.0;
 

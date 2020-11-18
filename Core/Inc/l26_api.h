@@ -4,8 +4,8 @@
  * @brief L26-DR API header file
  */
 
-#ifndef __L26DR_API_H_
-#define __L26DR_API_H_
+#ifndef __L26_API_H_
+#define __L26_API_H_
 
 /*---------------------------------------------- Includes ----------------------------------------------*/
 
@@ -22,7 +22,7 @@ typedef uint8_t TNmeaSentencesRxFlags;  /* Typedef for storing flags correspondi
 /**
  * @brief GNSS data structure
  */
-typedef struct SL26DrApiGnssData {
+typedef struct SL26ApiGnssData {
 	float64_t Latitude; /* Latitude in format 'ddmm.mmmm' (degree and minutes) */
 	enum ELatDir {
 		ELatDir_LatitudeNorth = 0x00000000UL, ELatDir_LatitudeSouth
@@ -50,27 +50,26 @@ typedef struct SL26DrApiGnssData {
 
 	TNmeaSentencesRxFlags SentencesReceived; /* Sentences received flags */
 
-} SL26DrApiGnssData;
+} SL26ApiGnssData;
 
 /**
  * @brief GNSS data status typedef
  */
-typedef enum EL26DrApiDataStatus {
-	EL26DrApiDataStatus_Ready = 0,
-	EL26DrApiDataStatus_Pending,
-	EL26DrApiDataStatus_Error
-} EL26DrApiDataStatus;
+typedef enum EL26ApiDataStatus {
+	EL26ApiDataStatus_Ready = 0,
+	EL26ApiDataStatus_Pending,
+	EL26ApiDataStatus_Error
+} EL26ApiDataStatus;
 
 /*---------------------------------------------- Defines ----------------------------------------------*/
 
-#define L26DRAPI_NMEA_RMC_RECEIVED    ( (uint8_t) 0x01U )  /* --RMC NMEA sentence received flag */
-#define L26DRAPI_NMEA_VTG_RECEIVED    ( (uint8_t) 0x02U )  /* GPVTG NMEA sentence received flag */
-#define L26DRAPI_NMEA_GGA_RECEIVED    ( (uint8_t) 0x04U )  /* GPGGA NMEA sentence received flag */
-#define L26DRAPI_NMEA_GSA_RECEIVED    ( (uint8_t) 0x08U )  /* --GSA NMEA sentence received flag */
-#define L26DRAPI_NMEA_GPGSV_RECEIVED  ( (uint8_t) 0x10U )  /* GPGSV NMEA sentence received flag */
-#define L26DRAPI_NMEA_GLGSV_RECEIVED  ( (uint8_t) 0x20U )  /* GLGSV NMEA sentence received flag */
-#define L26DRAPI_NMEA_GLL_RECEIVED    ( (uint8_t) 0x40U )  /* --GLL NMEA sentence received flag */
-#define L26DRAPI_NMEA_TXT_RECEIVED    ( (uint8_t) 0x80U )  /* GPTXT NMEA sentence received flag */
+#define L26API_NMEA_RMC_RECEIVED    ( (uint8_t) 0x01U )  /* --RMC NMEA sentence received flag */
+#define L26API_NMEA_VTG_RECEIVED    ( (uint8_t) 0x02U )  /* GPVTG NMEA sentence received flag */
+#define L26API_NMEA_GGA_RECEIVED    ( (uint8_t) 0x04U )  /* GPGGA NMEA sentence received flag */
+#define L26API_NMEA_GSA_RECEIVED    ( (uint8_t) 0x08U )  /* --GSA NMEA sentence received flag */
+#define L26API_NMEA_GPGSV_RECEIVED  ( (uint8_t) 0x10U )  /* GPGSV NMEA sentence received flag */
+#define L26API_NMEA_GLGSV_RECEIVED  ( (uint8_t) 0x20U )  /* GLGSV NMEA sentence received flag */
+#define L26API_NMEA_GLL_RECEIVED    ( (uint8_t) 0x40U )  /* --GLL NMEA sentence received flag */
 
 /*---------------------------------------------- Function prototypes ----------------------------------------------*/
 
@@ -79,7 +78,7 @@ typedef enum EL26DrApiDataStatus {
  * @param message Message string
  * @retval None
  */
-void L26DrApiAddNmeaChecksum(char* message);
+void L26ApiAddNmeaChecksum(char* message);
 
 /**
  * @brief Try parsing the Quectel L26-DR message
@@ -87,7 +86,7 @@ void L26DrApiAddNmeaChecksum(char* message);
  * @param[in] messagePtr Pointer to the message
  * @param[in] length Length of the message
  */
-EL26DrApiDataStatus L26DrApiParseMessage(SL26DrApiGnssData *dataBufPtr,
+EL26ApiDataStatus L26ApiParseMessage(SL26ApiGnssData *dataBufPtr,
 		const char *messagePtr, size_t length);
 
-#endif /* __L26DR_API_H_ */
+#endif /* __L26_API_H_ */
