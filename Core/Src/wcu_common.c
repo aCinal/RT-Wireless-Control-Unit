@@ -15,52 +15,118 @@
 
 #define CRC_SEM_WAIT()            ( (void) osMutexWait(crcMutexHandle, osWaitForever) )  /* Acquire the CRC semaphore */
 #define CRC_SEM_POST()            ( (void) osMutexRelease(crcMutexHandle) )              /* Release the CRC semaphore */
-#define LOG_HEADER_LENGTH         ( (uint32_t) 11 )                                      /* Length of the timestamp in decimal */
+#define LOG_TIMESTAMP_LENGTH      ( (uint32_t) 11 )                                      /* Length of the timestamp in decimal */
+#define LOG_SEVERITY_TAG_LENGTH   ( (uint32_t) 4 )                                       /* Length of the severity level tag */
+#define LOG_HEADER_LENGTH         ( LOG_TIMESTAMP_LENGTH + LOG_SEVERITY_TAG_LENGTH )     /* Total length of the log entry header */
 #define LOG_TRAILER_LENGTH        ( (uint32_t) 3 )                                       /* <CR><LF><NUL> sequence length */
+#define LOG_TIMESTAMP(log)        (log)                                                  /* Get pointer to the log entry timestamp */
+#define LOG_SEVERITY_TAG(log)     ( &( (log)[LOG_TIMESTAMP_LENGTH] ) )                   /* Get pointer to the log entry severity tag */
 #define LOG_PAYLOAD(log)          ( &( (log)[LOG_HEADER_LENGTH] ) )                      /* Get pointer to the log entry payload */
 #define LOG_TRAILER(log, payLen)  ( &( (log)[LOG_HEADER_LENGTH + (payLen)] ) )           /* Get pointer to the log entry trailer */
-#if defined (USE_SERIAL_DEBUG_PRINTS)
+#if (LOG_REDIRECT_TO_SERIAL_PORT > 0)
 #define DEBUG_UART_HANDLE         (huart2)                                               /* UART handle alias */
 #define DEBUG_UART_INSTANCE       (USART2)                                               /* UART instance alias */
 
 extern UART_HandleTypeDef DEBUG_UART_HANDLE;
-#endif /* defined (USE_SERIAL_DEBUG_PRINTS) */
+#endif /* (LOG_REDIRECT_TO_SERIAL_PORT > 0) */
 extern CRC_HandleTypeDef hcrc;
 extern osMutexId crcMutexHandle;
 extern osMessageQId sdioLogQueueHandle;
 
+#if (LOG_REDIRECT_TO_SERIAL_PORT > 0)
+static void PrintToSerialPort(const char* messageTbl);
+#endif /* (LOG_REDIRECT_TO_SERIAL_PORT > 0) */
+
+
 /**
  * @brief Log an error message to the SD card
+ * @param severityLevel Severity level
  * @param messagePayloadTbl Error message
  * @retval None
  */
-void LogPrint(const char *messagePayloadTbl) {
+void LogPrint(EWcuLogSeverityLevel severityLevel, const char *messagePayloadTbl) {
 
 	size_t payloadLength = strlen(messagePayloadTbl);
 	/* Allocate the memory for the error message */
 	char *logEntryPtr = pvPortMalloc(
 			(LOG_HEADER_LENGTH + payloadLength + LOG_TRAILER_LENGTH)
 					* sizeof(char));
+
 	/* Assert successful memory allocation */
 	if (logEntryPtr != NULL) {
 
-		/* Write the message header to the memory block */
-		(void) sprintf(logEntryPtr, "%010lu ", HAL_GetTick());
+		/* Write the timestamp to the memory block */
+		(void) sprintf(LOG_TIMESTAMP(logEntryPtr), "%010lu ", HAL_GetTick());
+
+		/* Write the severity tag to the memory block */
+		switch (severityLevel) {
+
+		case EWcuLogSeverityLevel_Info:
+
+			(void) sprintf(LOG_SEVERITY_TAG(logEntryPtr), "INF ");
+			break;
+
+		case EWcuLogSeverityLevel_Error:
+
+			(void) sprintf(LOG_SEVERITY_TAG(logEntryPtr), "ERR ");
+			break;
+
+		case EWcuLogSeverityLevel_Debug:
+
+			(void) sprintf(LOG_SEVERITY_TAG(logEntryPtr), "DBG ");
+			break;
+
+		default:
+
+			(void) sprintf(LOG_SEVERITY_TAG(logEntryPtr), "--- ");
+			break;
+
+		}
+
 		/* Write the message payload to the memory block */
 		(void) sprintf(LOG_PAYLOAD(logEntryPtr), (messagePayloadTbl));
 		/* Write the message trailer to the memory block */
 		(void) sprintf(LOG_TRAILER(logEntryPtr, payloadLength), "\r\n");
 
-#if defined(USE_SERIAL_DEBUG_PRINTS)
+#if (LOG_REDIRECT_TO_SERIAL_PORT > 0)
 
-	taskENTER_CRITICAL();
+		/* Redirect the message to the serial port */
+		switch (severityLevel) {
 
-	HAL_UART_Transmit(&DEBUG_UART_HANDLE, (uint8_t*)logEntryPtr, strlen(logEntryPtr), WCU_COMMON_TIMEOUT);
-	vPortFree(logEntryPtr);
+		case EWcuLogSeverityLevel_Info:
 
-	taskEXIT_CRITICAL();
+#if (LOG_REDIRECT_TO_SERIAL_PORT & REDIR_INF)
 
-#else
+			PrintToSerialPort(logEntryPtr);
+
+#endif /* (LOG_REDIRECT_TO_SERIAL_PORT & REDIR_INF) */
+			break;
+
+		case EWcuLogSeverityLevel_Error:
+
+#if (LOG_REDIRECT_TO_SERIAL_PORT & REDIR_ERR)
+
+			PrintToSerialPort(logEntryPtr);
+
+#endif /* (LOG_REDIRECT_TO_SERIAL_PORT & REDIR_ERR) */
+			break;
+
+		case EWcuLogSeverityLevel_Debug:
+
+#if (LOG_REDIRECT_TO_SERIAL_PORT & REDIR_DBG)
+
+			PrintToSerialPort(logEntryPtr);
+
+#endif /* (LOG_REDIRECT_TO_SERIAL_PORT & REDIR_DBG) */
+			break;
+
+		default:
+
+			break;
+
+		}
+
+#endif /* (LOG_REDIRECT_TO_SERIAL_PORT > 0) */
 
 		/* Push the pointer to the message to the logErrorQueue */
 		if (pdPASS != xQueueSend(sdioLogQueueHandle, &logEntryPtr, 0)) {
@@ -69,8 +135,6 @@ void LogPrint(const char *messagePayloadTbl) {
 			vPortFree(logEntryPtr);
 
 		}
-
-#endif /* !defined (USE_SERIAL_DEBUG_PRINTS) */
 
 	}
 
@@ -87,7 +151,7 @@ void SendToCan(SCanFrame *canFramePtr) {
 	if (pdPASS != xQueueSend(canTxQueueHandle, canFramePtr, WCU_COMMON_TIMEOUT)) {
 
 		/* Log the error */
-		LogPrint("SendToCan: Queue is full");
+		LogError("SendToCan: Queue is full");
 
 	}
 
@@ -114,3 +178,23 @@ uint16_t GetR3tpCrc(uint8_t *payloadPtr, uint32_t numOfBytes) {
 	return _bits0_15(crc);
 
 }
+
+#if (LOG_REDIRECT_TO_SERIAL_PORT > 0)
+
+/**
+ * @brief Print a message to the serial port
+ * @param messageTbl Message
+ * @retval None
+ */
+static void PrintToSerialPort(const char* messageTbl) {
+
+	taskENTER_CRITICAL();
+
+	HAL_UART_Transmit(&DEBUG_UART_HANDLE, (uint8_t*) messageTbl,
+			strlen(messageTbl), WCU_COMMON_TIMEOUT);
+
+	taskEXIT_CRITICAL();
+
+}
+
+#endif /* (LOG_REDIRECT_TO_SERIAL_PORT > 0) */

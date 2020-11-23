@@ -36,7 +36,7 @@ ESdioGtkpRet SdioGtkpLoadTelemetrySubscription(void) {
 	if (FR_OK != f_open(&subscriptionFile, SDIOGTKP_SUBFILE_PATH,
 	FA_READ | FA_OPEN_EXISTING)) {
 
-		LogPrint("SdioGtkpLoadTelemetrySubscription: f_open failed");
+		LogError("SdioGtkpLoadTelemetrySubscription: f_open failed");
 		status = ESdioGtkpRet_Error;
 
 	}
@@ -52,7 +52,7 @@ ESdioGtkpRet SdioGtkpLoadTelemetrySubscription(void) {
 			/* Cleanup */
 			(void) f_close(&subscriptionFile);
 
-			LogPrint("SdioGtkpLoadTelemetrySubscription: f_read failed");
+			LogError("SdioGtkpLoadTelemetrySubscription: f_read failed");
 			status = ESdioGtkpRet_Error;
 
 		}
@@ -69,7 +69,7 @@ ESdioGtkpRet SdioGtkpLoadTelemetrySubscription(void) {
 		/* Validate the number of frames */
 		if (frNum > R3TP_VER1_MAX_FRAME_NUM) {
 
-			LogPrint(
+			LogError(
 					"SdioGtkpLoadTelemetrySubscription: Invalid frame number");
 			status = ESdioGtkpRet_Error;
 
@@ -90,7 +90,7 @@ ESdioGtkpRet SdioGtkpLoadTelemetrySubscription(void) {
 				/* Cleanup */
 				(void) xQueueReset(canSubQueueHandle);
 
-				LogPrint("SdioGtkpLoadTelemetrySubscription: f_read failed");
+				LogError("SdioGtkpLoadTelemetrySubscription: f_read failed");
 				status = ESdioGtkpRet_Error;
 				break;
 
@@ -102,7 +102,7 @@ ESdioGtkpRet SdioGtkpLoadTelemetrySubscription(void) {
 				/* Cleanup */
 				(void) xQueueReset(canSubQueueHandle);
 
-				LogPrint(
+				LogError(
 						"SdioGtkpLoadTelemetrySubscription: Invalid frame number");
 				status = ESdioGtkpRet_Error;
 				break;
@@ -118,7 +118,7 @@ ESdioGtkpRet SdioGtkpLoadTelemetrySubscription(void) {
 				/* Cleanup */
 				(void) xQueueReset(canSubQueueHandle);
 
-				LogPrint("SdioGtkpLoadTelemetrySubscription: Queue is full");
+				LogError("SdioGtkpLoadTelemetrySubscription: Queue is full");
 				status = ESdioGtkpRet_Error;
 				break;
 
@@ -196,7 +196,7 @@ ESdioGtkpRet SdioGtkpHandleNewSubscription(void) {
 			if (FR_OK != f_open(&subscriptionFile, SDIOGTKP_SUBFILE_PATH,
 			FA_WRITE | FA_CREATE_ALWAYS)) {
 
-				LogPrint("SdioGtkpHandleNewSubscription: f_open failed");
+				LogError("SdioGtkpHandleNewSubscription: f_open failed");
 				status = ESdioGtkpRet_Error;
 
 			}
@@ -220,7 +220,7 @@ ESdioGtkpRet SdioGtkpHandleNewSubscription(void) {
 
 				if (pdPASS != xQueueReceive(sdioSubQueueHandle, &frBuf, 0)) {
 
-					LogPrint("SdioGtkpHandleNewSubscription: Queue is empty");
+					LogError("SdioGtkpHandleNewSubscription: Queue is empty");
 					status = ESdioGtkpRet_Error;
 					break;
 

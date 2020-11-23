@@ -62,7 +62,7 @@ EBtRxRet BtRxHandleCom(void) {
 		/* Validate protocol version */
 		if (R3TP_VER0_VER_BYTE != rxBufTbl[0]) {
 
-			LogPrint("BtRxHandleCom: Unknown protocol version");
+			LogError("BtRxHandleCom: Unknown protocol version");
 			status = EBtRxRet_Error;
 
 		}
@@ -74,7 +74,7 @@ EBtRxRet BtRxHandleCom(void) {
 					|| (R3TP_END_SEQ_HIGH_BYTE
 							!= rxBufTbl[R3TP_VER0_FRAME_SIZE - 1U])) {
 
-				LogPrint("BtRxHandleCom: Invalid end sequence");
+				LogError("BtRxHandleCom: Invalid end sequence");
 				status = EBtRxRet_Error;
 
 			}
@@ -96,7 +96,7 @@ EBtRxRet BtRxHandleCom(void) {
 			/* Validate the CRC */
 			if (readCrc != calculatedCrc) {
 
-				LogPrint("BtRxHandleCom: Invalid CRC");
+				LogError("BtRxHandleCom: Invalid CRC");
 				status = EBtRxRet_Error;
 
 			}
@@ -115,7 +115,7 @@ EBtRxRet BtRxHandleCom(void) {
 			/* Assert valid DLC */
 			if (CAN_PAYLOAD_SIZE < canFrame.TxHeader.DLC) {
 
-				LogPrint("BtRxHandleCom: Invalid DLC");
+				LogError("BtRxHandleCom: Invalid DLC");
 				status = EBtRxRet_Error;
 
 			}

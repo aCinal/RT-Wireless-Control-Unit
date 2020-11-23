@@ -120,9 +120,8 @@ EXbeeProApiRet XbeeProApiReadRssi(uint8_t *rssiPtr) {
 		/* Wait the guard time */
 		XBEEPROAPI_DELAY(gGuardTimes);
 
-		const char REQUEST_RSSI[] = "ATDB\r";
 		/* Send command */
-		if (EXbeeProLldRet_Ok != XbeeProLld_SendCommand(REQUEST_RSSI)) {
+		if (EXbeeProLldRet_Ok != XbeeProLld_SendCommand("ATDB\r")) {
 
 			status = EXbeeProApiRet_Error;
 

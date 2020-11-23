@@ -20,6 +20,12 @@ extern osMessageQId canTxQueueHandle;
 typedef float float32_t;
 typedef double float64_t;
 
+typedef enum EWcuLogSeverityLevel {
+	EWcuLogSeverityLevel_Info = 0,
+	EWcuLogSeverityLevel_Error,
+	EWcuLogSeverityLevel_Debug
+} EWcuLogSeverityLevel;
+
 /* Exported defines -------------------------------------------------------------------------- */
 #define WCU_COMMON_TIMEOUT         ( (TickType_t) pdMS_TO_TICKS(50) )   /* Common timeout */
 #define WCU_COMMON_TASK_DELAY      ( (TickType_t) pdMS_TO_TICKS(1) )    /* Common task delay */
@@ -36,21 +42,34 @@ typedef double float64_t;
 #if defined(RT11) && defined(RT12e)
 #error Both RT11 and RT12e defined
 #endif /* defined(RT11) && defined(RT12e) */
-#define USE_SERIAL_DEBUG_PRINTS
-//#undef USE_SERIAL_DEBUG_PRINTS
+
+/**
+ * @brief Set the LOG_REDIRECT_TO_SERIAL_PORT macro to redirect selected logs to the serial port
+ */
+#define REDIR_INF  (0x01)
+#define REDIR_ERR  (0x02)
+#define REDIR_DBG  (0x04)
+#define LOG_REDIRECT_TO_SERIAL_PORT (0 | REDIR_INF | REDIR_ERR | REDIR_DBG)
+#if !defined (LOG_REDIRECT_TO_SERIAL_PORT)
+#error If log redirection to the serial port is not used, set LOG_REDIRECT_TO_SERIAL_PORT to zero
+#endif /* !defined (LOG_REDIRECT_TO_SERIAL_PORT) */
 
 /* Exported macros -------------------------------------------------------------------------- */
 /* Set/reset pins based on the label */
 #define SET_PIN(label)    ( HAL_GPIO_WritePin(label##_GPIO_Port, label##_Pin, GPIO_PIN_SET) )
 #define RESET_PIN(label)  ( HAL_GPIO_WritePin(label##_GPIO_Port, label##_Pin, GPIO_PIN_RESET) )
+#define LogInfo(msg)      ( LogPrint(EWcuLogSeverityLevel_Info, (msg) ) )
+#define LogError(msg)     ( LogPrint(EWcuLogSeverityLevel_Error, (msg) ) )
+#define LogDebug(msg)     ( LogPrint(EWcuLogSeverityLevel_Debug, (msg) ) )
 
 /* Exported function prototypes -------------------------------------------------------------------------- */
 /**
  * @brief Log an error message to the SD card
+ * @param severityLevel Severity level
  * @param messagePayloadTbl Error message
  * @retval None
  */
-void LogPrint(const char *messagePayloadTbl);
+void LogPrint(EWcuLogSeverityLevel severityLevel, const char *messagePayloadTbl);
 
 /**
  * @brief Add the CAN frame to canTxQueue

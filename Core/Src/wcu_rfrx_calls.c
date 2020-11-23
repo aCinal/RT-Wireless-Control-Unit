@@ -184,7 +184,7 @@ ERfRxRet RfRxHandleInternalMail(void) {
 					!= S2lpApi_TestInterrupt(ES2lpApiInterruptEvent_RxDataReady,
 							&dataReady)) {
 
-				LogPrint("RfRxHandleInternalMail: Test interrupt failed");
+				LogError("RfRxHandleInternalMail: Test interrupt failed");
 				status = ERfRxRet_Error;
 
 			}
@@ -196,7 +196,7 @@ ERfRxRet RfRxHandleInternalMail(void) {
 						!= S2lpApi_ReadRxPayload(rxBufTbl,
 								RFRX_READ_BUF_SIZE)) {
 
-					LogPrint("RfRxHandleInternalMail: Read payload failed");
+					LogError("RfRxHandleInternalMail: Read payload failed");
 					status = ERfRxRet_Error;
 
 				}
@@ -313,7 +313,7 @@ static void RfRxAddDataToCanFrame(SCanFrame *canFramePtr,
 
 	default:
 
-		LogPrint("RfRxAddDataToCanFrame: Unknown ID");
+		LogError("RfRxAddDataToCanFrame: Unknown ID");
 		break;
 
 	}

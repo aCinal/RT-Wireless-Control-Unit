@@ -41,7 +41,7 @@ EWcuCanGtkpRet CanGtkpHandleNewSubscription(void) {
 			if (pdPASS
 					!= xQueueReceive(canSubQueueHandle, &(subscrTbl[i]), 0)) {
 
-				LogPrint("CanGtkpHandleNewSubscription: Queue is empty");
+				LogError("CanGtkpHandleNewSubscription: Queue is empty");
 				status = EWcuCanGtkpRet_Error;
 
 			}
@@ -127,7 +127,7 @@ static EWcuCanGtkpRet CanGtkpForwardRxMessage(uint32_t rxFifo) {
 	/* Send the frame to the telemetry queue */
 	if (pdPASS != xQueueSend(canRxQueueHandle, &frBuf, 0)) {
 
-		LogPrint("CanGtkpForwardRxMessage: Queue is full");
+		LogError("CanGtkpForwardRxMessage: Queue is full");
 		status = EWcuCanGtkpRet_Error;
 
 	}

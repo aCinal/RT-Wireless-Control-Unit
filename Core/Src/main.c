@@ -897,7 +897,7 @@ void StartCanGtkpTask(void const * argument)
 	/* Start the CAN module */
 	if (HAL_OK == HAL_CAN_Start(&hcan1)) {
 
-		LogPrint("StartCanGtkpTask: CAN module started");
+		LogInfo("StartCanGtkpTask: CAN module started");
 
 	}
 
@@ -946,7 +946,7 @@ void StartSdioGtkpTask(void const * argument)
 	/* Try reading the last active subscription */
 	if (ESdioGtkpRet_Ok == SdioGtkpLoadTelemetrySubscription()) {
 
-		LogPrint("StartSdioGtkpTask: Loaded subscription from the SD card");
+		LogInfo("StartSdioGtkpTask: Loaded subscription from the SD card");
 
 	}
 
@@ -983,7 +983,7 @@ void StartIwdgGtkpTask(void const * argument)
 	/* Initialize the watchdog */
 	if (HAL_OK == HAL_IWDG_Init(&hiwdg)) {
 
-		LogPrint("StartIwdgGtkpTask: Watchdog started");
+		LogInfo("StartIwdgGtkpTask: Watchdog started");
 
 	}
 
@@ -1038,7 +1038,7 @@ void StartBtRxTask(void const * argument)
 	/* Start listening for incoming data */
 	if (EUartRingBufRet_Ok == BtRxStartRingBufferIdleDetectionRx()) {
 
-		LogPrint("StartBtRxTask: Ring buffer initialized");
+		LogInfo("StartBtRxTask: Ring buffer initialized");
 
 	}
 
@@ -1071,14 +1071,14 @@ void StartGnssRxTask(void const * argument)
 	/* Configure the device */
 	if (EGnssRxRet_Ok == GnssRxDeviceConfig()) {
 
-		LogPrint("StartGnssRxTask: Device configured");
+		LogInfo("StartGnssRxTask: Device configured");
 
 	}
 
 	/* Start listening for incoming data */
 	if (EUartRingBufRet_Ok == GnssRxStartRingBufferIdleDetectionRx()) {
 
-		LogPrint("StartGnssRxTask: Ring buffer initialized");
+		LogInfo("StartGnssRxTask: Ring buffer initialized");
 
 	}
 
@@ -1119,14 +1119,14 @@ void StartRfRxTask(void const * argument)
 	/* Configure the device */
 	if(ERfRxRet_Ok == RfRxDeviceConfig()) {
 
-		LogPrint("StartRfRxTask: Device configured");
+		LogInfo("StartRfRxTask: Device configured");
 
 	}
 
 	/* Start the timer */
 	if(HAL_OK == HAL_TIM_Base_Start_IT(&TIM_TPMS_HANDLE)) {
 
-		LogPrint("StartRfRxTask: Timer started");
+		LogInfo("StartRfRxTask: Timer started");
 
 	}
 
@@ -1162,21 +1162,21 @@ void StartXbeeTxRxTask(void const * argument)
 	/* Configure the device */
 	if (EXbeeTxRxRet_Ok == XbeeTxRxDeviceConfig()) {
 
-		LogPrint("StartXbeeTxRxTask: Device configured");
+		LogInfo("StartXbeeTxRxTask: Device configured");
 
 	}
 
 	/* Start listening for incoming data */
 	if (EUartRingBufRet_Ok == XbeeTxRxStartRingBufferIdleDetectionRx()) {
 
-		LogPrint("StartXbeeTxRxTask: Ring buffer initialized");
+		LogInfo("StartXbeeTxRxTask: Ring buffer initialized");
 
 	}
 
 	/* Start the timer */
 	if (HAL_OK == HAL_TIM_Base_Start_IT(&TIM_1s_HANDLE)) {
 
-		LogPrint("StartXbeeTxRxTask: Timer started");
+		LogInfo("StartXbeeTxRxTask: Timer started");
 
 	}
 
@@ -1224,7 +1224,7 @@ void StartDiagnosticTask(void const * argument)
   /* USER CODE END StartDiagnosticTask */
 }
 
-/**
+ /**
   * @brief  Period elapsed callback in non blocking mode
   * @note   This function is called  when TIM6 interrupt took place, inside
   * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment

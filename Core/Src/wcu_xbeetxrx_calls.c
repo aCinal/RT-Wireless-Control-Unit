@@ -67,7 +67,7 @@ EXbeeTxRxRet XbeeTxRxDeviceConfig(void) {
 	EXbeeTxRxRet status = EXbeeTxRxRet_Ok;
 
 	/* Set the RESET pin high */
-	HAL_GPIO_WritePin(XBEE_RESET_GPIO_Port, XBEE_RESET_Pin, GPIO_PIN_SET);
+	SET_PIN(XBEE_RESET);
 
 	/* Allow the device the time to boot */
 	vTaskDelay(pdMS_TO_TICKS(50));
@@ -140,7 +140,7 @@ EXbeeTxRxRet XbeeTxRxHandleInternalMail(void) {
 
 			default:
 
-				LogPrint(
+				LogError(
 						"XbeeTxRxHandleInternalMail: Unknown protocol version");
 				status = EXbeeTxRxRet_Error;
 				break;
@@ -156,6 +156,9 @@ EXbeeTxRxRet XbeeTxRxHandleInternalMail(void) {
 			break;
 
 		case EXbeeTxRxInternalMail_PeriodElapsed:
+
+			/* TODO: Remove this after test */
+			XbeeTxRxReadRssi(&diagnostics.rssi);
 
 			/* Transmit the diagnostic frame */
 			XbeeTxRxSendDiagnostics(&diagnostics);
@@ -273,7 +276,7 @@ static EXbeeTxRxRet XbeeTxRxHandleNewSubscription(uint8_t *rxBufTbl) {
 	/* Assert the payload won't overflow the buffer */
 	if (frNum > R3TP_VER1_MAX_FRAME_NUM) {
 
-		LogPrint("XbeeTxRxHandleNewSubscription: Invalid frame number");
+		LogError("XbeeTxRxHandleNewSubscription: Invalid frame number");
 		status = EXbeeTxRxRet_Error;
 
 	}
@@ -286,7 +289,7 @@ static EXbeeTxRxRet XbeeTxRxHandleNewSubscription(uint8_t *rxBufTbl) {
 				|| (R3TP_END_SEQ_HIGH_BYTE
 						!= rxBufTbl[R3TP_VER1_MESSAGE_LENGTH(frNum) - 1U])) {
 
-			LogPrint("XbeeTxRxHandleNewSubscription: Invalid end sequence");
+			LogError("XbeeTxRxHandleNewSubscription: Invalid end sequence");
 			status = EXbeeTxRxRet_Error;
 
 		}
@@ -310,7 +313,7 @@ static EXbeeTxRxRet XbeeTxRxHandleNewSubscription(uint8_t *rxBufTbl) {
 		if (readCrc != calculatedCrc) {
 
 			/* Log the error */
-			LogPrint("XbeeTxRxHandleNewSubscription: Invalid CRC");
+			LogError("XbeeTxRxHandleNewSubscription: Invalid CRC");
 			status = EXbeeTxRxRet_Error;
 
 		}
@@ -357,7 +360,7 @@ static EXbeeTxRxRet XbeeTxRxHandleDriverWarning(uint8_t *rxBufTbl,
 	if ((R3TP_END_SEQ_LOW_BYTE != rxBufTbl[R3TP_VER2_FRAME_SIZE - 2U])
 			|| (R3TP_END_SEQ_HIGH_BYTE != rxBufTbl[R3TP_VER2_FRAME_SIZE - 1U])) {
 
-		LogPrint("XbeeTxRxHandleDriverWarning: Invalid end sequence");
+		LogError("XbeeTxRxHandleDriverWarning: Invalid end sequence");
 		status = EXbeeTxRxRet_Error;
 
 	}
@@ -377,7 +380,7 @@ static EXbeeTxRxRet XbeeTxRxHandleDriverWarning(uint8_t *rxBufTbl,
 		/* Validate the CRC */
 		if (readCrc != calculatedCrc) {
 
-			LogPrint("XbeeTxRxHandleDriverWarning: Invalid CRC");
+			LogError("XbeeTxRxHandleDriverWarning: Invalid CRC");
 			status = EXbeeTxRxRet_Error;
 
 		}
@@ -425,7 +428,7 @@ static EXbeeTxRxRet XbeeTxRxReadRssi(uint8_t *rssiPtr) {
 	/* Stop data transfer to the ring buffer */
 	if (EUartRingBufRet_Ok != UartRingBufStop(&gXbeeTxRxRingBuffer)) {
 
-		LogPrint("XbeeTxRxReadRssi: Ring buffer stop failed");
+		LogError("XbeeTxRxReadRssi: Ring buffer stop failed");
 		status = EXbeeTxRxRet_Error;
 
 	}
@@ -435,7 +438,7 @@ static EXbeeTxRxRet XbeeTxRxReadRssi(uint8_t *rssiPtr) {
 		/* Read RSSI */
 		if (EXbeeProApiRet_Ok != XbeeProApiReadRssi(rssiPtr)) {
 
-			LogPrint("XbeeTxRxReadRssi: Read RSSI failed");
+			LogError("XbeeTxRxReadRssi: Read RSSI failed");
 			status = EXbeeTxRxRet_Error;
 
 		}
@@ -445,7 +448,7 @@ static EXbeeTxRxRet XbeeTxRxReadRssi(uint8_t *rssiPtr) {
 	/* Resume data transfer to the ring buffer */
 	if (EUartRingBufRet_Ok != UartRingBufStart(&gXbeeTxRxRingBuffer)) {
 
-		LogPrint("XbeeTxRxReadRssi: Ring buffer resume failed");
+		LogError("XbeeTxRxReadRssi: Ring buffer resume failed");
 		status = EXbeeTxRxRet_Error;
 
 	}
@@ -550,7 +553,7 @@ static EXbeeTxRxRet XbeeTxRxSendSubscriptionToCanGtkp(uint32_t ids[],
 			/* Cleanup */
 			(void) xQueueReset(canSubQueueHandle);
 
-			LogPrint("XbeeTxRxSendSubscriptionToCanGtkp: Queue is full");
+			LogError("XbeeTxRxSendSubscriptionToCanGtkp: Queue is full");
 			status = EXbeeTxRxRet_Error;
 
 		}
@@ -588,7 +591,7 @@ static EXbeeTxRxRet XbeeTxRxSendSubscriptionToSdioGtkp(uint32_t ids[],
 			/* Cleanup */
 			(void) xQueueReset(sdioSubQueueHandle);
 
-			LogPrint("XbeeTxRxSendSubscriptionToSdioGtkp: Queue is full");
+			LogError("XbeeTxRxSendSubscriptionToSdioGtkp: Queue is full");
 			status = EXbeeTxRxRet_Error;
 
 		}

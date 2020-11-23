@@ -70,6 +70,7 @@ typedef enum EL26ApiDataStatus {
 #define L26API_NMEA_GPGSV_RECEIVED  ( (uint8_t) 0x10U )  /* GPGSV NMEA sentence received flag */
 #define L26API_NMEA_GLGSV_RECEIVED  ( (uint8_t) 0x20U )  /* GLGSV NMEA sentence received flag */
 #define L26API_NMEA_GLL_RECEIVED    ( (uint8_t) 0x40U )  /* --GLL NMEA sentence received flag */
+#define L26API_NMEA_TXT_RECEIVED    ( (uint8_t) 0x80U )  /* GPTXT NMEA sentence received flag */
 
 /*---------------------------------------------- Function prototypes ----------------------------------------------*/
 

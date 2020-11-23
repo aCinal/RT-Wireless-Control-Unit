@@ -131,7 +131,7 @@ EGnssRxRet GnssRxHandleCom(void) {
 
 		case EL26ApiDataStatus_Error:
 
-			LogPrint("GnssRxHandleCom: Parser failed");
+			LogError("GnssRxHandleCom: Parser failed");
 			status = EGnssRxRet_Error;
 			break;
 

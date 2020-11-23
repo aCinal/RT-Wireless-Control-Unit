@@ -43,7 +43,7 @@ EXbeeProApiRet XbeeProApiReadRssi(uint8_t* rssiPtr);
  * @brief Transmit payload to be transmitted by XBee-PRO to the device
  * @param payloadPtr Payload buffer
  * @param numOfBytes Size of the payload buffer in bytes
- * @retval EXbeeProLldRet Status
+ * @retval EXbeeProApiRet Status
  */
 EXbeeProApiRet XbeeProApiSendPayload(uint8_t* payloadPtr, uint32_t numOfBytes);
 

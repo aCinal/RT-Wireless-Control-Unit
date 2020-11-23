@@ -50,6 +50,8 @@ static EL26ApiNmeaParserRet L26ApiNmeaParseGsvPayload(SL26ApiGnssData *dataBufPt
 		const char *pPayload, size_t length, EL26ApiGsvTalkerId talkerId);
 static EL26ApiNmeaParserRet L26ApiNmeaParseGllPayload(SL26ApiGnssData *dataBufPtr,
 		const char *pPayload, size_t length);
+static EL26ApiNmeaParserRet L26ApiNmeaParseTxtPayload(SL26ApiGnssData *dataBufPtr,
+		const char *pPayload, size_t length);
 
 /**
  * @brief Add an NMEA checksum to the sentence string
@@ -252,6 +254,14 @@ static EL26ApiNmeaParserRet L26ApiParseNmeaSentence(SL26ApiGnssData *dataBufPtr,
 
 		/* Parse the payload */
 		return L26ApiNmeaParseGllPayload(dataBufPtr, NMEA_PAYLOAD_BEGIN(sentencePtr),
+				NMEA_PAYLOAD_LENGTH(length));
+
+	}
+
+	if (0 == strcmp(messageId, "GPTXT")) {
+
+		/* Parse the payload */
+		return L26ApiNmeaParseTxtPayload(dataBufPtr, NMEA_PAYLOAD_BEGIN(sentencePtr),
 				NMEA_PAYLOAD_LENGTH(length));
 
 	}
@@ -748,6 +758,27 @@ static EL26ApiNmeaParserRet L26ApiNmeaParseGllPayload(SL26ApiGnssData *dataBufPt
 
 	/* Set the flag */
 	dataBufPtr->SentencesReceived |= L26API_NMEA_GLL_RECEIVED;
+	return EL26ApiNmeaParserRet_Ok;
+
+}
+
+/**
+ * @brief Parse the payload of an NMEA --TXT sentence
+ * @param[out] dataBufPtr Pointer to the GNSS data structure where the parsed data will be stored
+ * @param[in] pPayload Pointer to the sentence payload
+ * @param[in] length Length of the payload
+ * @retval EL26ApiNmeaParserRet Status
+ */
+static EL26ApiNmeaParserRet L26ApiNmeaParseTxtPayload(SL26ApiGnssData *dataBufPtr,
+		const char *pPayload, size_t length) {
+
+	/* Message not used */
+	UNUSED(dataBufPtr);
+	UNUSED(pPayload);
+	UNUSED(length);
+
+	/* Set the flag */
+	dataBufPtr->SentencesReceived |= L26API_NMEA_TXT_RECEIVED;
 	return EL26ApiNmeaParserRet_Ok;
 
 }
