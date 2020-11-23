@@ -19,15 +19,15 @@ extern osMessageQId canRxQueueHandle;
 extern osMessageQId canSubQueueHandle;
 extern osMessageQId sdioSubQueueHandle;
 
-static EWcuCanGtkpRet CanGtkpForwardRxMessage(uint32_t rxFifo);
+static ECanGtkpRet CanGtkpForwardRxMessage(uint32_t rxFifo);
 
 /**
  * @brief Handle setting CAN filters according to the new telemetry subscription
- * @retval EWcuCanGtkpRet Status
+ * @retval ECanGtkpRet Status
  */
-EWcuCanGtkpRet CanGtkpHandleNewSubscription(void) {
+ECanGtkpRet CanGtkpHandleNewSubscription(void) {
 
-	EWcuCanGtkpRet status = EWcuCanGtkpRet_Ok;
+	ECanGtkpRet status = ECanGtkpRet_Ok;
 
 	uint32_t nv;
 	/* Check for new telemetry subscription notification */
@@ -42,13 +42,13 @@ EWcuCanGtkpRet CanGtkpHandleNewSubscription(void) {
 					!= xQueueReceive(canSubQueueHandle, &(subscrTbl[i]), 0)) {
 
 				LogError("CanGtkpHandleNewSubscription: Queue is empty");
-				status = EWcuCanGtkpRet_Error;
+				status = ECanGtkpRet_Error;
 
 			}
 
 		}
 
-		if (EWcuCanGtkpRet_Ok == status) {
+		if (ECanGtkpRet_Ok == status) {
 
 			/* Set the filters */
 			SetCanFilterList(&hcan1, subscrTbl, nv);
@@ -83,11 +83,11 @@ void CanGtkpHandleOutbox(void) {
 
 /**
  * @brief Handle the CAN incoming messages
- * @retval EWcuCanGtkpRet Status
+ * @retval ECanGtkpRet Status
  */
-EWcuCanGtkpRet CanGtkpHandleInbox(void) {
+ECanGtkpRet CanGtkpHandleInbox(void) {
 
-	EWcuCanGtkpRet status = EWcuCanGtkpRet_Ok;
+	ECanGtkpRet status = ECanGtkpRet_Ok;
 
 	/* Check both FIFOs for incoming messages */
 	if (0UL < HAL_CAN_GetRxFifoFillLevel(&hcan1, CAN_RX_FIFO0)) {
@@ -110,11 +110,11 @@ EWcuCanGtkpRet CanGtkpHandleInbox(void) {
 /**
  * @brief Read a received message from the designated FIFO and forward it to the xbeeTxRx task
  * @param rxFifo RX FIFO number
- * @retval EWcuCanGtkpRet Status
+ * @retval ECanGtkpRet Status
  */
-static EWcuCanGtkpRet CanGtkpForwardRxMessage(uint32_t rxFifo) {
+static ECanGtkpRet CanGtkpForwardRxMessage(uint32_t rxFifo) {
 
-	EWcuCanGtkpRet status = EWcuCanGtkpRet_Ok;
+	ECanGtkpRet status = ECanGtkpRet_Ok;
 
 	/* Turn on the LED */
 	SET_PIN(CAN_LED);
@@ -128,7 +128,7 @@ static EWcuCanGtkpRet CanGtkpForwardRxMessage(uint32_t rxFifo) {
 	if (pdPASS != xQueueSend(canRxQueueHandle, &frBuf, 0)) {
 
 		LogError("CanGtkpForwardRxMessage: Queue is full");
-		status = EWcuCanGtkpRet_Error;
+		status = ECanGtkpRet_Error;
 
 	}
 

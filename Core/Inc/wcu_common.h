@@ -42,17 +42,7 @@ typedef enum EWcuLogSeverityLevel {
 #if defined(RT11) && defined(RT12e)
 #error Both RT11 and RT12e defined
 #endif /* defined(RT11) && defined(RT12e) */
-
-/**
- * @brief Set the LOG_REDIRECT_TO_SERIAL_PORT macro to redirect selected logs to the serial port
- */
-#define REDIR_INF  (0x01)
-#define REDIR_ERR  (0x02)
-#define REDIR_DBG  (0x04)
-#define LOG_REDIRECT_TO_SERIAL_PORT (0 | REDIR_INF | REDIR_ERR | REDIR_DBG)
-#if !defined (LOG_REDIRECT_TO_SERIAL_PORT)
-#error If log redirection to the serial port is not used, set LOG_REDIRECT_TO_SERIAL_PORT to zero
-#endif /* !defined (LOG_REDIRECT_TO_SERIAL_PORT) */
+#define WCU_DEBUG_MODE 1
 
 /* Exported macros -------------------------------------------------------------------------- */
 /* Set/reset pins based on the label */
@@ -60,8 +50,11 @@ typedef enum EWcuLogSeverityLevel {
 #define RESET_PIN(label)  ( HAL_GPIO_WritePin(label##_GPIO_Port, label##_Pin, GPIO_PIN_RESET) )
 #define LogInfo(msg)      ( LogPrint(EWcuLogSeverityLevel_Info, (msg) ) )
 #define LogError(msg)     ( LogPrint(EWcuLogSeverityLevel_Error, (msg) ) )
+#if (WCU_DEBUG_MODE)
 #define LogDebug(msg)     ( LogPrint(EWcuLogSeverityLevel_Debug, (msg) ) )
-
+#else /* #if !(WCU_DEBUG_MODE) */
+#define LogDebug(msg)     ( (void)(msg) )
+#endif /* !(WCU_DEBUG_MODE) */
 /* Exported function prototypes -------------------------------------------------------------------------- */
 /**
  * @brief Log an error message to the SD card

@@ -10,16 +10,16 @@
 /**
  * @brief Error code return value enumeration
  */
-typedef enum EWcuCanGtkpRet {
-	EWcuCanGtkpRet_Ok = 0,
-	EWcuCanGtkpRet_Error
-} EWcuCanGtkpRet;
+typedef enum ECanGtkpRet {
+	ECanGtkpRet_Ok = 0,
+	ECanGtkpRet_Error
+} ECanGtkpRet;
 
 /**
  * @brief Handle setting CAN filters according to the new telemetry subscription
- * @retval EWcuCanGtkpRet Status
+ * @retval ECanGtkpRet Status
  */
-EWcuCanGtkpRet CanGtkpHandleNewSubscription(void);
+ECanGtkpRet CanGtkpHandleNewSubscription(void);
 
 /**
  * @brief Handle the CAN outgoing messages
@@ -29,8 +29,8 @@ void CanGtkpHandleOutbox(void);
 
 /**
  * @brief Handle the CAN incoming messages
- * @retval EWcuCanGtkpRet Status
+ * @retval ECanGtkpRet Status
  */
-EWcuCanGtkpRet CanGtkpHandleInbox(void);
+ECanGtkpRet CanGtkpHandleInbox(void);
 
 #endif /* __WCU_CANGTKP_CALLS_H_ */

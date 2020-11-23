@@ -157,9 +157,6 @@ EXbeeTxRxRet XbeeTxRxHandleInternalMail(void) {
 
 		case EXbeeTxRxInternalMail_PeriodElapsed:
 
-			/* TODO: Remove this after test */
-			XbeeTxRxReadRssi(&diagnostics.rssi);
-
 			/* Transmit the diagnostic frame */
 			XbeeTxRxSendDiagnostics(&diagnostics);
 			/* Update the diagnostics structure */
