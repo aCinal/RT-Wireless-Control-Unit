@@ -65,7 +65,6 @@ static EXbeeTxRxRet XbeeTxRxSendSubscriptionToSdioGtkp(uint32_t ids[],
 EXbeeTxRxRet XbeeTxRxDeviceConfig(void) {
 
 	EXbeeTxRxRet status = EXbeeTxRxRet_Ok;
-
 	/* Set the RESET pin high */
 	SET_PIN(XBEE_RESET);
 
@@ -226,6 +225,7 @@ void XbeeTxRxHandleOutgoingR3tpCom(void) {
 
 		/* Transmit the frame */
 		XbeeProApiSendPayload(txBufTbl, R3TP_VER0_FRAME_SIZE);
+		LogDebug("XbeeTxRxHandleOutgoingR3tpCom: Frame sent");
 
 	}
 
@@ -393,12 +393,14 @@ static EXbeeTxRxRet XbeeTxRxHandleDriverWarning(uint8_t *rxBufTbl,
 
 			/* Set the green warning duration */
 			diagPtr->greenWarningDuration = rxBufTbl[5];
+			LogDebug("XbeeTxRxHandleDriverWarning: Green warning set");
 			break;
 
 		case R3TP_RED_WARNING_BYTE:
 
 			/* Set the red warning duration */
 			diagPtr->redWarningDuration = rxBufTbl[5];
+			LogDebug("XbeeTxRxHandleDriverWarning: Red warning set");
 			break;
 
 		default:
@@ -502,6 +504,7 @@ static void XbeeTxRxSendDiagnostics(STelemetryDiagnostics *diagPtr) {
 
 	/* Transmit the frame */
 	SendToCan(&canFrame);
+	LogDebug("XbeeTxRxSendDiagnostics: Sending diagnostics");
 
 }
 

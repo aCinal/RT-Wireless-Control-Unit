@@ -48,10 +48,8 @@
 #define TIM_1s_HANDLE              (htim7)                 /* TIM7 handle alias */
 
 #if defined (RT12e)
-
 #define TIM_TPMS_INSTANCE          (TIM10)                 /* TIM10 instance alias */
 #define TIM_TPMS_HANDLE            (htim10)                /* TIM10 handle alias */
-
 #endif /* defined (RT12e) */
 
 /**

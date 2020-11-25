@@ -42,19 +42,30 @@ typedef enum EWcuLogSeverityLevel {
 #if defined(RT11) && defined(RT12e)
 #error Both RT11 and RT12e defined
 #endif /* defined(RT11) && defined(RT12e) */
-#define WCU_DEBUG_MODE 1
+#define ENABLE_INFO_PRINTS            1
+#define ENABLE_ERROR_PRINTS           1
+#define ENABLE_DEBUG_PRINTS           0
+#define REDIRECT_LOGS_TO_SERIAL_PORT  0
 
 /* Exported macros -------------------------------------------------------------------------- */
 /* Set/reset pins based on the label */
 #define SET_PIN(label)    ( HAL_GPIO_WritePin(label##_GPIO_Port, label##_Pin, GPIO_PIN_SET) )
 #define RESET_PIN(label)  ( HAL_GPIO_WritePin(label##_GPIO_Port, label##_Pin, GPIO_PIN_RESET) )
+#if (ENABLE_INFO_PRINTS)
 #define LogInfo(msg)      ( LogPrint(EWcuLogSeverityLevel_Info, (msg) ) )
+#else /* #if !(ENABLE_INFO_PRINTS) */
+#define LogInfo(msg)     ( (void)(msg) )
+#endif /* !(ENABLE_INFO_PRINTS) */
+#if (ENABLE_ERROR_PRINTS)
 #define LogError(msg)     ( LogPrint(EWcuLogSeverityLevel_Error, (msg) ) )
-#if (WCU_DEBUG_MODE)
+#else /* #if !(ENABLE_ERROR_PRINTS) */
+#define LogError(msg)     ( (void)(msg) )
+#endif /* !(ENABLE_ERROR_PRINTS) */
+#if (ENABLE_DEBUG_PRINTS)
 #define LogDebug(msg)     ( LogPrint(EWcuLogSeverityLevel_Debug, (msg) ) )
-#else /* #if !(WCU_DEBUG_MODE) */
+#else /* #if !(ENABLE_DEBUG_PRINTS) */
 #define LogDebug(msg)     ( (void)(msg) )
-#endif /* !(WCU_DEBUG_MODE) */
+#endif /* !(ENABLE_DEBUG_PRINTS) */
 /* Exported function prototypes -------------------------------------------------------------------------- */
 /**
  * @brief Log an error message to the SD card

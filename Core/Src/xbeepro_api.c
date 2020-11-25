@@ -177,7 +177,7 @@ EXbeeProApiRet XbeeProApiSendPayload(uint8_t* payloadPtr, uint32_t numOfBytes) {
 		/* Transmit the payload */
 		if(EXbeeProLldRet_Ok != XbeeProLld_Transmit(payloadPtr, numOfBytes)) {
 
-			status = EXbeeProApiRet_Ok;
+			status = EXbeeProApiRet_Error;
 
 		}
 

@@ -137,6 +137,8 @@ EBtRxRet BtRxHandleCom(void) {
 
 			/* Transmit the frame */
 			SendToCan(&canFrame);
+			LogDebug("BtRxHandleCom: Frame sent");
+
 
 		}
 

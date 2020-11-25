@@ -215,11 +215,12 @@ static void GnssRxTransmitGpsPos(SL26ApiGnssData *gnssDataPtr) {
 
 	/* Transmit the frame */
 	SendToCan(&canFrame);
+	LogDebug("GnssRxTransmitGpsPos: Frame sent");
 
 }
 
 /**
- * @brief Send _GPS_POS CAN frame
+ * @brief Send _GPS_POS2 CAN frame
  * @param gnssDataPtr Pointer to the GNSS data structure
  * @retval None
  */
@@ -250,6 +251,7 @@ static void GnssRxTransmitGpsPos2(SL26ApiGnssData *gnssDataPtr) {
 
 	/* Transmit the frame */
 	SendToCan(&canFrame);
+	LogDebug("GnssRxTransmitGpsPos2: Frame sent");
 
 }
 
@@ -293,6 +295,7 @@ static void GnssRxTransmitGpsStatus(SL26ApiGnssData *gnssDataPtr) {
 
 	/* Transmit the frame */
 	SendToCan(&canFrame);
+	LogDebug("GnssRxTransmitGpsStatus: Frame sent");
 
 }
 

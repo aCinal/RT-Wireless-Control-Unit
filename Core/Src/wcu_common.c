@@ -23,12 +23,12 @@
 #define LOG_SEVERITY_TAG(log)     ( &( (log)[LOG_TIMESTAMP_LENGTH] ) )                   /* Get pointer to the log entry severity tag */
 #define LOG_PAYLOAD(log)          ( &( (log)[LOG_HEADER_LENGTH] ) )                      /* Get pointer to the log entry payload */
 #define LOG_TRAILER(log, payLen)  ( &( (log)[LOG_HEADER_LENGTH + (payLen)] ) )           /* Get pointer to the log entry trailer */
-#if (WCU_DEBUG_MODE)
+#if (REDIRECT_LOGS_TO_SERIAL_PORT)
 #define DEBUG_UART_HANDLE         (huart2)                                               /* UART handle alias */
 #define DEBUG_UART_INSTANCE       (USART2)                                               /* UART instance alias */
 
 extern UART_HandleTypeDef DEBUG_UART_HANDLE;
-#endif /* (WCU_DEBUG_MODE) */
+#endif /* (REDIRECT_LOGS_TO_SERIAL_PORT) */
 extern CRC_HandleTypeDef hcrc;
 extern osMutexId crcMutexHandle;
 extern osMessageQId sdioLogQueueHandle;
@@ -83,7 +83,7 @@ void LogPrint(EWcuLogSeverityLevel severityLevel, const char *messagePayloadTbl)
 		/* Write the message trailer to the memory block */
 		(void) sprintf(LOG_TRAILER(logEntryPtr, payloadLength), "\r\n");
 
-#if !(WCU_DEBUG_MODE)
+#if !(REDIRECT_LOGS_TO_SERIAL_PORT)
 
 		/* Push the pointer to the message to the logErrorQueue */
 		if (pdPASS != xQueueSend(sdioLogQueueHandle, &logEntryPtr, 0)) {
@@ -93,7 +93,7 @@ void LogPrint(EWcuLogSeverityLevel severityLevel, const char *messagePayloadTbl)
 
 		}
 
-#else /* #if (WCU_DEBUG_MODE) */
+#else /* #if (REDIRECT_LOGS_TO_SERIAL_PORT) */
 
 		taskENTER_CRITICAL();
 
@@ -104,7 +104,7 @@ void LogPrint(EWcuLogSeverityLevel severityLevel, const char *messagePayloadTbl)
 
 		vPortFree(logEntryPtr);
 
-#endif /* (WCU_DEBUG_MODE) */
+#endif /* (REDIRECT_LOGS_TO_SERIAL_PORT) */
 
 	}
 

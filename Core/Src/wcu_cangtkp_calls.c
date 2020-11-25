@@ -52,6 +52,7 @@ ECanGtkpRet CanGtkpHandleNewSubscription(void) {
 
 			/* Set the filters */
 			SetCanFilterList(&hcan1, subscrTbl, nv);
+			LogDebug("CanGtkpHandleNewSubscription: New subscription in place");
 
 		}
 
@@ -77,6 +78,8 @@ void CanGtkpHandleOutbox(void) {
 		(void) HAL_CAN_AddTxMessage(&hcan1, &frBuf.TxHeader, frBuf.PayloadTbl,
 				&dummy);
 
+		LogDebug("CanGtkpHandleOutbox: Message sent to CAN");
+
 	}
 
 }
@@ -93,12 +96,14 @@ ECanGtkpRet CanGtkpHandleInbox(void) {
 	if (0UL < HAL_CAN_GetRxFifoFillLevel(&hcan1, CAN_RX_FIFO0)) {
 
 		(void) CanGtkpForwardRxMessage(CAN_RX_FIFO0);
+		LogDebug("CanGtkpHandleInbox: Message receiver in CAN_RX_FIFO0");
 
 	}
 #if !defined (CAN_SINGLE_FIFO)
 	if (0UL < HAL_CAN_GetRxFifoFillLevel(&hcan1, CAN_RX_FIFO1)) {
 
 		(void) CanGtkpForwardRxMessage(CAN_RX_FIFO1);
+		LogDebug("CanGtkpHandleInbox: Message receiver in CAN_RX_FIFO1");
 
 	}
 #endif /* !defined (CAN_SINGLE_FIFO) */
