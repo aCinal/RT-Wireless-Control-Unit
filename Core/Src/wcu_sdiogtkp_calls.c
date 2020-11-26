@@ -49,9 +49,6 @@ ESdioGtkpRet SdioGtkpLoadTelemetrySubscription(void) {
 		/* Try reading the number of frames */
 		if (FR_OK != f_read(&subscriptionFile, temp, 4, &bytesRead)) {
 
-			/* Cleanup */
-			(void) f_close(&subscriptionFile);
-
 			LogError("SdioGtkpLoadTelemetrySubscription: f_read failed");
 			status = ESdioGtkpRet_Error;
 

@@ -128,6 +128,10 @@ osMessageQId xbeeTxRxInternalMailQueueHandle;
 osMutexId crcMutexHandle;
 /* USER CODE BEGIN PV */
 
+#if (REDIRECT_LOGS_TO_SERIAL_PORT)
+osMutexId dbSerialMutexHandle;
+#endif /* (REDIRECT_LOGS_TO_SERIAL_PORT) */
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -216,6 +220,12 @@ int main(void) {
 
 	/* USER CODE BEGIN RTOS_MUTEX */
 	/* add mutexes, ... */
+#if (REDIRECT_LOGS_TO_SERIAL_PORT)
+
+	osMutexDef(dbSerialMutex);
+	dbSerialMutexHandle = osMutexCreate(osMutex(dbSerialMutex));
+
+#endif /* (REDIRECT_LOGS_TO_SERIAL_PORT) */
 	/* USER CODE END RTOS_MUTEX */
 
 	/* USER CODE BEGIN RTOS_SEMAPHORES */
@@ -263,7 +273,7 @@ int main(void) {
 
 	/* Create the thread(s) */
 	/* definition and creation of canGtkp */
-	osThreadDef(canGtkp, StartCanGtkpTask, osPriorityNormal, 0, 128);
+	osThreadDef(canGtkp, StartCanGtkpTask, osPriorityNormal, 0, 256);
 	canGtkpHandle = osThreadCreate(osThread(canGtkp), NULL);
 
 	/* definition and creation of sdioGtkp */
@@ -275,19 +285,19 @@ int main(void) {
 	iwdgGtkpHandle = osThreadCreate(osThread(iwdgGtkp), NULL);
 
 	/* definition and creation of btRx */
-	osThreadDef(btRx, StartBtRxTask, osPriorityNormal, 0, 128);
+	osThreadDef(btRx, StartBtRxTask, osPriorityNormal, 0, 256);
 	btRxHandle = osThreadCreate(osThread(btRx), NULL);
 
 	/* definition and creation of gnssRx */
-	osThreadDef(gnssRx, StartGnssRxTask, osPriorityNormal, 0, 128);
+	osThreadDef(gnssRx, StartGnssRxTask, osPriorityNormal, 0, 256);
 	gnssRxHandle = osThreadCreate(osThread(gnssRx), NULL);
 
 	/* definition and creation of rfRx */
-	osThreadDef(rfRx, StartRfRxTask, osPriorityNormal, 0, 128);
+	osThreadDef(rfRx, StartRfRxTask, osPriorityNormal, 0, 256);
 	rfRxHandle = osThreadCreate(osThread(rfRx), NULL);
 
 	/* definition and creation of xbeeTxRx */
-	osThreadDef(xbeeTxRx, StartXbeeTxRxTask, osPriorityNormal, 0, 128);
+	osThreadDef(xbeeTxRx, StartXbeeTxRxTask, osPriorityNormal, 0, 256);
 	xbeeTxRxHandle = osThreadCreate(osThread(xbeeTxRx), NULL);
 
 	/* definition and creation of diagnostic */
@@ -765,7 +775,7 @@ static void MX_DMA_Init(void) {
 	HAL_NVIC_SetPriority(DMA2_Stream4_IRQn, 5, 0);
 	HAL_NVIC_EnableIRQ(DMA2_Stream4_IRQn);
 	/* DMA2_Stream6_IRQn interrupt configuration */
-	HAL_NVIC_SetPriority(DMA2_Stream6_IRQn, 0, 0);
+	HAL_NVIC_SetPriority(DMA2_Stream6_IRQn, 5, 0);
 	HAL_NVIC_EnableIRQ(DMA2_Stream6_IRQn);
 
 }

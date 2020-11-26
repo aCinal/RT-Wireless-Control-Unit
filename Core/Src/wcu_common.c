@@ -13,21 +13,24 @@
 #include <stdio.h>
 #include <string.h>
 
-#define CRC_SEM_WAIT()            ( (void) osMutexWait(crcMutexHandle, osWaitForever) )  /* Acquire the CRC semaphore */
-#define CRC_SEM_POST()            ( (void) osMutexRelease(crcMutexHandle) )              /* Release the CRC semaphore */
-#define LOG_TIMESTAMP_LENGTH      ( (uint32_t) 12 )                                      /* Length of the timestamp in decimal */
-#define LOG_SEVERITY_TAG_LENGTH   ( (uint32_t) 4 )                                       /* Length of the severity level tag */
-#define LOG_HEADER_LENGTH         ( LOG_TIMESTAMP_LENGTH + LOG_SEVERITY_TAG_LENGTH )     /* Total length of the log entry header */
-#define LOG_TRAILER_LENGTH        ( (uint32_t) 3 )                                       /* <CR><LF><NUL> sequence length */
-#define LOG_TIMESTAMP(log)        (log)                                                  /* Get pointer to the log entry timestamp */
-#define LOG_SEVERITY_TAG(log)     ( &( (log)[LOG_TIMESTAMP_LENGTH] ) )                   /* Get pointer to the log entry severity tag */
-#define LOG_PAYLOAD(log)          ( &( (log)[LOG_HEADER_LENGTH] ) )                      /* Get pointer to the log entry payload */
-#define LOG_TRAILER(log, payLen)  ( &( (log)[LOG_HEADER_LENGTH + (payLen)] ) )           /* Get pointer to the log entry trailer */
+#define CRC_SEM_WAIT()            ( (void) osMutexWait(crcMutexHandle, osWaitForever) )       /* Acquire the CRC semaphore */
+#define CRC_SEM_POST()            ( (void) osMutexRelease(crcMutexHandle) )                   /* Release the CRC semaphore */
+#define LOG_TIMESTAMP_LENGTH      ( (uint32_t) 12 )                                           /* Length of the timestamp in decimal */
+#define LOG_SEVERITY_TAG_LENGTH   ( (uint32_t) 4 )                                            /* Length of the severity level tag */
+#define LOG_HEADER_LENGTH         ( LOG_TIMESTAMP_LENGTH + LOG_SEVERITY_TAG_LENGTH )          /* Total length of the log entry header */
+#define LOG_TRAILER_LENGTH        ( (uint32_t) 3 )                                            /* <CR><LF><NUL> sequence length */
+#define LOG_TIMESTAMP(log)        (log)                                                       /* Get pointer to the log entry timestamp */
+#define LOG_SEVERITY_TAG(log)     ( &( (log)[LOG_TIMESTAMP_LENGTH] ) )                        /* Get pointer to the log entry severity tag */
+#define LOG_PAYLOAD(log)          ( &( (log)[LOG_HEADER_LENGTH] ) )                           /* Get pointer to the log entry payload */
+#define LOG_TRAILER(log, payLen)  ( &( (log)[LOG_HEADER_LENGTH + (payLen)] ) )                /* Get pointer to the log entry trailer */
 #if (REDIRECT_LOGS_TO_SERIAL_PORT)
-#define DEBUG_UART_HANDLE         (huart2)                                               /* UART handle alias */
-#define DEBUG_UART_INSTANCE       (USART2)                                               /* UART instance alias */
+#define DBSERIAL_SEM_WAIT()       ( (void) osMutexWait(dbSerialMutexHandle, osWaitForever) )  /* Acquire the debug serial semaphore */
+#define DBSERIAL_SEM_POST()       ( (void) osMutexRelease(dbSerialMutexHandle) )              /* Release the debug serial semaphore */
+#define DEBUG_UART_HANDLE         (huart2)                                                    /* UART handle alias */
+#define DEBUG_UART_INSTANCE       (USART2)                                                    /* UART instance alias */
 
 extern UART_HandleTypeDef DEBUG_UART_HANDLE;
+extern osMutexId dbSerialMutexHandle;
 #endif /* (REDIRECT_LOGS_TO_SERIAL_PORT) */
 extern CRC_HandleTypeDef hcrc;
 extern osMutexId crcMutexHandle;
@@ -95,12 +98,12 @@ void LogPrint(EWcuLogSeverityLevel severityLevel, const char *messagePayloadTbl)
 
 #else /* #if (REDIRECT_LOGS_TO_SERIAL_PORT) */
 
-		taskENTER_CRITICAL();
+		DBSERIAL_SEM_WAIT();
 
 		HAL_UART_Transmit(&DEBUG_UART_HANDLE, (uint8_t*) logEntryPtr,
 				strlen(logEntryPtr), WCU_COMMON_TIMEOUT);
 
-		taskEXIT_CRITICAL();
+		DBSERIAL_SEM_POST();
 
 		vPortFree(logEntryPtr);
 

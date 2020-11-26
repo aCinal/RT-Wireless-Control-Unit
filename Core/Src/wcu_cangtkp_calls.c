@@ -72,7 +72,7 @@ void CanGtkpHandleOutbox(void) {
 	/* Check for outgoing messages */
 	if (pdPASS == xQueueReceive(canTxQueueHandle, &frBuf, WCU_COMMON_TIMEOUT)) {
 
-		uint32_t dummy; /* Buffer for the CAN Tx mailbox used */
+		uint32_t dummy;
 
 		/* Send the message */
 		(void) HAL_CAN_AddTxMessage(&hcan1, &frBuf.TxHeader, frBuf.PayloadTbl,
