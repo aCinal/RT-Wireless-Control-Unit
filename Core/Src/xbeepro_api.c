@@ -13,7 +13,7 @@
 #include <stdio.h>
 
 #define XBEEPROAPI_DELAY(millisec)  vTaskDelay( pdMS_TO_TICKS(millisec) )  /* Delay macro */
-#define XBEEPRO_GT_DEFAULT          ( (uint16_t) 0x0CE4 )                  /* XBEE Pro Guard Times default value */
+#define XBEEPRO_GT_DEFAULT          ( (uint16_t) 0x03E8 )                  /* XBEE Pro Guard Times default value */
 
 static uint16_t gGuardTimes = XBEEPRO_GT_DEFAULT;
 

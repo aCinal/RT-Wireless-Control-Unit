@@ -71,6 +71,12 @@ EXbeeTxRxRet XbeeTxRxDeviceConfig(void) {
 	/* Allow the device the time to boot */
 	vTaskDelay(pdMS_TO_TICKS(50));
 
+	/**
+	 * XBee-Pro modules should be configured using XCTU software provided by Digi International.
+	 * The telemetry receiver must be paired with the module on the car - destination address
+	 * of one must correspond to the serial number of the other
+	 */
+
 	/* Set the guard time */
 	if (EXbeeProApiRet_Ok != XbeeProApiSetGuardTimes(XBEE_GUARD_TIMES)) {
 
