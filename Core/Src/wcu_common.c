@@ -148,7 +148,8 @@ uint16_t GetR3tpCrc(uint8_t *payloadPtr, uint32_t numOfBytes) {
 	/* Release the semaphore */
 	CRC_SEM_POST();
 
-	return _bits0_15(crc);
+	/* Return the lower 16 bits */
+	return (crc & 0xFFFF);
 
 }
 

@@ -59,12 +59,12 @@ void DiagnosticRunDiagnostics(void) {
 		uint16_t mcuUptime = (uint16_t) (HAL_GetTick() / 1000UL);
 
 		/* Write the MCU temperature to the frame payload */
-		canFrame.PayloadTbl[0] = _bits8_15(mcuTemperature);
-		canFrame.PayloadTbl[1] = _bits0_7(mcuTemperature);
+		canFrame.PayloadTbl[0] = _getbyte(mcuTemperature, 1);
+		canFrame.PayloadTbl[1] = _getbyte(mcuTemperature, 0);
 
 		/* Write the MCU uptime to the frame payload */
-		canFrame.PayloadTbl[2] = _bits8_15(mcuUptime);
-		canFrame.PayloadTbl[3] = _bits0_7(mcuUptime);
+		canFrame.PayloadTbl[2] = _getbyte(mcuUptime, 1);
+		canFrame.PayloadTbl[3] = _getbyte(mcuUptime, 0);
 
 		/* Transmit the frame */
 		SendToCan(&canFrame);

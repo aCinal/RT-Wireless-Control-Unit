@@ -200,18 +200,18 @@ static void GnssRxTransmitGpsPos(SL26ApiGnssData *gnssDataPtr) {
 	/* Write the longitude to the frame payload */
 	int32_t longitude = GnssRxNormalizeCoordinate(gnssDataPtr->Longitude,
 			gnssDataPtr->LonDir);
-	canFrame.PayloadTbl[0] = _bits24_31(longitude);
-	canFrame.PayloadTbl[1] = _bits16_23(longitude);
-	canFrame.PayloadTbl[2] = _bits8_15(longitude);
-	canFrame.PayloadTbl[3] = _bits0_7(longitude);
+	canFrame.PayloadTbl[0] = _getbyte(longitude, 3);
+	canFrame.PayloadTbl[1] = _getbyte(longitude, 2);
+	canFrame.PayloadTbl[2] = _getbyte(longitude, 1);
+	canFrame.PayloadTbl[3] = _getbyte(longitude, 0);
 
 	/* Write the latitude to the frame payload */
 	int32_t latitude = GnssRxNormalizeCoordinate(gnssDataPtr->Latitude,
 			gnssDataPtr->LatDir);
-	canFrame.PayloadTbl[4] = _bits24_31(latitude);
-	canFrame.PayloadTbl[5] = _bits16_23(longitude);
-	canFrame.PayloadTbl[6] = _bits8_15(longitude);
-	canFrame.PayloadTbl[7] = _bits0_7(longitude);
+	canFrame.PayloadTbl[4] = _getbyte(latitude, 3);
+	canFrame.PayloadTbl[5] = _getbyte(latitude, 2);
+	canFrame.PayloadTbl[6] = _getbyte(latitude, 1);
+	canFrame.PayloadTbl[7] = _getbyte(latitude, 0);
 
 	/* Transmit the frame */
 	SendToCan(&canFrame);
@@ -236,18 +236,18 @@ static void GnssRxTransmitGpsPos2(SL26ApiGnssData *gnssDataPtr) {
 
 	/* Write the speed to the frame payload */
 	uint16_t speed = GnssRxNormalizeSpeed(gnssDataPtr->Speed);
-	canFrame.PayloadTbl[0] = _bits8_15(speed);
-	canFrame.PayloadTbl[1] = _bits0_7(speed);
+	canFrame.PayloadTbl[0] = _getbyte(speed, 1);
+	canFrame.PayloadTbl[1] = _getbyte(speed, 0);
 
 	/* Write the direction to the frame payload */
 	uint16_t direction = GnssRxNormalizeDirection(gnssDataPtr->Cog);
-	canFrame.PayloadTbl[2] = _bits8_15(direction);
-	canFrame.PayloadTbl[3] = _bits0_7(direction);
+	canFrame.PayloadTbl[2] = _getbyte(direction, 1);
+	canFrame.PayloadTbl[3] = _getbyte(direction, 0);
 
 	/* Write the altitude to the frame payload */
 	uint16_t altitude = GnssRxNormalizeAltitude(gnssDataPtr->Altitude);
-	canFrame.PayloadTbl[4] = _bits8_15(altitude);
-	canFrame.PayloadTbl[5] = _bits0_7(altitude);
+	canFrame.PayloadTbl[4] = _getbyte(altitude, 1);
+	canFrame.PayloadTbl[5] = _getbyte(altitude, 0);
 
 	/* Transmit the frame */
 	SendToCan(&canFrame);
@@ -283,13 +283,13 @@ static void GnssRxTransmitGpsStatus(SL26ApiGnssData *gnssDataPtr) {
 
 	/* Write the time to the frame payload */
 	uint32_t time = GnssRxNormalizeTime(gnssDataPtr->Time);
-	canFrame.PayloadTbl[2] = _bits24_31(time);
-	canFrame.PayloadTbl[3] = _bits16_23(time);
-	canFrame.PayloadTbl[4] = _bits8_15(time);
-	canFrame.PayloadTbl[5] = _bits0_7(time);
+	canFrame.PayloadTbl[2] = _getbyte(time, 3);
+	canFrame.PayloadTbl[3] = _getbyte(time, 2);
+	canFrame.PayloadTbl[4] = _getbyte(time, 1);
+	canFrame.PayloadTbl[5] = _getbyte(time, 0);
 
 	/* Pack the date in the frame payload by overwriting four least significant bits of the time */
-	canFrame.PayloadTbl[5] |= 0xF & _bits24_31(gnssDataPtr->Date);
+	canFrame.PayloadTbl[5] |= 0xF & _getbyte(gnssDataPtr->Date, 3);
 	canFrame.PayloadTbl[6] = 0xFF & (gnssDataPtr->Date >> 20U);
 	canFrame.PayloadTbl[7] = 0xFF & (gnssDataPtr->Date >> 12U);
 

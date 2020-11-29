@@ -18,28 +18,8 @@
 #define _reinterpret32bits(high, midh, midl, low)  ( ( ( 0xFF & (high) ) << 24 ) | ( ( 0xFF & (midh) ) << 16 ) | ( ( 0xFF & (midl) ) << 8 ) | ( 0xFF & (low) ) )
 
 /**
- * @brief Access bits 0-7 (least significant byte) of a value
+ * @brief Access a specific byte of a value
  */
-#define _bits0_7(x)  ( 0xFF & (x) )
-
-/**
- * @brief Access bits 0-15 (16 least significant bits) of a value
- */
-#define _bits0_15(x)  ( 0xFFFF & (x) )
-
-/**
- * @brief Access bits 8-15 (second least significant byte) of a value
- */
-#define _bits8_15(x)  ( 0xFF & ( (x) >> 8 ) )
-
-/**
- * @brief Access bits 8-15 (third least significant byte) of a value
- */
-#define _bits16_23(x)  ( 0xFF & ( (x) >> 16 ) )
-
-/**
- * @brief Access bits 8-15 (fourth least significant byte) of a value
- */
-#define _bits24_31(x)  ( 0xFF & ( (x) >> 24 ) )
+#define _getbyte(value, byte) ( 0xFF & ( (value) >> (8 * byte) ) )
 
 #endif /* __RT12E_LIBS_GENERIC_H_ */

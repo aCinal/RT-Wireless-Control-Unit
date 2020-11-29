@@ -205,10 +205,10 @@ ESdioGtkpRet SdioGtkpHandleNewSubscription(void) {
 			/* Print the number of frames to the SD card */
 			uint8_t temp[4];
 			UINT bytesWritten;
-			temp[0] = _bits0_7(nv);
-			temp[1] = _bits8_15(nv);
-			temp[2] = _bits16_23(nv);
-			temp[3] = _bits24_31(nv);
+			temp[0] = _getbyte(nv, 0);
+			temp[1] = _getbyte(nv, 1);
+			temp[2] = _getbyte(nv, 2);
+			temp[3] = _getbyte(nv, 3);
 			(void) f_write(&subscriptionFile, temp, 4U, &bytesWritten);
 
 			uint32_t frBuf;
@@ -224,10 +224,10 @@ ESdioGtkpRet SdioGtkpHandleNewSubscription(void) {
 				}
 
 				/* Print the frame to the SD card */
-				temp[0] = _bits0_7(frBuf);
-				temp[1] = _bits8_15(frBuf);
-				temp[2] = _bits16_23(frBuf);
-				temp[3] = _bits24_31(frBuf);
+				temp[0] = _getbyte(frBuf, 0);
+				temp[1] = _getbyte(frBuf, 1);
+				temp[2] = _getbyte(frBuf, 2);
+				temp[3] = _getbyte(frBuf, 3);
 				(void) f_write(&subscriptionFile, temp, 4U, &bytesWritten);
 
 			}

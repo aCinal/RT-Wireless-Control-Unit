@@ -209,8 +209,8 @@ void XbeeTxRxHandleOutgoingR3tpCom(void) {
 		txBufTbl[R3TP_VER0_FRAME_SIZE - 1U] = R3TP_END_SEQ_HIGH_BYTE;
 
 		/* Set CAN ID field - note that the CAN ID is transmitted as little endian */
-		txBufTbl[4] = _bits0_7(frBuf.RxHeader.StdId);
-		txBufTbl[5] = _bits8_15(frBuf.RxHeader.StdId);
+		txBufTbl[4] = _getbyte(frBuf.RxHeader.StdId, 0);
+		txBufTbl[5] = _getbyte(frBuf.RxHeader.StdId, 1);
 
 		/* Set the DLC field */
 		txBufTbl[8] = (uint8_t) frBuf.RxHeader.DLC;
@@ -226,8 +226,8 @@ void XbeeTxRxHandleOutgoingR3tpCom(void) {
 		uint16_t calculatedCrc = GetR3tpCrc(txBufTbl, R3TP_VER0_FRAME_SIZE);
 
 		/* Set the CHECKSUM field - note that the CRC is transmitted as little endian */
-		txBufTbl[2] = _bits0_7(calculatedCrc);
-		txBufTbl[3] = _bits8_15(calculatedCrc);
+		txBufTbl[2] = _getbyte(calculatedCrc, 0);
+		txBufTbl[3] = _getbyte(calculatedCrc, 1);
 
 		/* Transmit the frame */
 		XbeeProApiSendPayload(txBufTbl, R3TP_VER0_FRAME_SIZE);
