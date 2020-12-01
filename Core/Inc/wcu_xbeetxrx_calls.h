@@ -45,9 +45,9 @@ EXbeeTxRxRet XbeeTxRxHandleInternalMail(void);
 
 /**
  * @brief Handle transmitting telemetry data
- * @retval None
+ * @retval EXbeeTxRxRet Status
  */
-void XbeeTxRxHandleOutgoingR3tpCom(void);
+EXbeeTxRxRet XbeeTxRxHandleOutgoingR3tpCom(void);
 
 /**
  * @brief Callback on timer period elapsed

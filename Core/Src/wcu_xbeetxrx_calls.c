@@ -24,7 +24,7 @@
 #define TELEMETRY_STATE_BIT     ( (uint8_t) 0x80 )                        /* Telemetry_State bit of the TELEMETRY_DIAG CAN frame */
 #define TELEMETRY_WARNING_BIT   ( (uint8_t) 0x40 )                        /* Telemetry_Warning bit of the TELEMETRY_DIAG CAN frame */
 #define TELEMETRY_PIT_BIT       ( (uint8_t) 0x20 )                        /* Telemetry_Pit bit of the TELEMETRY_DIAG CAN frame */
-#define XBEE_GUARD_TIMES        ( (uint16_t) 0x000A )                     /* Desired value of the Guard Times parameter */
+#define XBEE_GUARD_TIMES        ( (uint16_t) 0x03E8 )                     /* Desired value of the Guard Times parameter */
 #define XBEE_UART_HANDLE        (huart4)                                  /* UART handle alias */
 #define XBEE_UART_INSTANCE      (UART4)                                   /* UART instance alias */
 
@@ -57,6 +57,7 @@ static EXbeeTxRxRet XbeeTxRxSendSubscriptionToCanGtkp(uint32_t ids[],
 		size_t count);
 static EXbeeTxRxRet XbeeTxRxSendSubscriptionToSdioGtkp(uint32_t ids[],
 		size_t count);
+static EXbeeTxRxRet XbeeTxRxSendAcknowledge(uint8_t msgId);
 
 /**
  * @brief Configure the XBEE-Pro device
@@ -182,12 +183,13 @@ EXbeeTxRxRet XbeeTxRxHandleInternalMail(void) {
 
 /**
  * @brief Handle transmitting telemetry data
- * @retval None
+ * @retval EXbeeTxRxRet Status
  */
-void XbeeTxRxHandleOutgoingR3tpCom(void) {
+EXbeeTxRxRet XbeeTxRxHandleOutgoingR3tpCom(void) {
 
-	SCanFrame frBuf; /* Buffer for the CAN frame */
+	EXbeeTxRxRet status = EXbeeTxRxRet_Ok;
 
+	SCanFrame frBuf;
 	/* Listen on the canRxQueue for messages to send */
 	if (pdPASS == xQueueReceive(canRxQueueHandle, &frBuf, WCU_COMMON_TIMEOUT)) {
 
@@ -198,7 +200,7 @@ void XbeeTxRxHandleOutgoingR3tpCom(void) {
 		/* Set VER and RES/SEQ field */
 		txBufTbl[0] = R3TP_VER0_VER_BYTE;
 
-		static uint8_t seqNum = 0; /* Sequence number */
+		static uint8_t seqNum = 0;
 		/* Set the SEQ NUM field */
 		txBufTbl[1] = seqNum;
 		/* Increment the sequence number */
@@ -230,10 +232,16 @@ void XbeeTxRxHandleOutgoingR3tpCom(void) {
 		txBufTbl[3] = _getbyte(calculatedCrc, 1);
 
 		/* Transmit the frame */
-		XbeeProApiSendPayload(txBufTbl, R3TP_VER0_FRAME_SIZE);
-		LogDebug("XbeeTxRxHandleOutgoingR3tpCom: Frame sent");
+		if(EXbeeProApiRet_Ok != XbeeProApiSendPayload(txBufTbl, R3TP_VER0_FRAME_SIZE)) {
+
+			LogError("XbeeTxRxHandleOutgoingR3tpCom: Send failed");
+			status = EXbeeTxRxRet_Error;
+
+		}
 
 	}
+
+	return status;
 
 }
 
@@ -344,6 +352,13 @@ static EXbeeTxRxRet XbeeTxRxHandleNewSubscription(uint8_t *rxBufTbl) {
 
 	}
 
+	if(EXbeeTxRxRet_Ok == status) {
+
+		/* Send acknowledge message */
+		status = XbeeTxRxSendAcknowledge(R3TP_VER1_VER_BYTE);
+
+	}
+
 	return status;
 
 }
@@ -414,6 +429,13 @@ static EXbeeTxRxRet XbeeTxRxHandleDriverWarning(uint8_t *rxBufTbl,
 			break;
 
 		}
+
+	}
+
+	if(EXbeeTxRxRet_Ok == status) {
+
+		/* Send acknowledge message */
+		status = XbeeTxRxSendAcknowledge(R3TP_VER2_VER_BYTE);
 
 	}
 
@@ -608,6 +630,54 @@ static EXbeeTxRxRet XbeeTxRxSendSubscriptionToSdioGtkp(uint32_t ids[],
 
 		/* Notify SDIO gatekeeper */
 		(void) xTaskNotify(sdioGtkpHandle, count, eSetValueWithOverwrite);
+
+	}
+
+	return status;
+
+}
+
+/**
+ * @brief Send an acknowledge message confirming reception of an R3TP message
+ * @param msgId VER byte of the message being acknowledged
+ * @retval EXbeeTxRxRet Status
+ */
+static EXbeeTxRxRet XbeeTxRxSendAcknowledge(uint8_t msgId) {
+
+	EXbeeTxRxRet status = EXbeeTxRxRet_Ok;
+
+	uint8_t txBufTbl[R3TP_VER3_FRAME_SIZE];
+	/* Clear the buffer */
+	(void) memset(txBufTbl, 0, R3TP_VER3_FRAME_SIZE);
+
+	/* Set VER and RES/SEQ field */
+	txBufTbl[0] = R3TP_VER3_VER_BYTE;
+
+	static uint8_t seqNum = 0;
+	/* Set the SEQ NUM field */
+	txBufTbl[1] = seqNum;
+	/* Increment the sequence number */
+	seqNum = (seqNum < 255U) ? seqNum + 1U : 0;
+
+	/* Set the END SEQ field */
+	txBufTbl[R3TP_VER3_FRAME_SIZE - 2U] = R3TP_END_SEQ_LOW_BYTE;
+	txBufTbl[R3TP_VER3_FRAME_SIZE - 1U] = R3TP_END_SEQ_HIGH_BYTE;
+
+	/* Set the MSG ID field */
+	txBufTbl[4] = msgId;
+
+	/* Calculate the CRC */
+	uint16_t calculatedCrc = GetR3tpCrc(txBufTbl, R3TP_VER3_FRAME_SIZE);
+
+	/* Set the CHECKSUM field - note that the CRC is transmitted as little endian */
+	txBufTbl[2] = _getbyte(calculatedCrc, 0);
+	txBufTbl[3] = _getbyte(calculatedCrc, 1);
+
+	/* Transmit the frame */
+	if(EXbeeProApiRet_Ok != XbeeProApiSendPayload(txBufTbl, R3TP_VER3_FRAME_SIZE)) {
+
+		LogError("XbeeTxRxSendAcknowledge: Send failed");
+		status = EXbeeTxRxRet_Error;
 
 	}
 

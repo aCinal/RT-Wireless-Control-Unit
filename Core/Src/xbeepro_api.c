@@ -40,7 +40,7 @@ EXbeeProApiRet XbeeProApiSetGuardTimes(uint16_t gt) {
 	XBEEPROAPI_DELAY(gGuardTimes);
 
 	/* Enter command mode */
-	if (EXbeeProLldRet_Ok != XbeeProLld_EnterCommandMode()) {
+	if (EXbeeProLldRet_Ok != XbeeProLldEnterCommandMode()) {
 
 		status = EXbeeProApiRet_Error;
 
@@ -55,7 +55,18 @@ EXbeeProApiRet XbeeProApiSetGuardTimes(uint16_t gt) {
 		char SET_GT[] = "ATGT0000\r";
 		(void) sprintf(&(SET_GT[4]), "%04X\r", gt);
 		/* Send command */
-		if (EXbeeProLldRet_Ok != XbeeProLld_SendCommand(SET_GT)) {
+		if (EXbeeProLldRet_Ok != XbeeProLldSendCommand(SET_GT)) {
+
+			status = EXbeeProApiRet_Error;
+
+		}
+
+	}
+
+	if (EXbeeProApiRet_Ok == status) {
+
+		/* Apply changes */
+		if(EXbeeProLldRet_Ok != XbeeProLldApplyChanges()) {
 
 			status = EXbeeProApiRet_Error;
 
@@ -73,7 +84,7 @@ EXbeeProApiRet XbeeProApiSetGuardTimes(uint16_t gt) {
 	if (EXbeeProApiRet_Ok == status) {
 
 		/* Exit command mode */
-		if (EXbeeProLldRet_Ok != XbeeProLld_ExitCommandMode()) {
+		if (EXbeeProLldRet_Ok != XbeeProLldExitCommandMode()) {
 
 			status = EXbeeProApiRet_Error;
 
@@ -107,7 +118,7 @@ EXbeeProApiRet XbeeProApiReadRssi(uint8_t *rssiPtr) {
 		XBEEPROAPI_DELAY(gGuardTimes);
 
 		/* Enter command mode */
-		if (EXbeeProLldRet_Ok != XbeeProLld_EnterCommandMode()) {
+		if (EXbeeProLldRet_Ok != XbeeProLldEnterCommandMode()) {
 
 			status = EXbeeProApiRet_Error;
 
@@ -121,7 +132,7 @@ EXbeeProApiRet XbeeProApiReadRssi(uint8_t *rssiPtr) {
 		XBEEPROAPI_DELAY(gGuardTimes);
 
 		/* Send command */
-		if (EXbeeProLldRet_Ok != XbeeProLld_SendCommand("ATDB\r")) {
+		if (EXbeeProLldRet_Ok != XbeeProLldSendCommand("ATDB\r")) {
 
 			status = EXbeeProApiRet_Error;
 
@@ -132,7 +143,7 @@ EXbeeProApiRet XbeeProApiReadRssi(uint8_t *rssiPtr) {
 	if (EXbeeProApiRet_Ok == status) {
 
 		/* Receive RSSI */
-		if (EXbeeProLldRet_Ok != XbeeProLld_Receive(rssiPtr, 1)) {
+		if (EXbeeProLldRet_Ok != XbeeProLldReceive(rssiPtr, 1)) {
 
 			status = EXbeeProApiRet_Error;
 
@@ -143,7 +154,7 @@ EXbeeProApiRet XbeeProApiReadRssi(uint8_t *rssiPtr) {
 	if (EXbeeProApiRet_Ok == status) {
 
 		/* Exit command mode */
-		if (EXbeeProLldRet_Ok != XbeeProLld_ExitCommandMode()) {
+		if (EXbeeProLldRet_Ok != XbeeProLldExitCommandMode()) {
 
 			status = EXbeeProApiRet_Error;
 
@@ -175,7 +186,7 @@ EXbeeProApiRet XbeeProApiSendPayload(uint8_t* payloadPtr, uint32_t numOfBytes) {
 	if(EXbeeProApiRet_Ok == status) {
 
 		/* Transmit the payload */
-		if(EXbeeProLldRet_Ok != XbeeProLld_Transmit(payloadPtr, numOfBytes)) {
+		if(EXbeeProLldRet_Ok != XbeeProLldTransmit(payloadPtr, numOfBytes)) {
 
 			status = EXbeeProApiRet_Error;
 

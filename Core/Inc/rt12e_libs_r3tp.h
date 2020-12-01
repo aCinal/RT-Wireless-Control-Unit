@@ -24,6 +24,10 @@
 #define R3TP_GREEN_WARNING_BYTE   ( (uint8_t) 0x00 )          /* R3TP VER 2 green warning byte */
 #define R3TP_RED_WARNING_BYTE     ( (uint8_t) 0x01 )          /* R3TP VER 2 red warning byte */
 
+/* VER 3 defines - acknowledge message */
+#define R3TP_VER3_VER_BYTE        ( (uint8_t) 0x03 )          /* VER 3 protocol version byte */
+#define R3TP_VER3_FRAME_SIZE      ( (uint32_t) 8 )            /* R3TP version 3 frame size in bytes */
+
 /* Common defines */
 #define R3TP_END_SEQ_LOW_BYTE     ( (uint8_t) 0xDE )          /* R3TP end sequence low byte */
 #define R3TP_END_SEQ_HIGH_BYTE    ( (uint8_t) 0xED )          /* R3TP end sequence high byte */
