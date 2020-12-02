@@ -24,7 +24,7 @@
 #define TELEMETRY_STATE_BIT     ( (uint8_t) 0x80 )                        /* Telemetry_State bit of the TELEMETRY_DIAG CAN frame */
 #define TELEMETRY_WARNING_BIT   ( (uint8_t) 0x40 )                        /* Telemetry_Warning bit of the TELEMETRY_DIAG CAN frame */
 #define TELEMETRY_PIT_BIT       ( (uint8_t) 0x20 )                        /* Telemetry_Pit bit of the TELEMETRY_DIAG CAN frame */
-#define XBEE_GUARD_TIMES        ( (uint16_t) 0x03E8 )                     /* Desired value of the Guard Times parameter */
+#define XBEE_GUARD_TIMES        ( (uint16_t) 0x0032 )                     /* Desired value of the Guard Times parameter */
 #define XBEE_UART_HANDLE        (huart4)                                  /* UART handle alias */
 #define XBEE_UART_INSTANCE      (UART4)                                   /* UART instance alias */
 
@@ -52,7 +52,7 @@ static EXbeeTxRxRet XbeeTxRxHandleDriverWarning(uint8_t rxBufTbl[],
 		STelemetryDiagnostics *diagPtr);
 static void XbeeTxRxSendDiagnostics(STelemetryDiagnostics *diagPtr);
 static void XbeeTxRxUpdateWarnings(STelemetryDiagnostics *diagPtr);
-static EXbeeTxRxRet XbeeTxRxReadRssi(uint8_t *rssiPtr);
+static EXbeeTxRxRet XbeeTxRxGetRssi(uint8_t *rssiPtr);
 static EXbeeTxRxRet XbeeTxRxSendSubscriptionToCanGtkp(uint32_t ids[],
 		size_t count);
 static EXbeeTxRxRet XbeeTxRxSendSubscriptionToSdioGtkp(uint32_t ids[],
@@ -66,6 +66,7 @@ static EXbeeTxRxRet XbeeTxRxSendAcknowledge(uint8_t msgId);
 EXbeeTxRxRet XbeeTxRxDeviceConfig(void) {
 
 	EXbeeTxRxRet status = EXbeeTxRxRet_Ok;
+
 	/* Set the RESET pin high */
 	SET_PIN(XBEE_RESET);
 
@@ -146,8 +147,6 @@ EXbeeTxRxRet XbeeTxRxHandleInternalMail(void) {
 
 			default:
 
-				LogError(
-						"XbeeTxRxHandleInternalMail: Unknown protocol version");
 				status = EXbeeTxRxRet_Error;
 				break;
 
@@ -156,7 +155,7 @@ EXbeeTxRxRet XbeeTxRxHandleInternalMail(void) {
 			if (EXbeeTxRxRet_Ok == status) {
 
 				/* Poll the device for the RSSI value */
-				status = XbeeTxRxReadRssi(&diagnostics.rssi);
+				status = XbeeTxRxGetRssi(&diagnostics.rssi);
 
 			}
 			break;
@@ -232,7 +231,8 @@ EXbeeTxRxRet XbeeTxRxHandleOutgoingR3tpCom(void) {
 		txBufTbl[3] = _getbyte(calculatedCrc, 1);
 
 		/* Transmit the frame */
-		if(EXbeeProApiRet_Ok != XbeeProApiSendPayload(txBufTbl, R3TP_VER0_FRAME_SIZE)) {
+		if (EXbeeProApiRet_Ok
+				!= XbeeProApiSendPayload(txBufTbl, R3TP_VER0_FRAME_SIZE)) {
 
 			LogError("XbeeTxRxHandleOutgoingR3tpCom: Send failed");
 			status = EXbeeTxRxRet_Error;
@@ -295,10 +295,7 @@ static EXbeeTxRxRet XbeeTxRxHandleNewSubscription(uint8_t *rxBufTbl) {
 	if (EXbeeTxRxRet_Ok == status) {
 
 		/* Validate the END SEQ field */
-		if ((R3TP_END_SEQ_LOW_BYTE
-				!= rxBufTbl[R3TP_VER1_MESSAGE_LENGTH(frNum) - 2U])
-				|| (R3TP_END_SEQ_HIGH_BYTE
-						!= rxBufTbl[R3TP_VER1_MESSAGE_LENGTH(frNum) - 1U])) {
+		if (!R3TP_VALID_END_SEQ(rxBufTbl, R3TP_VER1_MESSAGE_LENGTH(frNum))) {
 
 			LogError("XbeeTxRxHandleNewSubscription: Invalid end sequence");
 			status = EXbeeTxRxRet_Error;
@@ -309,12 +306,12 @@ static EXbeeTxRxRet XbeeTxRxHandleNewSubscription(uint8_t *rxBufTbl) {
 
 	if (EXbeeTxRxRet_Ok == status) {
 
-		/* Read the CHECKSUM field - note that the CRC is transmitted as little endian */
-		uint16_t readCrc = _reinterpret16bits(rxBufTbl[3], rxBufTbl[2]);
+		/* Read the CHECKSUM field */
+		uint16_t readCrc = R3TP_READ_CRC(rxBufTbl);
 
 		/* Clear the CHECKSUM field */
-		rxBufTbl[2] = 0x00U;
-		rxBufTbl[3] = 0x00U;
+		rxBufTbl[2] = 0x00;
+		rxBufTbl[3] = 0x00;
 
 		/* Calculate the CRC */
 		uint16_t calculatedCrc = GetR3tpCrc(rxBufTbl,
@@ -352,7 +349,7 @@ static EXbeeTxRxRet XbeeTxRxHandleNewSubscription(uint8_t *rxBufTbl) {
 
 	}
 
-	if(EXbeeTxRxRet_Ok == status) {
+	if (EXbeeTxRxRet_Ok == status) {
 
 		/* Send acknowledge message */
 		status = XbeeTxRxSendAcknowledge(R3TP_VER1_VER_BYTE);
@@ -385,8 +382,8 @@ static EXbeeTxRxRet XbeeTxRxHandleDriverWarning(uint8_t *rxBufTbl,
 
 	if (EXbeeTxRxRet_Ok == status) {
 
-		/* Read the CHECKSUM field - note that the CRC is transmitted as little endian */
-		uint16_t readCrc = _reinterpret16bits(rxBufTbl[3], rxBufTbl[2]);
+		/* Read the CHECKSUM field */
+		uint16_t readCrc = R3TP_READ_CRC(rxBufTbl);
 
 		/* Clear the CHECKSUM field */
 		rxBufTbl[2] = 0x00;
@@ -414,14 +411,14 @@ static EXbeeTxRxRet XbeeTxRxHandleDriverWarning(uint8_t *rxBufTbl,
 
 			/* Set the green warning duration */
 			diagPtr->greenWarningDuration = rxBufTbl[5];
-			LogDebug("XbeeTxRxHandleDriverWarning: Green warning set");
+			LogInfo("XbeeTxRxHandleDriverWarning: Green warning set");
 			break;
 
 		case R3TP_RED_WARNING_BYTE:
 
 			/* Set the red warning duration */
 			diagPtr->redWarningDuration = rxBufTbl[5];
-			LogDebug("XbeeTxRxHandleDriverWarning: Red warning set");
+			LogInfo("XbeeTxRxHandleDriverWarning: Red warning set");
 			break;
 
 		default:
@@ -432,7 +429,7 @@ static EXbeeTxRxRet XbeeTxRxHandleDriverWarning(uint8_t *rxBufTbl,
 
 	}
 
-	if(EXbeeTxRxRet_Ok == status) {
+	if (EXbeeTxRxRet_Ok == status) {
 
 		/* Send acknowledge message */
 		status = XbeeTxRxSendAcknowledge(R3TP_VER2_VER_BYTE);
@@ -448,14 +445,14 @@ static EXbeeTxRxRet XbeeTxRxHandleDriverWarning(uint8_t *rxBufTbl,
  * @param rssiPtr Pointer to pass the received value out of the function
  * @retval EXbeeTxRxRet Status
  */
-static EXbeeTxRxRet XbeeTxRxReadRssi(uint8_t *rssiPtr) {
+static EXbeeTxRxRet XbeeTxRxGetRssi(uint8_t *rssiPtr) {
 
 	EXbeeTxRxRet status = EXbeeTxRxRet_Ok;
 
 	/* Stop data transfer to the ring buffer */
 	if (EUartRingBufRet_Ok != UartRingBufStop(&gXbeeTxRxRingBuffer)) {
 
-		LogError("XbeeTxRxReadRssi: Ring buffer stop failed");
+		LogError("XbeeTxRxGetRssi: Ring buffer stop failed");
 		status = EXbeeTxRxRet_Error;
 
 	}
@@ -463,9 +460,9 @@ static EXbeeTxRxRet XbeeTxRxReadRssi(uint8_t *rssiPtr) {
 	if (EXbeeTxRxRet_Ok == status) {
 
 		/* Read RSSI */
-		if (EXbeeProApiRet_Ok != XbeeProApiReadRssi(rssiPtr)) {
+		if (EXbeeProApiRet_Ok != XbeeProApiGetRssi(rssiPtr)) {
 
-			LogError("XbeeTxRxReadRssi: Read RSSI failed");
+			LogError("XbeeTxRxGetRssi: RSSI read failed");
 			status = EXbeeTxRxRet_Error;
 
 		}
@@ -475,7 +472,7 @@ static EXbeeTxRxRet XbeeTxRxReadRssi(uint8_t *rssiPtr) {
 	/* Resume data transfer to the ring buffer */
 	if (EUartRingBufRet_Ok != UartRingBufStart(&gXbeeTxRxRingBuffer)) {
 
-		LogError("XbeeTxRxReadRssi: Ring buffer resume failed");
+		LogError("XbeeTxRxGetRssi: Ring buffer resume failed");
 		status = EXbeeTxRxRet_Error;
 
 	}
@@ -532,7 +529,6 @@ static void XbeeTxRxSendDiagnostics(STelemetryDiagnostics *diagPtr) {
 
 	/* Transmit the frame */
 	SendToCan(&canFrame);
-	LogDebug("XbeeTxRxSendDiagnostics: Sending diagnostics");
 
 }
 
@@ -674,7 +670,8 @@ static EXbeeTxRxRet XbeeTxRxSendAcknowledge(uint8_t msgId) {
 	txBufTbl[3] = _getbyte(calculatedCrc, 1);
 
 	/* Transmit the frame */
-	if(EXbeeProApiRet_Ok != XbeeProApiSendPayload(txBufTbl, R3TP_VER3_FRAME_SIZE)) {
+	if (EXbeeProApiRet_Ok
+			!= XbeeProApiSendPayload(txBufTbl, R3TP_VER3_FRAME_SIZE)) {
 
 		LogError("XbeeTxRxSendAcknowledge: Send failed");
 		status = EXbeeTxRxRet_Error;

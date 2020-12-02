@@ -20,10 +20,12 @@ typedef enum EXbeeProApiRet {
 } EXbeeProApiRet;
 
 /**
- * @brief Return the local value of the XBee-PRO Guard Times parameter
- * @retval uint16_t Local value of the guard time
+ * @brief Transmit payload to be transmitted by XBee-PRO to the device
+ * @param payloadPtr Payload buffer
+ * @param numOfBytes Size of the payload buffer in bytes
+ * @retval EXbeeProApiRet Status
  */
-uint16_t XbeeProApiReadLocalGuardTime(void);
+EXbeeProApiRet XbeeProApiSendPayload(uint8_t* payloadPtr, uint32_t numOfBytes);
 
 /**
  * @brief Set the Guard Times parameter of the XBee-PRO device
@@ -37,14 +39,12 @@ EXbeeProApiRet XbeeProApiSetGuardTimes(uint16_t gt);
  * @param rssiPtr Pointer to pass the received value out of the function
  * @retval EXbeeProApiRet Status
  */
-EXbeeProApiRet XbeeProApiReadRssi(uint8_t* rssiPtr);
+EXbeeProApiRet XbeeProApiGetRssi(uint8_t* rssiPtr);
 
 /**
- * @brief Transmit payload to be transmitted by XBee-PRO to the device
- * @param payloadPtr Payload buffer
- * @param numOfBytes Size of the payload buffer in bytes
+ * @brief Apply changes made to the XBee-PRO configuration registers
  * @retval EXbeeProApiRet Status
  */
-EXbeeProApiRet XbeeProApiSendPayload(uint8_t* payloadPtr, uint32_t numOfBytes);
+EXbeeProApiRet XbeeProApiApplyChanges(void);
 
 #endif /* __XBEEPRO_API_H */

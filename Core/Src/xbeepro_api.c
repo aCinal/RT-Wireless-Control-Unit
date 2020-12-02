@@ -10,20 +10,50 @@
 #include "xbeepro_config.h"
 
 #include "cmsis_os.h"
+#include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
-#define XBEEPROAPI_DELAY(millisec)  vTaskDelay( pdMS_TO_TICKS(millisec) )  /* Delay macro */
-#define XBEEPRO_GT_DEFAULT          ( (uint16_t) 0x03E8 )                  /* XBEE Pro Guard Times default value */
+#define XBEEPROAPI_DELAY(millisec)    vTaskDelay( pdMS_TO_TICKS(millisec) )  /* Delay macro */
+#define XBEEPROAPI_WAIT_GUARD_TIME()  ( XBEEPROAPI_DELAY(gGuardTimes ))      /* Wait the guard time */
+#define XBEEPRO_GT_DEFAULT            ( (uint16_t) 0x03E8 )                  /* XBEE Pro Guard Times default value */
 
 static uint16_t gGuardTimes = XBEEPRO_GT_DEFAULT;
 
-/**
- * @brief Return the local value of the XBee-PRO Guard Times parameter
- * @retval uint16_t Local value of the guard time
- */
-uint16_t XbeeProApiReadLocalGuardTime(void) {
+static EXbeeProApiRet XbeeProApiSendCommand(const char *command);
+static EXbeeProApiRet XbeeProApiEnterCommandMode(void);
+static EXbeeProApiRet XbeeProApiExitCommandMode(void);
+static EXbeeProApiRet XbeeProApiWaitForResponse(void);
 
-	return gGuardTimes;
+/**
+ * @brief Transmit payload to be transmitted by XBee-PRO to the device
+ * @param payloadPtr Payload buffer
+ * @param numOfBytes Size of the payload buffer in bytes
+ * @retval EXbeeProLldRet Status
+ */
+EXbeeProApiRet XbeeProApiSendPayload(uint8_t *payloadPtr, uint32_t numOfBytes) {
+
+	EXbeeProApiRet status = EXbeeProApiRet_Ok;
+
+	/* Assert valid parameters */
+	if (( NULL == payloadPtr) || (0 == numOfBytes)) {
+
+		status = EXbeeProApiRet_InvalidParams;
+
+	}
+
+	if (EXbeeProApiRet_Ok == status) {
+
+		/* Transmit the payload */
+		if (EXbeeProLldRet_Ok != XbeeProLldTransmit(payloadPtr, numOfBytes)) {
+
+			status = EXbeeProApiRet_Error;
+
+		}
+
+	}
+
+	return status;
 
 }
 
@@ -36,41 +66,37 @@ EXbeeProApiRet XbeeProApiSetGuardTimes(uint16_t gt) {
 
 	EXbeeProApiRet status = EXbeeProApiRet_Ok;
 
-	/* Wait the current guard time */
-	XBEEPROAPI_DELAY(gGuardTimes);
-
 	/* Enter command mode */
-	if (EXbeeProLldRet_Ok != XbeeProLldEnterCommandMode()) {
+	status = XbeeProApiEnterCommandMode();
 
-		status = EXbeeProApiRet_Error;
+	if (EXbeeProApiRet_Ok == status) {
+
+		/* Wait for OK response */
+		status = XbeeProApiWaitForResponse();
 
 	}
 
 	if (EXbeeProApiRet_Ok == status) {
 
-		/* Wait the current guard time */
-		XBEEPROAPI_DELAY(gGuardTimes);
-
 		/* Print the parameter value to the command string */
 		char SET_GT[] = "ATGT0000\r";
 		(void) sprintf(&(SET_GT[4]), "%04X\r", gt);
 		/* Send command */
-		if (EXbeeProLldRet_Ok != XbeeProLldSendCommand(SET_GT)) {
-
-			status = EXbeeProApiRet_Error;
-
-		}
+		status = XbeeProApiSendCommand(SET_GT);
 
 	}
 
 	if (EXbeeProApiRet_Ok == status) {
 
 		/* Apply changes */
-		if(EXbeeProLldRet_Ok != XbeeProLldApplyChanges()) {
+		status = XbeeProApiApplyChanges();
 
-			status = EXbeeProApiRet_Error;
+	}
 
-		}
+	if (EXbeeProApiRet_Ok == status) {
+
+		/* Wait for OK response */
+		status = XbeeProApiWaitForResponse();
 
 	}
 
@@ -84,11 +110,14 @@ EXbeeProApiRet XbeeProApiSetGuardTimes(uint16_t gt) {
 	if (EXbeeProApiRet_Ok == status) {
 
 		/* Exit command mode */
-		if (EXbeeProLldRet_Ok != XbeeProLldExitCommandMode()) {
+		status = XbeeProApiExitCommandMode();
 
-			status = EXbeeProApiRet_Error;
+	}
 
-		}
+	if (EXbeeProApiRet_Ok == status) {
+
+		/* Wait for OK response */
+		status = XbeeProApiWaitForResponse();
 
 	}
 
@@ -101,9 +130,10 @@ EXbeeProApiRet XbeeProApiSetGuardTimes(uint16_t gt) {
  * @param rssiPtr Pointer to pass the received value out of the function
  * @retval EXbeeProApiRet Status
  */
-EXbeeProApiRet XbeeProApiReadRssi(uint8_t *rssiPtr) {
+EXbeeProApiRet XbeeProApiGetRssi(uint8_t *rssiPtr) {
 
 	EXbeeProApiRet status = EXbeeProApiRet_Ok;
+	char respMsg[3] = { };
 
 	/* Assert valid parameters */
 	if (NULL == rssiPtr) {
@@ -114,51 +144,50 @@ EXbeeProApiRet XbeeProApiReadRssi(uint8_t *rssiPtr) {
 
 	if (EXbeeProApiRet_Ok == status) {
 
-		/* Wait the guard time */
-		XBEEPROAPI_DELAY(gGuardTimes);
-
 		/* Enter command mode */
-		if (EXbeeProLldRet_Ok != XbeeProLldEnterCommandMode()) {
-
-			status = EXbeeProApiRet_Error;
-
-		}
+		status = XbeeProApiEnterCommandMode();
 
 	}
 
 	if (EXbeeProApiRet_Ok == status) {
 
-		/* Wait the guard time */
-		XBEEPROAPI_DELAY(gGuardTimes);
+		/* Wait for OK response */
+		status = XbeeProApiWaitForResponse();
+
+	}
+
+	if (EXbeeProApiRet_Ok == status) {
 
 		/* Send command */
-		if (EXbeeProLldRet_Ok != XbeeProLldSendCommand("ATDB\r")) {
-
-			status = EXbeeProApiRet_Error;
-
-		}
+		status = XbeeProApiSendCommand("ATDB\r");
 
 	}
 
 	if (EXbeeProApiRet_Ok == status) {
 
 		/* Receive RSSI */
-		if (EXbeeProLldRet_Ok != XbeeProLldReceive(rssiPtr, 1)) {
-
-			status = EXbeeProApiRet_Error;
-
-		}
+		status = XbeeProLldReceive(respMsg, sizeof(respMsg));
 
 	}
 
 	if (EXbeeProApiRet_Ok == status) {
 
 		/* Exit command mode */
-		if (EXbeeProLldRet_Ok != XbeeProLldExitCommandMode()) {
+		status = XbeeProApiExitCommandMode();
 
-			status = EXbeeProApiRet_Error;
+	}
 
-		}
+	if (EXbeeProApiRet_Ok == status) {
+
+		/* Wait for OK response */
+		status = XbeeProApiWaitForResponse();
+
+	}
+
+	if (EXbeeProApiRet_Ok == status) {
+
+		/* On success parse the response message and pass the parsed value out of the function */
+		*rssiPtr = strtoul(respMsg, NULL, 16);
 
 	}
 
@@ -167,30 +196,76 @@ EXbeeProApiRet XbeeProApiReadRssi(uint8_t *rssiPtr) {
 }
 
 /**
- * @brief Transmit payload to be transmitted by XBee-PRO to the device
- * @param payloadPtr Payload buffer
- * @param numOfBytes Size of the payload buffer in bytes
- * @retval EXbeeProLldRet Status
+ * @brief Apply changes made to the XBee-PRO configuration registers
+ * @retval EXbeeProApiRet Status
  */
-EXbeeProApiRet XbeeProApiSendPayload(uint8_t* payloadPtr, uint32_t numOfBytes) {
+EXbeeProApiRet XbeeProApiApplyChanges(void) {
+
+	return XbeeProApiSendCommand("ATAC\r");
+
+}
+
+/**
+ * @brief Transmit a command to the XBee-PRO device in command mode
+ * @param commandStr Command string
+ * @retval EXbeeProApiRet Status
+ */
+static EXbeeProApiRet XbeeProApiSendCommand(const char *commandStr) {
 
 	EXbeeProApiRet status = EXbeeProApiRet_Ok;
 
-	/* Assert valid parameters */
-	if( ( NULL == payloadPtr ) || ( 0 == numOfBytes ) ) {
+	/* Send command */
+	if (EXbeeProLldRet_Ok
+			!= XbeeProLldTransmit((uint8_t*) commandStr, strlen(commandStr))) {
 
-		status = EXbeeProApiRet_InvalidParams;
+		status = EXbeeProApiRet_Error;
 
 	}
 
-	if(EXbeeProApiRet_Ok == status) {
+	return status;
 
-		/* Transmit the payload */
-		if(EXbeeProLldRet_Ok != XbeeProLldTransmit(payloadPtr, numOfBytes)) {
+}
 
-			status = EXbeeProApiRet_Error;
+/**
+ * @brief Enter command mode
+ * @retval EXbeeProApiRet Status
+ */
+static EXbeeProApiRet XbeeProApiEnterCommandMode(void) {
 
-		}
+	/* Observe the guard times before and after the command sequence */
+	XBEEPROAPI_WAIT_GUARD_TIME();
+
+	/* Send the command sequence */
+	EXbeeProApiRet status = XbeeProApiSendCommand("+++");
+
+	XBEEPROAPI_WAIT_GUARD_TIME();
+
+	return status;
+
+}
+
+/**
+ * @brief Exit command mode
+ * @retval EXbeeProApiRet Status
+ */
+static EXbeeProApiRet XbeeProApiExitCommandMode(void) {
+
+	return XbeeProApiSendCommand("ATCN\r");
+
+}
+
+/**
+ * @brief Wait for an OK response from the XBee-PRO device
+ * @retval EXbeeProApiRet Status
+ */
+static EXbeeProApiRet XbeeProApiWaitForResponse(void) {
+
+	EXbeeProApiRet status = EXbeeProApiRet_Ok;
+
+	char dummy;
+	if (EXbeeProLldRet_Ok != XbeeProLldReceive(&dummy, 1)) {
+
+		status = EXbeeProApiRet_Error;
 
 	}
 

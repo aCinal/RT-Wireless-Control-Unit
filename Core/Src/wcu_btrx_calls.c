@@ -60,7 +60,7 @@ EBtRxRet BtRxHandleCom(void) {
 		UartRingBufRead(&gBtRxRingBuffer, rxBufTbl, R3TP_VER0_FRAME_SIZE);
 
 		/* Validate protocol version */
-		if (R3TP_VER0_VER_BYTE != rxBufTbl[0]) {
+		if (R3TP_VER0_VER_BYTE == rxBufTbl[0]) {
 
 			LogError("BtRxHandleCom: Unknown protocol version");
 			status = EBtRxRet_Error;
@@ -70,9 +70,7 @@ EBtRxRet BtRxHandleCom(void) {
 		if (EBtRxRet_Ok == status) {
 
 			/* Validate end sequence */
-			if ((R3TP_END_SEQ_LOW_BYTE != rxBufTbl[R3TP_VER0_FRAME_SIZE - 2U])
-					|| (R3TP_END_SEQ_HIGH_BYTE
-							!= rxBufTbl[R3TP_VER0_FRAME_SIZE - 1U])) {
+			if (!R3TP_VALID_END_SEQ(rxBufTbl, R3TP_VER0_FRAME_SIZE)) {
 
 				LogError("BtRxHandleCom: Invalid end sequence");
 				status = EBtRxRet_Error;
@@ -83,8 +81,8 @@ EBtRxRet BtRxHandleCom(void) {
 
 		if (EBtRxRet_Ok == status) {
 
-			/* Read the checksum - note that the checksum is transmitted as little endian */
-			uint16_t readCrc = _reinterpret16bits(rxBufTbl[3], rxBufTbl[2]);
+			/* Read the checksum */
+			uint16_t readCrc = R3TP_READ_CRC(rxBufTbl);
 
 			/* Clear the checksum field */
 			rxBufTbl[2] = 0x00U;

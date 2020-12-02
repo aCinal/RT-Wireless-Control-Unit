@@ -8,9 +8,6 @@
 
 #include "xbeepro_config.h"
 
-#include <stdint.h>
-
-#define STATIC_STRLEN(str)       ( (uint32_t)( ( sizeof(str) / sizeof(str[0]) ) - 1U ) )
 #define XBEEPROLLD_UART_TIMEOUT  ( (uint32_t) 500 )
 
 /**
@@ -23,82 +20,7 @@ EXbeeProLldRet XbeeProLldTransmit(uint8_t *bufPtr, size_t numOfBytes) {
 
 	EXbeeProLldRet status = EXbeeProLldRet_Ok;
 
-	if (HAL_OK
-			!= HAL_UART_Transmit(&XBEEPRO_UART_HANDLE, bufPtr, numOfBytes,
-					XBEEPROLLD_UART_TIMEOUT)) {
-
-		status = EXbeeProLldRet_Error;
-
-	}
-
-	return status;
-
-}
-
-/**
- * @brief Transmit a command to the XBee-PRO device in command mode
- * @param command Command string
- * @retval EXbeeProLldRet Status
- */
-EXbeeProLldRet XbeeProLldSendCommand(const char *command) {
-
-	EXbeeProLldRet status = EXbeeProLldRet_Ok;
-
-	/* Send command */
-	if (HAL_OK
-			!= HAL_UART_Transmit(&XBEEPRO_UART_HANDLE, (uint8_t*) command,
-					STATIC_STRLEN(command), XBEEPROLLD_UART_TIMEOUT)) {
-
-		status = EXbeeProLldRet_Error;
-
-	}
-
-	return status;
-
-}
-
-/**
- * @brief Enter command mode
- * @retval EXbeeProLldRet Status
- */
-EXbeeProLldRet XbeeProLldEnterCommandMode(void) {
-
-	return XbeeProLldSendCommand("+++");
-
-}
-
-/**
- * @brief Exit command mode
- * @retval EXbeeProLldRet Status
- */
-EXbeeProLldRet XbeeProLldExitCommandMode(void) {
-
-	return XbeeProLldSendCommand("ATCN\r");
-
-}
-
-/**
- * @brief Apply changes to the configuration command registers
- * @retval EXbeeProLldRet Status
- */
-EXbeeProLldRet XbeeProLldApplyChanges(void) {
-
-	return XbeeProLldSendCommand("ATAC\r");
-
-}
-
-/**
- * @brief Receive XBee-PRO register contents
- * @param bufPtr Buffer to pass the register contents out of the function
- * @param numOfBytes Number of bytes to be received
- * @retval EXbeeProLldRet Status
- */
-EXbeeProLldRet XbeeProLldReceive(uint8_t *bufPtr, size_t numOfBytes) {
-
-	EXbeeProLldRet status = EXbeeProLldRet_Ok;
-
-	/* Receive data */
-	if (HAL_OK != HAL_UART_Receive(&XBEEPRO_UART_HANDLE, bufPtr, numOfBytes,
+	if (HAL_OK != HAL_UART_Transmit(&XBEEPRO_UART_HANDLE, bufPtr, numOfBytes,
 	XBEEPROLLD_UART_TIMEOUT)) {
 
 		status = EXbeeProLldRet_Error;
@@ -109,4 +31,26 @@ EXbeeProLldRet XbeeProLldReceive(uint8_t *bufPtr, size_t numOfBytes) {
 
 }
 
+/**
+ * @brief Receive XBee-PRO register contents
+ * @param respMsgPtr Buffer to pass the received response message out of the function
+ * @param numOfBytes Number of bytes to be received
+ * @retval EXbeeProLldRet Status
+ */
+EXbeeProLldRet XbeeProLldReceive(char *respMsgPtr, size_t numOfBytes) {
 
+	EXbeeProLldRet status = EXbeeProLldRet_Ok;
+
+	/* Receive data */
+	if (HAL_OK
+			!= HAL_UART_Receive(&XBEEPRO_UART_HANDLE, (uint8_t*) respMsgPtr,
+					numOfBytes,
+					XBEEPROLLD_UART_TIMEOUT)) {
+
+		status = EXbeeProLldRet_Error;
+
+	}
+
+	return status;
+
+}
