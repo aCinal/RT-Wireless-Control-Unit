@@ -24,7 +24,6 @@
 #define TELEMETRY_STATE_BIT     ( (uint8_t) 0x80 )                        /* Telemetry_State bit of the TELEMETRY_DIAG CAN frame */
 #define TELEMETRY_WARNING_BIT   ( (uint8_t) 0x40 )                        /* Telemetry_Warning bit of the TELEMETRY_DIAG CAN frame */
 #define TELEMETRY_PIT_BIT       ( (uint8_t) 0x20 )                        /* Telemetry_Pit bit of the TELEMETRY_DIAG CAN frame */
-#define XBEE_GUARD_TIMES        ( (uint16_t) 0x0032 )                     /* Desired value of the Guard Times parameter */
 #define XBEE_UART_HANDLE        (huart4)                                  /* UART handle alias */
 #define XBEE_UART_INSTANCE      (UART4)                                   /* UART instance alias */
 
@@ -38,21 +37,19 @@ extern osMessageQId xbeeTxRxInternalMailQueueHandle;
 SUartRingBuf gXbeeTxRxRingBuffer;
 
 /**
- * @brief Telemetry diagnostics structure
+ * @brief Driver warnings structure
  */
-typedef struct STelemetryDiagnostics {
+typedef struct SDriverWarnings {
 	uint8_t greenWarningDuration;
 	uint8_t redWarningDuration;
-	uint8_t rssi;
-} STelemetryDiagnostics;
+} SDriverWarnings;
 
 static void XbeeTxRxRingBufferIdleCallback(void);
 static EXbeeTxRxRet XbeeTxRxHandleNewSubscription(uint8_t rxBufTbl[]);
 static EXbeeTxRxRet XbeeTxRxHandleDriverWarning(uint8_t rxBufTbl[],
-		STelemetryDiagnostics *diagPtr);
-static void XbeeTxRxSendDiagnostics(STelemetryDiagnostics *diagPtr);
-static void XbeeTxRxUpdateWarnings(STelemetryDiagnostics *diagPtr);
-static EXbeeTxRxRet XbeeTxRxGetRssi(uint8_t *rssiPtr);
+		SDriverWarnings *warnPtr);
+static void XbeeTxRxSendDiagnostics(SDriverWarnings *warnPtr);
+static void XbeeTxRxUpdateWarnings(SDriverWarnings *warnPtr);
 static EXbeeTxRxRet XbeeTxRxSendSubscriptionToCanGtkp(uint32_t ids[],
 		size_t count);
 static EXbeeTxRxRet XbeeTxRxSendSubscriptionToSdioGtkp(uint32_t ids[],
@@ -70,21 +67,11 @@ EXbeeTxRxRet XbeeTxRxDeviceConfig(void) {
 	/* Set the RESET pin high */
 	SET_PIN(XBEE_RESET);
 
-	/* Allow the device the time to boot */
-	vTaskDelay(pdMS_TO_TICKS(50));
-
 	/**
 	 * XBee-Pro modules should be configured using XCTU software provided by Digi International.
 	 * The telemetry receiver must be paired with the module on the car - destination address
 	 * of one must correspond to the serial number of the other
 	 */
-
-	/* Set the guard time */
-	if (EXbeeProApiRet_Ok != XbeeProApiSetGuardTimes(XBEE_GUARD_TIMES)) {
-
-		status = EXbeeTxRxRet_Error;
-
-	}
 
 	return status;
 
@@ -122,7 +109,7 @@ EXbeeTxRxRet XbeeTxRxHandleInternalMail(void) {
 	if (pdPASS == xQueueReceive(xbeeTxRxInternalMailQueueHandle, &mail, 0)) {
 
 		static uint8_t rxBufTbl[R3TP_MAX_FRAME_SIZE];
-		static STelemetryDiagnostics diagnostics;
+		static SDriverWarnings warnings;
 
 		switch (mail) {
 
@@ -142,20 +129,14 @@ EXbeeTxRxRet XbeeTxRxHandleInternalMail(void) {
 
 			case R3TP_VER2_VER_BYTE:
 
-				status = XbeeTxRxHandleDriverWarning(rxBufTbl, &diagnostics);
+				status = XbeeTxRxHandleDriverWarning(rxBufTbl, &warnings);
 				break;
 
 			default:
 
 				status = EXbeeTxRxRet_Error;
+				LogError("XbeeTxRxHandleInternalMail: Unexpected VER byte received");
 				break;
-
-			}
-
-			if (EXbeeTxRxRet_Ok == status) {
-
-				/* Poll the device for the RSSI value */
-				status = XbeeTxRxGetRssi(&diagnostics.rssi);
 
 			}
 			break;
@@ -163,9 +144,9 @@ EXbeeTxRxRet XbeeTxRxHandleInternalMail(void) {
 		case EXbeeTxRxInternalMail_PeriodElapsed:
 
 			/* Transmit the diagnostic frame */
-			XbeeTxRxSendDiagnostics(&diagnostics);
-			/* Update the diagnostics structure */
-			XbeeTxRxUpdateWarnings(&diagnostics);
+			XbeeTxRxSendDiagnostics(&warnings);
+			/* Update the warnings structure */
+			XbeeTxRxUpdateWarnings(&warnings);
 			break;
 
 		default:
@@ -330,22 +311,22 @@ static EXbeeTxRxRet XbeeTxRxHandleNewSubscription(uint8_t *rxBufTbl) {
 
 	if (EXbeeTxRxRet_Ok == status) {
 
-		uint32_t subscription[R3TP_VER1_MAX_FRAME_NUM]; /* Buffer for telemetry subscription CAN IDs */
+		uint32_t subscriptionTbl[R3TP_VER1_MAX_FRAME_NUM];
 		/* Read the payload */
 		uint8_t *payload = R3TP_VER1_PAYLOAD(rxBufTbl);
 		for (uint32_t i = 0; i < frNum; i += 1UL) {
 
-			subscription[i] = _reinterpret32bits(payload[3UL + 4UL * i],
+			subscriptionTbl[i] = _reinterpret32bits(payload[3UL + 4UL * i],
 					payload[2UL + 4UL * i], payload[1UL + 4UL * i],
 					payload[4UL * i]);
 
 		}
 
 		/* Forward the subscription to the canGtkp task */
-		status = XbeeTxRxSendSubscriptionToCanGtkp(subscription, frNum);
+		status = XbeeTxRxSendSubscriptionToCanGtkp(subscriptionTbl, frNum);
 
 		/* Forward the subscription to the sdioGtkp task */
-		(void) XbeeTxRxSendSubscriptionToSdioGtkp(subscription, frNum);
+		(void) XbeeTxRxSendSubscriptionToSdioGtkp(subscriptionTbl, frNum);
 
 	}
 
@@ -363,11 +344,11 @@ static EXbeeTxRxRet XbeeTxRxHandleNewSubscription(uint8_t *rxBufTbl) {
 /**
  * @brief Handle the driver warning
  * @param rxBufTbl UART Rx Buffer
- * @param diagPtr Pointer to the diagnostics structure
+ * @param warnPtr Pointer to the diagnostics structure
  * @retval EXbeeTxRxRet Status
  */
 static EXbeeTxRxRet XbeeTxRxHandleDriverWarning(uint8_t *rxBufTbl,
-		STelemetryDiagnostics *diagPtr) {
+		SDriverWarnings *warnPtr) {
 
 	EXbeeTxRxRet status = EXbeeTxRxRet_Ok;
 
@@ -410,14 +391,14 @@ static EXbeeTxRxRet XbeeTxRxHandleDriverWarning(uint8_t *rxBufTbl,
 		case R3TP_GREEN_WARNING_BYTE:
 
 			/* Set the green warning duration */
-			diagPtr->greenWarningDuration = rxBufTbl[5];
+			warnPtr->greenWarningDuration = rxBufTbl[5];
 			LogInfo("XbeeTxRxHandleDriverWarning: Green warning set");
 			break;
 
 		case R3TP_RED_WARNING_BYTE:
 
 			/* Set the red warning duration */
-			diagPtr->redWarningDuration = rxBufTbl[5];
+			warnPtr->redWarningDuration = rxBufTbl[5];
 			LogInfo("XbeeTxRxHandleDriverWarning: Red warning set");
 			break;
 
@@ -441,52 +422,11 @@ static EXbeeTxRxRet XbeeTxRxHandleDriverWarning(uint8_t *rxBufTbl,
 }
 
 /**
- * @brief Poll the XBEE-Pro device for the RSSI value of the last transmission received
- * @param rssiPtr Pointer to pass the received value out of the function
- * @retval EXbeeTxRxRet Status
- */
-static EXbeeTxRxRet XbeeTxRxGetRssi(uint8_t *rssiPtr) {
-
-	EXbeeTxRxRet status = EXbeeTxRxRet_Ok;
-
-	/* Stop data transfer to the ring buffer */
-	if (EUartRingBufRet_Ok != UartRingBufStop(&gXbeeTxRxRingBuffer)) {
-
-		LogError("XbeeTxRxGetRssi: Ring buffer stop failed");
-		status = EXbeeTxRxRet_Error;
-
-	}
-
-	if (EXbeeTxRxRet_Ok == status) {
-
-		/* Read RSSI */
-		if (EXbeeProApiRet_Ok != XbeeProApiGetRssi(rssiPtr)) {
-
-			LogError("XbeeTxRxGetRssi: RSSI read failed");
-			status = EXbeeTxRxRet_Error;
-
-		}
-
-	}
-
-	/* Resume data transfer to the ring buffer */
-	if (EUartRingBufRet_Ok != UartRingBufStart(&gXbeeTxRxRingBuffer)) {
-
-		LogError("XbeeTxRxGetRssi: Ring buffer resume failed");
-		status = EXbeeTxRxRet_Error;
-
-	}
-
-	return status;
-
-}
-
-/**
  * @brief Send the telemetry diagnostic frame to the CAN bus
- * @param diagPtr Pointer to the diagnostics structure
+ * @param warnPtr Pointer to the diagnostics structure
  * @retval None
  */
-static void XbeeTxRxSendDiagnostics(STelemetryDiagnostics *diagPtr) {
+static void XbeeTxRxSendDiagnostics(SDriverWarnings *warnPtr) {
 
 	SCanFrame canFrame;
 	/* Configure the CAN Tx header */
@@ -496,13 +436,13 @@ static void XbeeTxRxSendDiagnostics(STelemetryDiagnostics *diagPtr) {
 	canFrame.TxHeader.StdId = CAN_ID_TELEMETRY_DIAG;
 	canFrame.TxHeader.TransmitGlobalTime = DISABLE;
 
-	/* Write the RSSI to the frame payload */
-	canFrame.PayloadTbl[0] = diagPtr->rssi;
+	/* Write the RSSI to the frame payload - *UNUSED* */
+	canFrame.PayloadTbl[0] = 0x00;
 
 	/* Clear the status flags */
 	canFrame.PayloadTbl[1] = 0x00;
 
-	/* Poll the XBEE_STATUS */
+	/* Poll the XBEE_STATUS pin */
 	if (GPIO_PIN_SET
 			== HAL_GPIO_ReadPin(XBEE_STATUS_GPIO_Port, XBEE_STATUS_Pin)) {
 
@@ -512,7 +452,7 @@ static void XbeeTxRxSendDiagnostics(STelemetryDiagnostics *diagPtr) {
 	}
 
 	/* Test if the green warning is active */
-	if (0U < diagPtr->greenWarningDuration) {
+	if (0U < warnPtr->greenWarningDuration) {
 
 		/* Set the Telemetry_Pit flag */
 		SET_BIT(canFrame.PayloadTbl[1], TELEMETRY_PIT_BIT);
@@ -520,7 +460,7 @@ static void XbeeTxRxSendDiagnostics(STelemetryDiagnostics *diagPtr) {
 	}
 
 	/* Test if the red warning is active */
-	if (0U < diagPtr->redWarningDuration) {
+	if (0U < warnPtr->redWarningDuration) {
 
 		/* Set the Telemetry_Warning flag */
 		SET_BIT(canFrame.PayloadTbl[1], TELEMETRY_WARNING_BIT);
@@ -534,24 +474,36 @@ static void XbeeTxRxSendDiagnostics(STelemetryDiagnostics *diagPtr) {
 
 /**
  * @brief Decrement the warning duration counters and updates the warning active flags
- * @param diagPtr Pointer to the diagnostics structure
+ * @param warnPtr Pointer to the diagnostics structure
  * @retval None
  */
-static void XbeeTxRxUpdateWarnings(STelemetryDiagnostics *diagPtr) {
+static void XbeeTxRxUpdateWarnings(SDriverWarnings *warnPtr) {
 
 	/* Test if the green warning is active */
-	if (0U < diagPtr->greenWarningDuration) {
+	if (0U < warnPtr->greenWarningDuration) {
 
 		/* Decrement the warning duration counter */
-		diagPtr->greenWarningDuration -= 1U;
+		warnPtr->greenWarningDuration -= 1U;
+
+		if(0U == warnPtr->greenWarningDuration) {
+
+			LogInfo("XbeeTxRxUpdateWarnings: Green warning expired");
+
+		}
 
 	}
 
 	/* Test if the red warning is active */
-	if (0U < diagPtr->redWarningDuration) {
+	if (0U < warnPtr->redWarningDuration) {
 
 		/* Decrement the warning duration counter */
-		diagPtr->redWarningDuration -= 1U;
+		warnPtr->redWarningDuration -= 1U;
+
+		if(0U == warnPtr->redWarningDuration) {
+
+			LogInfo("XbeeTxRxUpdateWarnings: Red warning expired");
+
+		}
 
 	}
 
