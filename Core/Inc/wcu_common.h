@@ -30,10 +30,10 @@ typedef enum EWcuLogSeverityLevel {
 #define WCU_COMMON_TIMEOUT         ( (TickType_t) pdMS_TO_TICKS(50) )   /* Common timeout */
 #define WCU_COMMON_TASK_DELAY      ( (TickType_t) pdMS_TO_TICKS(1) )    /* Common task delay */
 
-#define CLEAR_NO_BITS_ON_ENTRY     ( (uint32_t) 0x00000000UL )        /* Value to pass as ulBitsToClearOnEntry to xTaskNotifyWait */
-#define CLEAR_NO_BITS_ON_EXIT      ( (uint32_t) 0x00000000UL )        /* Value to pass as ulBitsToClearOnExit to xTaskNotifyWait */
-#define CLEAR_ALL_BITS_ON_ENTRY    ( (uint32_t) 0xFFFFFFFFUL )        /* Value to pass as ulBitsToClearOnEntry to xTaskNotifyWait */
-#define CLEAR_ALL_BITS_ON_EXIT     ( (uint32_t) 0xFFFFFFFFUL )        /* Value to pass as ulBitsToClearOnExit to xTaskNotifyWait */
+#define CLEAR_NO_BITS_ON_ENTRY     ( (uint32_t) 0x00000000UL )          /* Value to pass as ulBitsToClearOnEntry to xTaskNotifyWait */
+#define CLEAR_NO_BITS_ON_EXIT      ( (uint32_t) 0x00000000UL )          /* Value to pass as ulBitsToClearOnExit to xTaskNotifyWait */
+#define CLEAR_ALL_BITS_ON_ENTRY    ( (uint32_t) 0xFFFFFFFFUL )          /* Value to pass as ulBitsToClearOnEntry to xTaskNotifyWait */
+#define CLEAR_ALL_BITS_ON_EXIT     ( (uint32_t) 0xFFFFFFFFUL )          /* Value to pass as ulBitsToClearOnExit to xTaskNotifyWait */
 
 /* Conditional compilation flags */
 #define RT11

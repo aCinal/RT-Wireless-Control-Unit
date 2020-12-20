@@ -98,13 +98,17 @@ void LogPrint(EWcuLogSeverityLevel severityLevel, const char *messagePayloadTbl)
 
 #else /* #if (REDIRECT_LOGS_TO_SERIAL_PORT) */
 
+		/* Acquire the debug serial port semaphore */
 		DBSERIAL_SEM_WAIT();
 
+		/* Transmit the log entry via the serial port */
 		HAL_UART_Transmit(&DEBUG_UART_HANDLE, (uint8_t*) logEntryPtr,
 				strlen(logEntryPtr), WCU_COMMON_TIMEOUT);
 
+		/* Release the debug serial port semaphore */
 		DBSERIAL_SEM_POST();
 
+		/* Cleanup */
 		vPortFree(logEntryPtr);
 
 #endif /* (REDIRECT_LOGS_TO_SERIAL_PORT) */
@@ -138,14 +142,14 @@ void SendToCan(SCanFrame *canFramePtr) {
  */
 uint16_t GetR3tpCrc(uint8_t *payloadPtr, uint32_t numOfBytes) {
 
-	/* Acquire the semaphore */
+	/* Acquire the CRC semaphore */
 	CRC_SEM_WAIT();
 
 	/* Calculate the CRC */
 	uint32_t crc = HAL_CRC_Calculate(&hcrc, (uint32_t*) payloadPtr,
 			numOfBytes / 4U);
 
-	/* Release the semaphore */
+	/* Release the CRC semaphore */
 	CRC_SEM_POST();
 
 	/* Return the lower 16 bits */

@@ -13,7 +13,6 @@
 
 #include "stm32f4xx_hal.h"
 #include "cmsis_os.h"
-#include <stdio.h>
 #include <string.h>
 #include <math.h>
 
@@ -56,15 +55,17 @@ EGnssRxRet GnssRxDeviceConfig(void) {
 	/* Wait for the device to turn on and set up */
 	vTaskDelay(pdMS_TO_TICKS(1000));
 
+	char PMTK_SET_POS_FIX[] = "$PMTK220,100*00\r\n";
 	/* Send packet 220 PMTK_SET_POS_FIX - set position fix interval to 100 ms */
-	if (EGnssRxRet_Error == GnssRxSendCommand("$PMTK220,100*00\r\n")) {
+	if (EGnssRxRet_Error == GnssRxSendCommand(PMTK_SET_POS_FIX)) {
 
 		status = EGnssRxRet_Error;
 
 	}
 
+	char PMTK_API_SET_GNSS_SEARCH_MODE[] = "$PMTK353,1,1,0,0,0*00\r\n";
 	/* Send packet 353 PMTK_API_SET_GNSS_SEARCH_MODE - configure the receiver to start searching GPS and GLONASS satellites */
-	if (EGnssRxRet_Error == GnssRxSendCommand("$PMTK353,1,1,0,0,0*00\r\n")) {
+	if (EGnssRxRet_Error == GnssRxSendCommand(PMTK_API_SET_GNSS_SEARCH_MODE)) {
 
 		status = EGnssRxRet_Error;
 
@@ -103,6 +104,8 @@ EGnssRxRet GnssRxHandleCom(void) {
 
 	/* Wait for notification from idle line detection callback */
 	if (0UL < ulTaskNotifyTake(pdTRUE, WCU_COMMON_TIMEOUT)) {
+
+		LogDebug("GnssRxHandleCom: Received message");
 
 		static uint8_t rxBufTbl[GNSSRX_READ_BUF_SIZE];
 		/* Read the data from the ring buffer */

@@ -5,7 +5,6 @@
  */
 
 #include <l26_api.h>
-#include <stdio.h>
 #include <string.h>
 
 #define NMEA_PAYLOAD_BEGIN(start)  ( (char*)&( ( (char*)(start) )[7]) )              /* Get the address of the start of the payload */
@@ -14,6 +13,9 @@
 #define NMEA_PARSER_DATAFIELD_BUFSIZE  ( (uint32_t) 11UL )                           /* Sentence parser data field buffer size */
 
 #define UNUSED(x)  ( (void) x )  /* Tell the compiler that a variable is purposefully ignored, i.e. not used */
+
+#define FOURBITSTOHEXCHAR(x) \
+	( (char)( ( ( (x) & (0x0FU) ) < 0x0AU ) ? ( '0' + ( (x) & 0x0FU ) ) : ( 'A' + ( (x) & 0x0FU ) - 0x0AU ) ) )
 
 /**
  * @brief NMEA parser status typedef
@@ -30,43 +32,42 @@ typedef enum EL26ApiNmeaParserRet {
  * @brief --GSV sentence talker ID typedef
  */
 typedef enum EL26ApiGsvTalkerId {
-	EL26ApiGsvTalkerId_GP = 0,
-	EL26ApiGsvTalkerId_GL
+	EL26ApiGsvTalkerId_GP = 0, EL26ApiGsvTalkerId_GL
 } EL26ApiGsvTalkerId;
 
-static uint8_t L26ApiGetNmeaChecksum(const char* message, size_t length);
+static uint8_t L26ApiGetNmeaChecksum(const char *message, size_t length);
 static EL26ApiNmeaParserRet L26ApiParseNmeaSentence(SL26ApiGnssData *dataBufPtr,
 		const char *sentencePtr, size_t length);
 static bool L26ApiIsDataComplete(SL26ApiGnssData *dataPtr);
-static EL26ApiNmeaParserRet L26ApiNmeaParseRmcPayload(SL26ApiGnssData *dataBufPtr,
-		const char *pPayload, size_t length);
-static EL26ApiNmeaParserRet L26ApiNmeaParseVtgPayload(SL26ApiGnssData *dataBufPtr,
-		const char *pPayload, size_t length);
-static EL26ApiNmeaParserRet L26ApiNmeaParseGgaPayload(SL26ApiGnssData *dataBufPtr,
-		const char *pPayload, size_t length);
-static EL26ApiNmeaParserRet L26ApiNmeaParseGsaPayload(SL26ApiGnssData *dataBufPtr,
-		const char *pPayload, size_t length);
-static EL26ApiNmeaParserRet L26ApiNmeaParseGsvPayload(SL26ApiGnssData *dataBufPtr,
-		const char *pPayload, size_t length, EL26ApiGsvTalkerId talkerId);
-static EL26ApiNmeaParserRet L26ApiNmeaParseGllPayload(SL26ApiGnssData *dataBufPtr,
-		const char *pPayload, size_t length);
-static EL26ApiNmeaParserRet L26ApiNmeaParseTxtPayload(SL26ApiGnssData *dataBufPtr,
-		const char *pPayload, size_t length);
+static EL26ApiNmeaParserRet L26ApiNmeaParseRmcPayload(
+		SL26ApiGnssData *dataBufPtr, const char *pPayload, size_t length);
+static EL26ApiNmeaParserRet L26ApiNmeaParseVtgPayload(
+		SL26ApiGnssData *dataBufPtr, const char *pPayload, size_t length);
+static EL26ApiNmeaParserRet L26ApiNmeaParseGgaPayload(
+		SL26ApiGnssData *dataBufPtr, const char *pPayload, size_t length);
+static EL26ApiNmeaParserRet L26ApiNmeaParseGsaPayload(
+		SL26ApiGnssData *dataBufPtr, const char *pPayload, size_t length);
+static EL26ApiNmeaParserRet L26ApiNmeaParseGsvPayload(
+		SL26ApiGnssData *dataBufPtr, const char *pPayload, size_t length,
+		EL26ApiGsvTalkerId talkerId);
+static EL26ApiNmeaParserRet L26ApiNmeaParseGllPayload(
+		SL26ApiGnssData *dataBufPtr, const char *pPayload, size_t length);
+static EL26ApiNmeaParserRet L26ApiNmeaParseTxtPayload(
+		SL26ApiGnssData *dataBufPtr, const char *pPayload, size_t length);
 
 /**
  * @brief Add an NMEA checksum to the sentence string
  * @param message Message string
  * @retval None
  */
-void L26ApiAddNmeaChecksum(char* message) {
+void L26ApiAddNmeaChecksum(char *message) {
 
 	size_t length = strlen(message);
 	/* Calculate the checksum */
 	uint8_t checksum = L26ApiGetNmeaChecksum(message, length);
 	/* Print the checksum to the string */
-	sprintf(&(message[length - 4UL]), "%02X", checksum);
-	/* Restore the <CR> character overwritten by sprintf */
-	message[length - 2UL] = '\r';
+	message[length - 4UL] = FOURBITSTOHEXCHAR((checksum >> 4) & 0x0F);
+	message[length - 3UL] = FOURBITSTOHEXCHAR(checksum & 0x0F);
 
 }
 
@@ -76,8 +77,8 @@ void L26ApiAddNmeaChecksum(char* message) {
  * @param[in] messagePtr Pointer to the message
  * @param[in] length Length of the message
  */
-EL26ApiDataStatus L26ApiParseMessage(SL26ApiGnssData *dataBufPtr, const char *messagePtr,
-		size_t length) {
+EL26ApiDataStatus L26ApiParseMessage(SL26ApiGnssData *dataBufPtr,
+		const char *messagePtr, size_t length) {
 
 	static char sentenceBuffer[NMEA_PARSER_SENTENCE_BUFSIZE];
 	static size_t sentenceLength = 0;
@@ -119,9 +120,9 @@ EL26ApiDataStatus L26ApiParseMessage(SL26ApiGnssData *dataBufPtr, const char *me
 		if (5U <= sentenceLength) {
 
 			/* Test if end sequence has been found */
-			if ( ('\r' == sentenceBuffer[sentenceLength - 2UL])
+			if (('\r' == sentenceBuffer[sentenceLength - 2UL])
 					&& ('\n' == sentenceBuffer[sentenceLength - 1UL])
-					&& ('*' == sentenceBuffer[sentenceLength - 5UL]) ) {
+					&& ('*' == sentenceBuffer[sentenceLength - 5UL])) {
 
 				/* Parse the received sentence */
 				if (EL26ApiNmeaParserRet_Ok
@@ -149,12 +150,12 @@ EL26ApiDataStatus L26ApiParseMessage(SL26ApiGnssData *dataBufPtr, const char *me
 }
 
 /**
-  * @brief Calculate the checksum of an NMEA message
-  * @param message Message string
-  * @param length Length of the message (without '\0' terminator)
-  * @retval uint8_t Calculated checksum
-  */
-static uint8_t L26ApiGetNmeaChecksum(const char* message, size_t length) {
+ * @brief Calculate the checksum of an NMEA message
+ * @param message Message string
+ * @param length Length of the message (without '\0' terminator)
+ * @retval uint8_t Calculated checksum
+ */
+static uint8_t L26ApiGetNmeaChecksum(const char *message, size_t length) {
 
 	/* Calculate the checksum - note that the checksum is calculated by exclusive OR of all characters between '$' and '*' */
 	uint8_t ret = 0;
@@ -175,8 +176,8 @@ static uint8_t L26ApiGetNmeaChecksum(const char* message, size_t length) {
  * @param[in] length Length of the sentence
  * @retval EL26ApiNmeaParserRet Status
  */
-static EL26ApiNmeaParserRet L26ApiParseNmeaSentence(SL26ApiGnssData *dataBufPtr, const char *sentencePtr,
-		size_t length) {
+static EL26ApiNmeaParserRet L26ApiParseNmeaSentence(SL26ApiGnssData *dataBufPtr,
+		const char *sentencePtr, size_t length) {
 
 	/* Retrieve the message ID */
 	char messageId[6];
@@ -184,8 +185,8 @@ static EL26ApiNmeaParserRet L26ApiParseNmeaSentence(SL26ApiGnssData *dataBufPtr,
 	messageId[5] = '\0';
 
 	/* Read the checksum */
-	char checksumString[3] = { sentencePtr[length - 4UL], sentencePtr[length - 3UL],
-			'\0' };
+	char checksumString[3] = { sentencePtr[length - 4UL], sentencePtr[length
+			- 3UL], '\0' };
 	uint8_t readChecksum = (uint8_t) strtoul(checksumString, NULL, 16);
 
 	/* Calculate the checksum */
@@ -199,53 +200,55 @@ static EL26ApiNmeaParserRet L26ApiParseNmeaSentence(SL26ApiGnssData *dataBufPtr,
 	}
 
 	/* Identify the sentence by the message ID */
-	if ( ( 0 == strcmp(messageId, "GPRMC") )
-			|| ( 0 == strcmp(messageId, "GNRMC") ) ) {
+	if ((0 == strcmp(messageId, "GPRMC"))
+			|| (0 == strcmp(messageId, "GNRMC"))) {
 
 		/* Parse the payload */
-		return L26ApiNmeaParseRmcPayload(dataBufPtr, NMEA_PAYLOAD_BEGIN(sentencePtr),
-				NMEA_PAYLOAD_LENGTH(length));
+		return L26ApiNmeaParseRmcPayload(dataBufPtr,
+				NMEA_PAYLOAD_BEGIN(sentencePtr), NMEA_PAYLOAD_LENGTH(length));
 
 	}
 
-	if ( 0 == strcmp(messageId, "GPVTG") ) {
+	if (0 == strcmp(messageId, "GPVTG")) {
 
 		/* Parse the payload */
-		return L26ApiNmeaParseVtgPayload(dataBufPtr, NMEA_PAYLOAD_BEGIN(sentencePtr),
-				NMEA_PAYLOAD_LENGTH(length));
+		return L26ApiNmeaParseVtgPayload(dataBufPtr,
+				NMEA_PAYLOAD_BEGIN(sentencePtr), NMEA_PAYLOAD_LENGTH(length));
 
 	}
 
-	if ( 0 == strcmp(messageId, "GPGGA") ) {
+	if (0 == strcmp(messageId, "GPGGA")) {
 
 		/* Parse the payload */
-		return L26ApiNmeaParseGgaPayload(dataBufPtr, NMEA_PAYLOAD_BEGIN(sentencePtr),
-				NMEA_PAYLOAD_LENGTH(length));
+		return L26ApiNmeaParseGgaPayload(dataBufPtr,
+				NMEA_PAYLOAD_BEGIN(sentencePtr), NMEA_PAYLOAD_LENGTH(length));
 
 	}
 
-	if ( ( 0 == strcmp(messageId, "GPGSA") )
-			|| ( 0 == strcmp(messageId, "GNGSA") ) ) {
+	if ((0 == strcmp(messageId, "GPGSA"))
+			|| (0 == strcmp(messageId, "GNGSA"))) {
 
 		/* Parse the payload */
-		return L26ApiNmeaParseGsaPayload(dataBufPtr, NMEA_PAYLOAD_BEGIN(sentencePtr),
-				NMEA_PAYLOAD_LENGTH(length));
+		return L26ApiNmeaParseGsaPayload(dataBufPtr,
+				NMEA_PAYLOAD_BEGIN(sentencePtr), NMEA_PAYLOAD_LENGTH(length));
 
 	}
 
 	if (0 == strcmp(messageId, "GLGSV")) {
 
 		/* Parse the payload */
-		return L26ApiNmeaParseGsvPayload(dataBufPtr, NMEA_PAYLOAD_BEGIN(sentencePtr),
-				NMEA_PAYLOAD_LENGTH(length), EL26ApiGsvTalkerId_GL);
+		return L26ApiNmeaParseGsvPayload(dataBufPtr,
+				NMEA_PAYLOAD_BEGIN(sentencePtr), NMEA_PAYLOAD_LENGTH(length),
+				EL26ApiGsvTalkerId_GL);
 
 	}
 
 	if (0 == strcmp(messageId, "GPGSV")) {
 
 		/* Parse the payload */
-		return L26ApiNmeaParseGsvPayload(dataBufPtr, NMEA_PAYLOAD_BEGIN(sentencePtr),
-				NMEA_PAYLOAD_LENGTH(length), EL26ApiGsvTalkerId_GP);
+		return L26ApiNmeaParseGsvPayload(dataBufPtr,
+				NMEA_PAYLOAD_BEGIN(sentencePtr), NMEA_PAYLOAD_LENGTH(length),
+				EL26ApiGsvTalkerId_GP);
 
 	}
 
@@ -253,16 +256,16 @@ static EL26ApiNmeaParserRet L26ApiParseNmeaSentence(SL26ApiGnssData *dataBufPtr,
 			|| (0 == strcmp(messageId, "GNGLL"))) {
 
 		/* Parse the payload */
-		return L26ApiNmeaParseGllPayload(dataBufPtr, NMEA_PAYLOAD_BEGIN(sentencePtr),
-				NMEA_PAYLOAD_LENGTH(length));
+		return L26ApiNmeaParseGllPayload(dataBufPtr,
+				NMEA_PAYLOAD_BEGIN(sentencePtr), NMEA_PAYLOAD_LENGTH(length));
 
 	}
 
 	if (0 == strcmp(messageId, "GPTXT")) {
 
 		/* Parse the payload */
-		return L26ApiNmeaParseTxtPayload(dataBufPtr, NMEA_PAYLOAD_BEGIN(sentencePtr),
-				NMEA_PAYLOAD_LENGTH(length));
+		return L26ApiNmeaParseTxtPayload(dataBufPtr,
+				NMEA_PAYLOAD_BEGIN(sentencePtr), NMEA_PAYLOAD_LENGTH(length));
 
 	}
 
@@ -278,8 +281,9 @@ static EL26ApiNmeaParserRet L26ApiParseNmeaSentence(SL26ApiGnssData *dataBufPtr,
 static bool L26ApiIsDataComplete(SL26ApiGnssData *dataPtr) {
 
 	/* Test if all flags are set */
-	return ((L26API_NMEA_RMC_RECEIVED | L26API_NMEA_VTG_RECEIVED | L26API_NMEA_GGA_RECEIVED
-			| L26API_NMEA_GSA_RECEIVED | L26API_NMEA_GPGSV_RECEIVED | L26API_NMEA_GLGSV_RECEIVED
+	return ((L26API_NMEA_RMC_RECEIVED | L26API_NMEA_VTG_RECEIVED
+			| L26API_NMEA_GGA_RECEIVED | L26API_NMEA_GSA_RECEIVED
+			| L26API_NMEA_GPGSV_RECEIVED | L26API_NMEA_GLGSV_RECEIVED
 			| L26API_NMEA_GLL_RECEIVED) == dataPtr->SentencesReceived);
 
 }
@@ -291,8 +295,8 @@ static bool L26ApiIsDataComplete(SL26ApiGnssData *dataPtr) {
  * @param[in] length Length of the payload
  * @retval EL26ApiNmeaParserRet Status
  */
-static EL26ApiNmeaParserRet L26ApiNmeaParseRmcPayload(SL26ApiGnssData *dataBufPtr,
-		const char *pPayload, size_t length) {
+static EL26ApiNmeaParserRet L26ApiNmeaParseRmcPayload(
+		SL26ApiGnssData *dataBufPtr, const char *pPayload, size_t length) {
 
 	char dataFieldBuffer[NMEA_PARSER_DATAFIELD_BUFSIZE];
 	size_t bufferIndex = 0;
@@ -418,8 +422,8 @@ static EL26ApiNmeaParserRet L26ApiNmeaParseRmcPayload(SL26ApiGnssData *dataBufPt
  * @param[in] length Length of the payload
  * @retval EL26ApiNmeaParserRet Status
  */
-static EL26ApiNmeaParserRet L26ApiNmeaParseVtgPayload(SL26ApiGnssData *dataBufPtr,
-		const char *pPayload, size_t length) {
+static EL26ApiNmeaParserRet L26ApiNmeaParseVtgPayload(
+		SL26ApiGnssData *dataBufPtr, const char *pPayload, size_t length) {
 
 	char dataFieldBuffer[NMEA_PARSER_DATAFIELD_BUFSIZE]; /* Buffer for the data field */
 	size_t bufferIndex = 0; /* Buffer index */
@@ -488,8 +492,8 @@ static EL26ApiNmeaParserRet L26ApiNmeaParseVtgPayload(SL26ApiGnssData *dataBufPt
  * @param[in] length Length of the payload
  * @retval EL26ApiNmeaParserRet Status
  */
-static EL26ApiNmeaParserRet L26ApiNmeaParseGgaPayload(SL26ApiGnssData *dataBufPtr,
-		const char *pPayload, size_t length) {
+static EL26ApiNmeaParserRet L26ApiNmeaParseGgaPayload(
+		SL26ApiGnssData *dataBufPtr, const char *pPayload, size_t length) {
 
 	char dataFieldBuffer[NMEA_PARSER_DATAFIELD_BUFSIZE]; /* Buffer for the data field */
 	size_t bufferIndex = 0; /* Buffer index */
@@ -559,8 +563,8 @@ static EL26ApiNmeaParserRet L26ApiNmeaParseGgaPayload(SL26ApiGnssData *dataBufPt
  * @param[in] length Length of the payload
  * @retval EL26ApiNmeaParserRet Status
  */
-static EL26ApiNmeaParserRet L26ApiNmeaParseGsaPayload(SL26ApiGnssData *dataBufPtr,
-		const char *pPayload, size_t length) {
+static EL26ApiNmeaParserRet L26ApiNmeaParseGsaPayload(
+		SL26ApiGnssData *dataBufPtr, const char *pPayload, size_t length) {
 
 	char dataFieldBuffer[NMEA_PARSER_DATAFIELD_BUFSIZE]; /* Buffer for the data field */
 	size_t bufferIndex = 0; /* Buffer index */
@@ -646,8 +650,9 @@ static EL26ApiNmeaParserRet L26ApiNmeaParseGsaPayload(SL26ApiGnssData *dataBufPt
  * @param[in] talkerId The --GSV sentence talker ID
  * @retval EL26ApiNmeaParserRet Status
  */
-static EL26ApiNmeaParserRet L26ApiNmeaParseGsvPayload(SL26ApiGnssData *dataBufPtr,
-		const char *pPayload, size_t length, EL26ApiGsvTalkerId talkerId) {
+static EL26ApiNmeaParserRet L26ApiNmeaParseGsvPayload(
+		SL26ApiGnssData *dataBufPtr, const char *pPayload, size_t length,
+		EL26ApiGsvTalkerId talkerId) {
 
 	char dataFieldBuffer[NMEA_PARSER_DATAFIELD_BUFSIZE]; /* Buffer for the data field */
 	size_t bufferIndex = 0; /* Buffer index */
@@ -748,8 +753,8 @@ static EL26ApiNmeaParserRet L26ApiNmeaParseGsvPayload(SL26ApiGnssData *dataBufPt
  * @param[in] length Length of the payload
  * @retval EL26ApiNmeaParserRet Status
  */
-static EL26ApiNmeaParserRet L26ApiNmeaParseGllPayload(SL26ApiGnssData *dataBufPtr,
-		const char *pPayload, size_t length) {
+static EL26ApiNmeaParserRet L26ApiNmeaParseGllPayload(
+		SL26ApiGnssData *dataBufPtr, const char *pPayload, size_t length) {
 
 	/* Message not used */
 	UNUSED(dataBufPtr);
@@ -769,8 +774,8 @@ static EL26ApiNmeaParserRet L26ApiNmeaParseGllPayload(SL26ApiGnssData *dataBufPt
  * @param[in] length Length of the payload
  * @retval EL26ApiNmeaParserRet Status
  */
-static EL26ApiNmeaParserRet L26ApiNmeaParseTxtPayload(SL26ApiGnssData *dataBufPtr,
-		const char *pPayload, size_t length) {
+static EL26ApiNmeaParserRet L26ApiNmeaParseTxtPayload(
+		SL26ApiGnssData *dataBufPtr, const char *pPayload, size_t length) {
 
 	/* Message not used */
 	UNUSED(dataBufPtr);
