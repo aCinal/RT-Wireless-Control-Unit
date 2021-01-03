@@ -11,6 +11,7 @@
 #include "rt12e_libs_generic.h"
 
 #include <math.h>
+#include <stdio.h>
 
 #define CAN_ID_WCU_DIAG   ( (uint32_t) 0x733 )            /* CAN ID: _733_WCU_DIAG */
 #define CAN_DLC_WCU_DIAG  ( (uint32_t) 4 )

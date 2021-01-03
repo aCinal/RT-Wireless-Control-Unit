@@ -102,7 +102,7 @@ void LogPrint(EWcuLogSeverityLevel severityLevel, const char *messagePayloadTbl)
 		DBSERIAL_SEM_WAIT();
 
 		/* Transmit the log entry via the serial port */
-		HAL_UART_Transmit(&DEBUG_UART_HANDLE, (uint8_t*) logEntryPtr,
+		(void) HAL_UART_Transmit(&DEBUG_UART_HANDLE, (uint8_t*) logEntryPtr,
 				strlen(logEntryPtr), WCU_COMMON_TIMEOUT);
 
 		/* Release the debug serial port semaphore */

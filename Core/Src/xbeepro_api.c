@@ -28,7 +28,8 @@ EXbeeProApiRet XbeeProApiSendPayload(uint8_t *payloadPtr, uint32_t numOfBytes) {
 	}
 
 	/* Transmit the payload */
-	if (HAL_OK != HAL_UART_Transmit(&XBEEPRO_UART_HANDLE, payloadPtr, numOfBytes,
+	if (HAL_OK
+			!= HAL_UART_Transmit(&XBEEPRO_UART_HANDLE, payloadPtr, numOfBytes,
 			XBEEPROAPI_UART_TIMEOUT)) {
 
 		status = EXbeeProApiRet_Error;
