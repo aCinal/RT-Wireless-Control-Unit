@@ -33,7 +33,7 @@ extern osThreadId sdioGtkpHandle;
 extern osMessageQId canRxQueueHandle;
 extern osMessageQId canSubQueueHandle;
 extern osMessageQId sdioSubQueueHandle;
-extern osMessageQId xbeeTxRxInternalMailQueueHandle;
+extern osMessageQId xbeeTxRxEventQueueHandle;
 SUartRingBuf gXbeeTxRxRingBuffer;
 
 /**
@@ -45,11 +45,13 @@ typedef struct SDriverWarnings {
 } SDriverWarnings;
 
 static void XbeeTxRxRingBufferIdleCallback(void);
+static EXbeeTxRxRet XbeeTxRxHandleMessageReceived(
+		SDriverWarnings *warningsStatePtr);
 static EXbeeTxRxRet XbeeTxRxHandleNewSubscription(uint8_t rxBufTbl[]);
 static EXbeeTxRxRet XbeeTxRxHandleDriverWarning(uint8_t rxBufTbl[],
-		SDriverWarnings *warnPtr);
-static void XbeeTxRxSendDiagnostics(SDriverWarnings *warnPtr);
-static void XbeeTxRxUpdateWarnings(SDriverWarnings *warnPtr);
+		SDriverWarnings *warningsStatePtr);
+static void XbeeTxRxSendDiagnostics(SDriverWarnings *warningsStatePtr);
+static void XbeeTxRxUpdateWarnings(SDriverWarnings *warningsStatePtr);
 static EXbeeTxRxRet XbeeTxRxSendSubscriptionToCanGtkp(uint32_t ids[],
 		size_t count);
 static EXbeeTxRxRet XbeeTxRxSendSubscriptionToSdioGtkp(uint32_t ids[],
@@ -97,56 +99,32 @@ EUartRingBufRet XbeeTxRxStartRingBufferIdleDetectionRx(void) {
 }
 
 /**
- * @brief Handle internal messages
+ * @brief Handle event messages
  * @retval EXbeeTxRxRet Status
  */
-EXbeeTxRxRet XbeeTxRxHandleInternalMail(void) {
+EXbeeTxRxRet XbeeTxRxHandleEvents(void) {
 
 	EXbeeTxRxRet status = EXbeeTxRxRet_Ok;
 
-	EXbeeTxRxInternalMail mail;
+	EXbeeTxRxEvent mail;
 	/* Check for messages */
-	if (pdPASS == xQueueReceive(xbeeTxRxInternalMailQueueHandle, &mail, 0)) {
+	if (pdPASS == xQueueReceive(xbeeTxRxEventQueueHandle, &mail, 0)) {
 
-		static uint8_t rxBufTbl[R3TP_MAX_FRAME_SIZE];
-		static SDriverWarnings warnings;
+		static SDriverWarnings warningsState;
 
 		switch (mail) {
 
-		case EXbeeTxRxInternalMail_MessageReceived:
+		case EXbeeTxRxEvent_MessageReceived:
 
-			/* Read the data from the ring buffer */
-			(void) UartRingBufRead(&gXbeeTxRxRingBuffer, rxBufTbl,
-			R3TP_MAX_FRAME_SIZE);
-
-			/* Identify the protocol version */
-			switch (rxBufTbl[0]) {
-
-			case R3TP_VER1_VER_BYTE:
-
-				status = XbeeTxRxHandleNewSubscription(rxBufTbl);
-				break;
-
-			case R3TP_VER2_VER_BYTE:
-
-				status = XbeeTxRxHandleDriverWarning(rxBufTbl, &warnings);
-				break;
-
-			default:
-
-				status = EXbeeTxRxRet_Error;
-				LogError("XbeeTxRxHandleInternalMail: Unexpected VER byte received");
-				break;
-
-			}
+			status = XbeeTxRxHandleMessageReceived(&warningsState);
 			break;
 
-		case EXbeeTxRxInternalMail_PeriodElapsed:
+		case EXbeeTxRxEvent_PeriodElapsed:
 
 			/* Transmit the diagnostic frame */
-			XbeeTxRxSendDiagnostics(&warnings);
+			XbeeTxRxSendDiagnostics(&warningsState);
 			/* Update the warnings structure */
-			XbeeTxRxUpdateWarnings(&warnings);
+			XbeeTxRxUpdateWarnings(&warningsState);
 			break;
 
 		default:
@@ -233,10 +211,8 @@ EXbeeTxRxRet XbeeTxRxHandleOutgoingR3tpCom(void) {
 void XbeeTxRxPeriodElapsedCallback(void) {
 
 	/* Notify the task */
-	EXbeeTxRxInternalMail xbeeTxRxInternalMail =
-			EXbeeTxRxInternalMail_PeriodElapsed;
-	xQueueSendFromISR(xbeeTxRxInternalMailQueueHandle, &xbeeTxRxInternalMail,
-			NULL);
+	EXbeeTxRxEvent event = EXbeeTxRxEvent_PeriodElapsed;
+	xQueueSendFromISR(xbeeTxRxEventQueueHandle, &event, NULL);
 
 }
 
@@ -246,10 +222,49 @@ void XbeeTxRxPeriodElapsedCallback(void) {
  */
 static void XbeeTxRxRingBufferIdleCallback(void) {
 
-	EXbeeTxRxInternalMail mail = EXbeeTxRxInternalMail_MessageReceived;
+	EXbeeTxRxEvent event = EXbeeTxRxEvent_MessageReceived;
 	/* Notify the task */
-	(void) xQueueSendFromISR(xbeeTxRxInternalMailQueueHandle, &mail, NULL);
+	(void) xQueueSendFromISR(xbeeTxRxEventQueueHandle, &event, NULL);
 
+}
+
+/**
+ * @brief Handle the received message
+ * @param warningsStatePtr Pointer to the warnings structure
+ * @retval None
+ */
+static EXbeeTxRxRet XbeeTxRxHandleMessageReceived(
+		SDriverWarnings *warningsState) {
+
+	EXbeeTxRxRet status = EXbeeTxRxRet_Ok;
+	uint8_t rxBufTbl[R3TP_MAX_FRAME_SIZE];
+
+	/* Read the data from the ring buffer */
+	(void) UartRingBufRead(&gXbeeTxRxRingBuffer, rxBufTbl,
+	R3TP_MAX_FRAME_SIZE);
+
+	/* Identify the protocol version */
+	switch (rxBufTbl[0]) {
+
+	case R3TP_VER1_VER_BYTE:
+
+		status = XbeeTxRxHandleNewSubscription(rxBufTbl);
+		break;
+
+	case R3TP_VER2_VER_BYTE:
+
+		status = XbeeTxRxHandleDriverWarning(rxBufTbl, warningsState);
+		break;
+
+	default:
+
+		status = EXbeeTxRxRet_Error;
+		LogError("XbeeTxRxHandleMessageReceived: Unexpected VER byte received");
+		break;
+
+	}
+
+	return status;
 }
 
 /**
@@ -344,11 +359,11 @@ static EXbeeTxRxRet XbeeTxRxHandleNewSubscription(uint8_t *rxBufTbl) {
 /**
  * @brief Handle the driver warning
  * @param rxBufTbl UART Rx Buffer
- * @param warnPtr Pointer to the diagnostics structure
+ * @param warningsStatePtr Pointer to the diagnostics structure
  * @retval EXbeeTxRxRet Status
  */
 static EXbeeTxRxRet XbeeTxRxHandleDriverWarning(uint8_t *rxBufTbl,
-		SDriverWarnings *warnPtr) {
+		SDriverWarnings *warningsStatePtr) {
 
 	EXbeeTxRxRet status = EXbeeTxRxRet_Ok;
 
@@ -391,14 +406,14 @@ static EXbeeTxRxRet XbeeTxRxHandleDriverWarning(uint8_t *rxBufTbl,
 		case R3TP_GREEN_WARNING_BYTE:
 
 			/* Set the green warning duration */
-			warnPtr->greenWarningDuration = rxBufTbl[5];
+			warningsStatePtr->greenWarningDuration = rxBufTbl[5];
 			LogInfo("XbeeTxRxHandleDriverWarning: Green warning set");
 			break;
 
 		case R3TP_RED_WARNING_BYTE:
 
 			/* Set the red warning duration */
-			warnPtr->redWarningDuration = rxBufTbl[5];
+			warningsStatePtr->redWarningDuration = rxBufTbl[5];
 			LogInfo("XbeeTxRxHandleDriverWarning: Red warning set");
 			break;
 
@@ -423,10 +438,10 @@ static EXbeeTxRxRet XbeeTxRxHandleDriverWarning(uint8_t *rxBufTbl,
 
 /**
  * @brief Send the telemetry diagnostic frame to the CAN bus
- * @param warnPtr Pointer to the diagnostics structure
+ * @param warningsStatePtr Pointer to the diagnostics structure
  * @retval None
  */
-static void XbeeTxRxSendDiagnostics(SDriverWarnings *warnPtr) {
+static void XbeeTxRxSendDiagnostics(SDriverWarnings *warningsStatePtr) {
 
 	SCanFrame canFrame;
 	/* Configure the CAN Tx header */
@@ -452,7 +467,7 @@ static void XbeeTxRxSendDiagnostics(SDriverWarnings *warnPtr) {
 	}
 
 	/* Test if the green warning is active */
-	if (0U < warnPtr->greenWarningDuration) {
+	if (0U < warningsStatePtr->greenWarningDuration) {
 
 		/* Set the Telemetry_Pit flag */
 		SET_BIT(canFrame.PayloadTbl[1], TELEMETRY_PIT_BIT);
@@ -460,7 +475,7 @@ static void XbeeTxRxSendDiagnostics(SDriverWarnings *warnPtr) {
 	}
 
 	/* Test if the red warning is active */
-	if (0U < warnPtr->redWarningDuration) {
+	if (0U < warningsStatePtr->redWarningDuration) {
 
 		/* Set the Telemetry_Warning flag */
 		SET_BIT(canFrame.PayloadTbl[1], TELEMETRY_WARNING_BIT);
@@ -474,18 +489,18 @@ static void XbeeTxRxSendDiagnostics(SDriverWarnings *warnPtr) {
 
 /**
  * @brief Decrement the warning duration counters and updates the warning active flags
- * @param warnPtr Pointer to the diagnostics structure
+ * @param warningsStatePtr Pointer to the diagnostics structure
  * @retval None
  */
-static void XbeeTxRxUpdateWarnings(SDriverWarnings *warnPtr) {
+static void XbeeTxRxUpdateWarnings(SDriverWarnings *warningsStatePtr) {
 
 	/* Test if the green warning is active */
-	if (0U < warnPtr->greenWarningDuration) {
+	if (0U < warningsStatePtr->greenWarningDuration) {
 
 		/* Decrement the warning duration counter */
-		warnPtr->greenWarningDuration -= 1U;
+		warningsStatePtr->greenWarningDuration -= 1U;
 
-		if(0U == warnPtr->greenWarningDuration) {
+		if (0U == warningsStatePtr->greenWarningDuration) {
 
 			LogInfo("XbeeTxRxUpdateWarnings: Green warning expired");
 
@@ -494,12 +509,12 @@ static void XbeeTxRxUpdateWarnings(SDriverWarnings *warnPtr) {
 	}
 
 	/* Test if the red warning is active */
-	if (0U < warnPtr->redWarningDuration) {
+	if (0U < warningsStatePtr->redWarningDuration) {
 
 		/* Decrement the warning duration counter */
-		warnPtr->redWarningDuration -= 1U;
+		warningsStatePtr->redWarningDuration -= 1U;
 
-		if(0U == warnPtr->redWarningDuration) {
+		if (0U == warningsStatePtr->redWarningDuration) {
 
 			LogInfo("XbeeTxRxUpdateWarnings: Red warning expired");
 

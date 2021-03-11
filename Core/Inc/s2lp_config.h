@@ -34,5 +34,7 @@ extern SPI_HandleTypeDef hspi1;
 #define S2LP_SDI_Pin           (PIN(RF_SPI1_SCK))
 #define S2LP_SDO_GPIO_Port     (PORT(RF_SPI1_SCK))
 #define S2LP_SDO_Pin           (PIN(RF_SPI1_SCK))
+#define S2LP_SDN_GPIO_Port     (PORT(RF_SPI1_SCK))
+#define S2LP_SDN_Pin           (PIN(RF_SPI1_SCK))
 
 #endif /* __S2LP_CONFIG_H_ */

@@ -9,20 +9,48 @@
 
 #include <stddef.h>
 
-/* Set bits in a register based on a mask */
-#define SET_BITS(REG, MASK, BITS)  ( (REG) = ( ( (TByte)(REG) & ~( (TByte)(MASK) ) ) | ( ( (TByte)(MASK) ) & ( (TByte)(BITS) ) ) ) )
-
 /**
- * @brief Send the S2-LP to TX state for transmission
+ * @brief Start up the device
  * @retval ES2lpApiRet Status
  */
-ES2lpApiRet S2lpApi_GoToTxState(void) {
+ES2lpApiRet S2lpApi_Start(void) {
 
 	ES2lpApiRet status = ES2lpApiRet_Ok;
 
-	if (ES2lpLldRet_Ok != S2lpLld_SendCommand(TX_COMMAND)) {
-
+	if (ES2lpLldRet_Ok != S2lpLld_Reset()) {
 		status = ES2lpApiRet_Error;
+	}
+
+	/* TODO: Run default configuration */
+
+	return status;
+
+}
+
+/**
+ * @brief Send a command to the S2-LP device
+ * @param command Command to be transmitted
+ * @retval ES2lpApiRet Status
+ */
+ES2lpApiRet S2lpApi_SendCommand(TByte command) {
+
+	ES2lpApiRet status = ES2lpApiRet_Ok;
+
+	/* Assert valid command */
+	if (!IS_S2LP_COMMAND(command)) {
+
+		status = ES2lpApiRet_InvalidParams;
+
+	}
+
+	if (ES2lpApiRet_Ok == status) {
+
+		/* Transmit the command */
+		if (ES2lpLldRet_Ok != S2lpLld_SendCommand(command, NULL)) {
+
+			status = ES2lpApiRet_Error;
+
+		}
 
 	}
 
@@ -31,16 +59,45 @@ ES2lpApiRet S2lpApi_GoToTxState(void) {
 }
 
 /**
- * @brief Send the S2-LP to RX state for reception
+ * @brief Enable IRQ generation on a given event
+ * @param events Interrupt event(s) bit(s) (bitwise ORed if multiple)
  * @retval ES2lpApiRet Status
  */
-ES2lpApiRet S2lpApi_GoToRxState(void) {
+ES2lpApiRet S2lpApi_EnableInterrupt(TWord events) {
 
 	ES2lpApiRet status = ES2lpApiRet_Ok;
+	TWord irqMask;
 
-	if (ES2lpLldRet_Ok != S2lpLld_SendCommand(RX_COMMAND)) {
+	if (ES2lpApiRet_Ok == status) {
 
-		status = ES2lpApiRet_Error;
+		/* Fetch register word IRQ_MASK */
+		if (ES2lpLldRet_Ok
+				!= S2lpLld_ReadReg(S2LP_IRQ_MASK3_ADDR, (TByte*) &irqMask, 4,
+				NULL)) {
+
+			status = ES2lpApiRet_Error;
+
+		}
+
+		/* Swap bytes to little endian */
+		irqMask = SWAP_ENDIAN_32(irqMask);
+
+	}
+
+	if (ES2lpApiRet_Ok == status) {
+
+		/* Set the INT_MASK field */
+		irqMask |= events;
+		/* Swap bytes back to big endian */
+		irqMask = SWAP_ENDIAN_32(irqMask);
+		/* Write back to register IRQ_MASK */
+		if (ES2lpLldRet_Ok
+				!= S2lpLld_WriteReg(S2LP_IRQ_MASK3_ADDR, (TByte*) &irqMask, 4,
+				NULL)) {
+
+			status = ES2lpApiRet_Error;
+
+		}
 
 	}
 
@@ -49,16 +106,45 @@ ES2lpApiRet S2lpApi_GoToRxState(void) {
 }
 
 /**
- * @brief Go to READY state
+ * @brief Disable IRQ generation on a given event
+ * @param events Interrupt event(s) bit(s) (bitwise ORed if multiple)
  * @retval ES2lpApiRet Status
  */
-ES2lpApiRet S2lpApi_GoToReadyState(void) {
+ES2lpApiRet S2lpApi_DisableInterrupt(TWord events) {
 
 	ES2lpApiRet status = ES2lpApiRet_Ok;
+	TWord irqMask;
 
-	if (ES2lpLldRet_Ok != S2lpLld_SendCommand(READY_COMMAND)) {
+	if (ES2lpApiRet_Ok == status) {
 
-		status = ES2lpApiRet_Error;
+		/* Fetch register word IRQ_MASK */
+		if (ES2lpLldRet_Ok
+				!= S2lpLld_ReadReg(S2LP_IRQ_MASK3_ADDR, (TByte*) &irqMask, 4,
+				NULL)) {
+
+			status = ES2lpApiRet_Error;
+
+		}
+
+		/* Swap bytes to little endian */
+		irqMask = SWAP_ENDIAN_32(irqMask);
+
+	}
+
+	if (ES2lpApiRet_Ok == status) {
+
+		/* Reset the INT_MASK field */
+		irqMask = ~((~irqMask) | ((TWord) events));
+		/* Swap bytes back to big endian */
+		irqMask = SWAP_ENDIAN_32(irqMask);
+		/* Write back to register IRQ_MASK */
+		if (ES2lpLldRet_Ok
+				!= S2lpLld_WriteReg(S2LP_IRQ_MASK3_ADDR, (TByte*) &irqMask, 4,
+				NULL)) {
+
+			status = ES2lpApiRet_Error;
+
+		}
 
 	}
 
@@ -66,107 +152,45 @@ ES2lpApiRet S2lpApi_GoToReadyState(void) {
 
 }
 
+
 /**
- * @brief Go to STANDBY state
+ * @brief Test if a given interrupt event has occurred and clear the IRQ_STATUS register
+ * @param irqStatusPtr Pointer to pass the IRQ_STATUS register contents out of the function
  * @retval ES2lpApiRet Status
  */
-ES2lpApiRet S2lpApi_GoToStandbyState(void) {
+ES2lpApiRet S2lpApi_FetchInterruptStatus(TWord* irqStatusPtr) {
 
 	ES2lpApiRet status = ES2lpApiRet_Ok;
+	TWord irqStatus;
 
-	if (ES2lpLldRet_Ok != S2lpLld_SendCommand(STANDBY_COMMAND)) {
+	/* Assert valid parameters */
+	if (NULL == irqStatusPtr) {
 
-		status = ES2lpApiRet_Error;
+		status = ES2lpApiRet_InvalidParams;
 
 	}
 
-	return status;
+	if (ES2lpApiRet_Ok == status) {
 
-}
+		/* Fetch register word IRQ_STATUS */
+		if (ES2lpLldRet_Ok
+				!= S2lpLld_ReadReg(S2LP_IRQ_STATUS3_ADDR, (TByte*) &irqStatus,
+						4,
+						NULL)) {
 
-/**
- * @brief Go to SLEEP state
- * @retval ES2lpApiRet Status
- */
-ES2lpApiRet S2lpApi_GoToSleepState(void) {
+			status = ES2lpApiRet_Error;
 
-	ES2lpApiRet status = ES2lpApiRet_Ok;
+		}
 
-	if (ES2lpLldRet_Ok != S2lpLld_SendCommand(SLEEP_COMMAND)) {
-
-		status = ES2lpApiRet_Error;
-
-	}
-
-	return status;
-
-}
-
-/**
- * @brief Exit from TX or RX states and go to READY state
- * @retval ES2lpApiRet Status
- */
-ES2lpApiRet S2lpApi_AbortTransmission(void) {
-
-	ES2lpApiRet status = ES2lpApiRet_Ok;
-
-	if (ES2lpLldRet_Ok != S2lpLld_SendCommand(SABORT_COMMAND)) {
-
-		status = ES2lpApiRet_Error;
+		/* Swap bytes to little endian */
+		irqStatus = SWAP_ENDIAN_32(irqStatus);
 
 	}
 
-	return status;
+	if (ES2lpApiRet_Ok == status) {
 
-}
-
-/**
- * @brief Reset the S2-LP state machine and registers values
- * @retval ES2lpApiRet Status
- */
-ES2lpApiRet S2lpApi_Reset(void) {
-
-	ES2lpApiRet status = ES2lpApiRet_Ok;
-
-	if (ES2lpLldRet_Ok != S2lpLld_SendCommand(SRES_COMMAND)) {
-
-		status = ES2lpApiRet_Error;
-
-	}
-
-	return status;
-
-}
-
-/**
- * @brief Clean the RX FIFO
- * @retval ES2lpApiRet Status
- */
-ES2lpApiRet S2lpApi_FlushRxFifo(void) {
-
-	ES2lpApiRet status = ES2lpApiRet_Ok;
-
-	if (ES2lpLldRet_Ok != S2lpLld_SendCommand(FLUSHRXFIFO_COMMAND)) {
-
-		status = ES2lpApiRet_Error;
-
-	}
-
-	return status;
-
-}
-
-/**
- * @brief Clean the TX FIFO
- * @retval ES2lpApiRet Status
- */
-ES2lpApiRet S2lpApi_FlushTxFifo(void) {
-
-	ES2lpApiRet status = ES2lpApiRet_Ok;
-
-	if (ES2lpLldRet_Ok != S2lpLld_SendCommand(FLUSHTXFIFO_COMMAND)) {
-
-		status = ES2lpApiRet_Error;
+		/* Test the interrupt status bit and clear it */
+		*irqStatusPtr = irqStatus;
 
 	}
 
@@ -177,12 +201,10 @@ ES2lpApiRet S2lpApi_FlushTxFifo(void) {
 /**
  * @brief Specify GPIO I/O signal
  * @param gpio GPIO to configure
- * @param mode GPIO mode
  * @param sig GPIO I/O signal
  * @retval ES2lpApiRet Status
  */
-ES2lpApiRet S2lpApi_ConfigGpio(ES2lpApiGpioPin gpio, ES2lpApiGpioMode mode,
-		ES2lpApiGpioSignal sig) {
+ES2lpApiRet S2lpApi_ConfigGpio(ES2lpApiGpioPin gpio, ES2lpApiGpioSignal sig) {
 
 	ES2lpApiRet status = ES2lpApiRet_Ok;
 	TByte addr;
@@ -193,22 +215,22 @@ ES2lpApiRet S2lpApi_ConfigGpio(ES2lpApiGpioPin gpio, ES2lpApiGpioMode mode,
 
 	case ES2lpApiGpioPin_0:
 
-		addr = GPIO0_CONF_ADDR;
+		addr = S2LP_GPIO0_CONF_ADDR;
 		break;
 
 	case ES2lpApiGpioPin_1:
 
-		addr = GPIO1_CONF_ADDR;
+		addr = S2LP_GPIO1_CONF_ADDR;
 		break;
 
 	case ES2lpApiGpioPin_2:
 
-		addr = GPIO2_CONF_ADDR;
+		addr = S2LP_GPIO2_CONF_ADDR;
 		break;
 
 	case ES2lpApiGpioPin_3:
 
-		addr = GPIO3_CONF_ADDR;
+		addr = S2LP_GPIO3_CONF_ADDR;
 		break;
 
 	default:
@@ -220,244 +242,11 @@ ES2lpApiRet S2lpApi_ConfigGpio(ES2lpApiGpioPin gpio, ES2lpApiGpioMode mode,
 
 	if (ES2lpApiRet_Ok == status) {
 
-		reg = 0;
-		/* Set the GPIO_MODE field */
-		switch (mode) {
-
-		case ES2lpApiGpioMode_DigitalInput:
-
-			SET_BITS(reg, 0x03, 0x01);
-			break;
-
-		case ES2lpApiGpioMode_DigitalOutputLowPower:
-
-			SET_BITS(reg, 0x03, 0x02);
-			break;
-
-		case ES2lpApiGpioMode_DigitalOutputHighPower:
-
-			SET_BITS(reg, 0x03, 0x03);
-			break;
-
-		default:
-
-			status = ES2lpApiRet_InvalidParams;
-			break;
-
-		}
-
-	}
-
-	if (ES2lpApiRet_Ok == status) {
-
-		/* Set the GPIO_SELECT field */
-		if (ES2lpApiGpioMode_DigitalInput == mode) {
-
-			/* Select GPIO digital input signal */
-			switch (sig) {
-
-			case ES2lpApiGpioSignal_i_TxCommand:
-
-				SET_BITS(reg, 0xF8, 0x00);
-				break;
-
-			case ES2lpApiGpioSignal_i_RxCommand:
-
-				SET_BITS(reg, 0xF8, 0x08);
-				break;
-
-			case ES2lpApiGpioSignal_i_TxDataInputForDirectModulation:
-
-				SET_BITS(reg, 0xF8, 0x10);
-				break;
-
-			case ES2lpApiGpioSignal_i_WakeUpFromExternalInput:
-
-				SET_BITS(reg, 0xF8, 0x18);
-				break;
-
-			case ES2lpApiGpioSignal_i_ExternalClockForLdcModesTiming:
-
-				SET_BITS(reg, 0xF8, 0x20);
-				break;
-
-			default:
-
-				status = ES2lpApiRet_InvalidParams;
-				break;
-
-			}
-
-		} else {
-
-			/* Select GPIO digital output signal */
-			switch (sig) {
-
-			case ES2lpApiGpioSignal_o_Irq:
-
-				SET_BITS(reg, 0xF8, 0x00);
-				break;
-
-			case ES2lpApiGpioSignal_o_PorInverted:
-
-				SET_BITS(reg, 0xF8, 0x08);
-				break;
-
-			case ES2lpApiGpioSignal_o_WakeUpTimerExpiration:
-
-				SET_BITS(reg, 0xF8, 0x10);
-				break;
-
-			case ES2lpApiGpioSignal_o_LowBatteryDetection:
-
-				SET_BITS(reg, 0xF8, 0x18);
-				break;
-
-			case ES2lpApiGpioSignal_o_TxDataInternalClockOutput:
-
-				SET_BITS(reg, 0xF8, 0x20);
-				break;
-
-			case ES2lpApiGpioSignal_o_CommandInfoFromRadioTxBlock:
-
-				SET_BITS(reg, 0xF8, 0x28);
-				break;
-
-			case ES2lpApiGpioSignal_o_FifoAlmostEmptyFlag:
-
-				SET_BITS(reg, 0xF8, 0x30);
-				break;
-
-			case ES2lpApiGpioSignal_o_FifoAlmostFullFlag:
-
-				SET_BITS(reg, 0xF8, 0x38);
-				break;
-
-			case ES2lpApiGpioSignal_o_RxDataOutput:
-
-				SET_BITS(reg, 0xF8, 0x40);
-				break;
-
-			case ES2lpApiGpioSignal_o_RxClockOutput:
-
-				SET_BITS(reg, 0xF8, 0x48);
-				break;
-
-			case ES2lpApiGpioSignal_o_RxStateIndication:
-
-				SET_BITS(reg, 0xF8, 0x50);
-				break;
-
-			case ES2lpApiGpioSignal_o_DeviceNotInSleepOrStandbyState:
-
-				SET_BITS(reg, 0xF8, 0x58);
-				break;
-
-			case ES2lpApiGpioSignal_o_DeviceInStandbyState:
-
-				SET_BITS(reg, 0xF8, 0x60);
-				break;
-
-			case ES2lpApiGpioSignal_o_AntennaSwitchSignal:
-
-				SET_BITS(reg, 0xF8, 0x68);
-				break;
-
-			case ES2lpApiGpioSignal_o_ValidPreambleDetectedFlag:
-
-				SET_BITS(reg, 0xF8, 0x70);
-				break;
-
-			case ES2lpApiGpioSignal_o_SyncWordDetectedFlag:
-
-				SET_BITS(reg, 0xF8, 0x78);
-				break;
-
-			case ES2lpApiGpioSignal_o_RssiAboveThreshold:
-
-				SET_BITS(reg, 0xF8, 0x80);
-				break;
-
-			case ES2lpApiGpioSignal_o_TxRxModeIndicator:
-
-				SET_BITS(reg, 0xF8, 0x90);
-				break;
-
-			case ES2lpApiGpioSignal_o_Vdd:
-
-				SET_BITS(reg, 0xF8, 0x98);
-				break;
-
-			case ES2lpApiGpioSignal_o_Gnd:
-
-				SET_BITS(reg, 0xF8, 0xA0);
-				break;
-
-			case ES2lpApiGpioSignal_o_ExternalSmpsEnableSignal:
-
-				SET_BITS(reg, 0xF8, 0xA8);
-				break;
-
-			case ES2lpApiGpioSignal_o_DeviceInSleepState:
-
-				SET_BITS(reg, 0xF8, 0xB0);
-				break;
-
-			case ES2lpApiGpioSignal_o_DeviceInReadyState:
-
-				SET_BITS(reg, 0xF8, 0xB8);
-				break;
-
-			case ES2lpApiGpioSignal_o_DeviceInLockState:
-
-				SET_BITS(reg, 0xF8, 0xC0);
-				break;
-
-			case ES2lpApiGpioSignal_o_DeviceWaitingForHighLockDetectorSignal:
-
-				SET_BITS(reg, 0xF8, 0xC8);
-				break;
-
-			case ES2lpApiGpioSignal_o_TxDataOokSignal:
-
-				SET_BITS(reg, 0xF8, 0xD0);
-				break;
-
-			case ES2lpApiGpioSignal_o_DeviceWaitingForHighReady2SignalFromXo:
-
-				SET_BITS(reg, 0xF8, 0xD8);
-				break;
-
-			case ES2lpApiGpioSignal_o_DeviceWaitingForTimerExpirationToAllowPmBlockSettling:
-
-				SET_BITS(reg, 0xF8, 0xE0);
-				break;
-
-			case ES2lpApiGpioSignal_o_DeviceWaitingForEndOfVcoCalibration:
-
-				SET_BITS(reg, 0xF8, 0xE8);
-				break;
-
-			case ES2lpApiGpioSignal_o_DeviceEnablesTheFullSynthBlockCircuitry:
-
-				SET_BITS(reg, 0xF8, 0xF0);
-				break;
-
-			default:
-
-				status = ES2lpApiRet_InvalidParams;
-				break;
-
-			}
-
-		}
-
-	}
-
-	if (ES2lpApiRet_Ok == status) {
+		/* Set the GPIO_SELECT and GPIO_MODE fields */
+		reg = (TByte) sig;
 
 		/* Write to register GPIOx_CONF */
-		if (ES2lpLldRet_Ok != S2lpLld_WriteReg(addr, &reg, 1)) {
+		if (ES2lpLldRet_Ok != S2lpLld_WriteReg(addr, &reg, 1, NULL)) {
 
 			status = ES2lpApiRet_Error;
 
@@ -470,336 +259,17 @@ ES2lpApiRet S2lpApi_ConfigGpio(ES2lpApiGpioPin gpio, ES2lpApiGpioMode mode,
 }
 
 /**
- * @brief Set charge pump current
- * @param icp Charge pump current
- * @retval ES2lpApiRet Status
- */
-ES2lpApiRet S2lpApi_SetChargePumpCurrent(ES2lpApiIcp icp) {
-
-	ES2lpApiRet status = ES2lpApiRet_Ok;
-	TByte reg;
-
-	/* Fetch register SYNT3 */
-	if (ES2lpLldRet_Ok != S2lpLld_ReadReg(SYNT3_ADDR, &reg, 1)) {
-
-		status = ES2lpApiRet_Error;
-
-	}
-
-	if (ES2lpApiRet_Ok == status) {
-
-		/* Set the PLL_CP_ISEL field */
-		switch (icp) {
-
-		case ES2lpApiIcp_120uA:
-
-			SET_BITS(reg, 0xE0, 0x40);
-			break;
-
-		case ES2lpApiIcp_200uA:
-
-			SET_BITS(reg, 0xE0, 0x20);
-			break;
-
-		case ES2lpApiIcp_140uA:
-
-			SET_BITS(reg, 0xE0, 0x60);
-			break;
-
-		case ES2lpApiIcp_240uA:
-
-			SET_BITS(reg, 0xE0, 0x40);
-			break;
-
-		default:
-
-			status = ES2lpApiRet_InvalidParams;
-			break;
-
-		}
-
-	}
-
-	if (ES2lpApiRet_Ok == status) {
-
-		/* Write back to register SYNT3 */
-		if (ES2lpLldRet_Ok != S2lpLld_WriteReg(SYNT3_ADDR, &reg, 1)) {
-
-			status = ES2lpApiRet_Error;
-
-		}
-
-	}
-
-	if (ES2lpApiRet_Ok == status) {
-
-		/* Fetch register SYNTH_CONFIG2 */
-		if (ES2lpLldRet_Ok != S2lpLld_ReadReg(SYNTH_CONFIG2_ADDR, &reg, 1)) {
-
-			status = ES2lpApiRet_Error;
-
-		}
-
-	}
-
-	if (ES2lpApiRet_Ok == status) {
-
-		/* Set the PLL_PFD_SPLIT_EN field */
-		switch (icp) {
-
-		case ES2lpApiIcp_120uA:
-
-			SET_BITS(reg, 0x04, 0x00);
-			break;
-
-		case ES2lpApiIcp_200uA:
-
-			SET_BITS(reg, 0x04, 0x04);
-			break;
-
-		case ES2lpApiIcp_140uA:
-
-			SET_BITS(reg, 0x04, 0x00);
-			break;
-
-		case ES2lpApiIcp_240uA:
-
-			SET_BITS(reg, 0x04, 0x04);
-			break;
-
-		default:
-
-			status = ES2lpApiRet_InvalidParams;
-			break;
-
-		}
-
-	}
-
-	if (ES2lpApiRet_Ok == status) {
-
-		/* Write back to register SYNTH_CONFIG2 */
-		if (ES2lpLldRet_Ok != S2lpLld_WriteReg(SYNTH_CONFIG2_ADDR, &reg, 1)) {
-
-			status = ES2lpApiRet_Error;
-
-		}
-
-	}
-
-	return status;
-
-}
-
-/**
- * @brief Set base frequency
- * @param config Configuration structure
- * @retval ES2lpApiRet Status
- * @note f_base = (f_xo * SYNT) / 2^(BANDSELECT + REFDIV + 21)
- */
-ES2lpApiRet S2lpApi_SetBaseFrequency(SS2lpApiBaseFrequencyConfig config) {
-
-	ES2lpApiRet status = ES2lpApiRet_Ok;
-	TByte reg;
-
-	/* Fetch register SYNT3 */
-	if (ES2lpLldRet_Ok != S2lpLld_ReadReg(SYNT3_ADDR, &reg, 1)) {
-
-		status = ES2lpApiRet_Error;
-
-	}
-
-	if (ES2lpApiRet_Ok == status) {
-
-		/* Set the BS field */
-		SET_BITS(reg, 0x10, (config.BANDSELECT << 4));
-		/* Set the SYNT[27:24] field */
-		SET_BITS(reg, 0x0F, (config.SYNT >> 24));
-		/* Write back to register SYNT3  */
-		if (ES2lpLldRet_Ok != S2lpLld_WriteReg(SYNT3_ADDR, &reg, 1)) {
-
-			status = ES2lpApiRet_Error;
-
-		}
-
-	}
-
-	if (ES2lpApiRet_Ok == status) {
-
-		/* Set the SYNT[23:16] field */
-		reg = (config.SYNT >> 16) & 0xFF;
-		/* Write to register SYNT2 */
-		if (ES2lpLldRet_Ok != S2lpLld_WriteReg(SYNT2_ADDR, &reg, 1)) {
-
-			status = ES2lpApiRet_Error;
-
-		}
-
-	}
-
-	if (ES2lpApiRet_Ok == status) {
-
-		/* Set the SYNT[15:8] field */
-		reg = (config.SYNT >> 8) & 0xFF;
-		/* Write to register SYNT2 */
-		if (ES2lpLldRet_Ok != S2lpLld_WriteReg(SYNT1_ADDR, &reg, 1)) {
-
-			status = ES2lpApiRet_Error;
-
-		}
-
-	}
-
-	if (ES2lpApiRet_Ok == status) {
-
-		/* Set the SYNT[7:0] field */
-		reg = config.SYNT & 0xFF;
-		/* Write to register SYNT2 */
-		if (ES2lpLldRet_Ok != S2lpLld_WriteReg(SYNT0_ADDR, &reg, 1)) {
-
-			status = ES2lpApiRet_Error;
-
-		}
-
-	}
-
-	if (ES2lpApiRet_Ok == status) {
-
-		/* Fetch register XO_RCO_CONF0 */
-		if (ES2lpLldRet_Ok != S2lpLld_ReadReg(XO_RCO_CONF0_ADDR, &reg, 1)) {
-
-			status = ES2lpApiRet_Error;
-
-		}
-
-	}
-
-	if (ES2lpApiRet_Ok == status) {
-
-		/* Set the REFDIV field */
-		SET_BITS(reg, 0x80, (config.REFDIV << 3));
-		/* Write back to register XO_RCO_CONF0  */
-		if (ES2lpLldRet_Ok != S2lpLld_WriteReg(XO_RCO_CONF0_ADDR, &reg, 1)) {
-
-			status = ES2lpApiRet_Error;
-
-		}
-
-	}
-
-	return status;
-
-}
-
-/**
- * @brief Select the RF channel
- * @param chspace Value to write to register CHSPACE
- * @param chnum Value to write to register CHNUM
- * @retval ES2lpApiRet Status
- * @note frequency = f_base + f_xo / 2^15 * CHSPACE * CHNUM
- */
-ES2lpApiRet S2lpApi_SetCenterFrequency(TByte chspace, TByte chnum) {
-
-	ES2lpApiRet status = ES2lpApiRet_Ok;
-
-	/* Write to register CHSPACE */
-	if (ES2lpLldRet_Ok != S2lpLld_WriteReg(CHSPACE_ADDR, &chspace, 1)) {
-
-		status = ES2lpApiRet_Error;
-
-	}
-
-	if (ES2lpApiRet_Ok == status) {
-
-		/* Write to register CHNUM */
-		if (ES2lpLldRet_Ok != S2lpLld_WriteReg(CHNUM_ADDR, &chnum, 1)) {
-
-			status = ES2lpApiRet_Error;
-
-		}
-
-	}
-
-	return status;
-
-}
-
-/**
- * @brief Set the data rate by configuring the DATARATE_M and DATARATE_E registers
- * @param mantissa 16-bit mantissa value of the data rate equation
- * @param exponent 4-bit exponent value of the data rate equation
- * @retval ES2lpApiRet Status
- * @note Data rate formula:
- *           DataRate = f_dig * DATARATE_M/2^32 if DATARATE_E = 0
- *           DataRate = f_dig * (2^16 + DATARATE_M) * 2^DATARATE_E / 2^33 if DATARATE_E >0
- *           DataRate = f_dig / (8 * DATARATE_M)
- *       where f_dig is the digital clock frequency
- */
-ES2lpApiRet S2lpApi_SetDataRate(TWord mantissa, TByte exponent) {
-
-	ES2lpApiRet status = ES2lpApiRet_Ok;
-	TByte reg;
-
-	reg = (mantissa >> 8) & 0xFF;
-	/* Write to register MOD4 */
-	if (ES2lpLldRet_Ok != S2lpLld_WriteReg(MOD4_ADDR, &reg, 1)) {
-
-		status = ES2lpApiRet_Error;
-
-	}
-
-	if (ES2lpApiRet_Ok == status) {
-
-		reg = mantissa & 0xFF;
-		/* Write to register MOD3 */
-		if (ES2lpLldRet_Ok != S2lpLld_WriteReg(MOD3_ADDR, &reg, 1)) {
-
-			status = ES2lpApiRet_Error;
-
-		}
-
-	}
-
-	if (ES2lpApiRet_Ok == status) {
-
-		/* Fetch register MOD2 */
-		if (ES2lpLldRet_Ok != S2lpLld_ReadReg(MOD2_ADDR, &reg, 1)) {
-
-			status = ES2lpApiRet_Error;
-
-		}
-
-	}
-
-	if (ES2lpApiRet_Ok == status) {
-
-		/* Set the DATARATE_E field */
-		SET_BITS(reg, 0x0F, exponent);
-		/* Write back to register MOD2 */
-		if (ES2lpLldRet_Ok != S2lpLld_WriteReg(MOD2_ADDR, &reg, 1)) {
-
-			status = ES2lpApiRet_Error;
-
-		}
-
-	}
-
-	return status;
-
-}
-
-/**
- * @brief Set modulation type
+ * @brief Select modulation type
  * @param type Modulation type
  * @retval ES2lpApiRet Status
  */
-ES2lpApiRet S2lpApi_SetModulationType(ES2lpApiModulationType type) {
+ES2lpApiRet S2lpApi_SelectModulationType(ES2lpApiModulationType type) {
 
 	ES2lpApiRet status = ES2lpApiRet_Ok;
-	TByte reg;
+	TByte mod2;
 
 	/* Fetch register MOD2 */
-	if (ES2lpLldRet_Ok != S2lpLld_ReadReg(MOD2_ADDR, &reg, 1)) {
+	if (ES2lpLldRet_Ok != S2lpLld_ReadReg(S2LP_MOD2_ADDR, &mod2, 1, NULL)) {
 
 		status = ES2lpApiRet_Error;
 
@@ -807,92 +277,21 @@ ES2lpApiRet S2lpApi_SetModulationType(ES2lpApiModulationType type) {
 
 	if (ES2lpApiRet_Ok == status) {
 
+		/* Clear the MOD_TYPE field */
+		mod2 &= ~0xF0;
 		/* Set the MOD_TYPE field */
-		switch (type) {
-
-		case ES2lpApiModulationType_2_FSK:
-
-			SET_BITS(reg, 0xF0, 0x00);
-			break;
-
-		case ES2lpApiModulationType_4_FSK:
-
-			SET_BITS(reg, 0xF0, 0x10);
-			break;
-
-		case ES2lpApiModulationType_2_GFSK_BT_1:
-
-			SET_BITS(reg, 0xF0, 0x20);
-			break;
-
-		case ES2lpApiModulationType_4_GFSK_BT_1:
-
-			SET_BITS(reg, 0xF0, 0x30);
-			break;
-
-		case ES2lpApiModulationType_ASK_OOK:
-
-			SET_BITS(reg, 0xF0, 0x50);
-			break;
-
-		case ES2lpApiModulationType_PolarMode:
-
-			SET_BITS(reg, 0xF0, 0x60);
-			break;
-
-		case ES2lpApiModulationType_Unmodulated:
-
-			SET_BITS(reg, 0xF0, 0x70);
-			break;
-
-		case ES2lpApiModulationType_2_GFSK_BT_0_5:
-
-			SET_BITS(reg, 0xF0, 0xA0);
-			break;
-
-		case ES2lpApiModulationType_4_GFSK_BT_0_5:
-
-			SET_BITS(reg, 0xF0, 0xB0);
-			break;
-
-		default:
-
-			status = ES2lpApiRet_InvalidParams;
-			break;
-
-		}
+		mod2 |= (TByte) type;
 
 	}
 
 	if (ES2lpApiRet_Ok == status) {
 
 		/* Write back to register MOD2 */
-		if (ES2lpLldRet_Ok != S2lpLld_WriteReg(MOD2_ADDR, &reg, 1)) {
+		if (ES2lpLldRet_Ok != S2lpLld_WriteReg(S2LP_MOD2_ADDR, &mod2, 1, NULL)) {
 
 			status = ES2lpApiRet_Error;
 
 		}
-
-	}
-
-	return status;
-
-}
-
-/**
- * @brief Set signal detect threshold
- * @param rssiThreshold Value to write to register RSSI_TH
- * @retval ES2lpApiRet Status
- * @note Threshold in dBm is (RSSI_TH - 146)
- */
-ES2lpApiRet S2lpApi_SetSignalDetectThreshold(TByte rssiThreshold) {
-
-	ES2lpApiRet status = ES2lpApiRet_Ok;
-
-	/* Write to register RSSI_TH */
-	if (ES2lpLldRet_Ok != S2lpLld_WriteReg(RSSI_TH_ADDR, &rssiThreshold, 1)) {
-
-		status = ES2lpApiRet_Error;
 
 	}
 
@@ -908,10 +307,11 @@ ES2lpApiRet S2lpApi_SetSignalDetectThreshold(TByte rssiThreshold) {
 ES2lpApiRet S2lpApi_SetPacketLength(THalfWord length) {
 
 	ES2lpApiRet status = ES2lpApiRet_Ok;
-	TByte reg;
+	TByte pcktCtrl2;
+	TByte pcktLen[2];
 
 	/* Fetch register PCKTCTRL2 */
-	if (ES2lpLldRet_Ok != S2lpLld_ReadReg(PCKTCTRL2_ADDR, &reg, 1)) {
+	if (ES2lpLldRet_Ok != S2lpLld_ReadReg(S2LP_PCKTCTRL2_ADDR, &pcktCtrl2, 1, NULL)) {
 
 		status = ES2lpApiRet_Error;
 
@@ -920,9 +320,10 @@ ES2lpApiRet S2lpApi_SetPacketLength(THalfWord length) {
 	if (ES2lpApiRet_Ok == status) {
 
 		/* Set FIX_VAR_LEN field */
-		SET_BITS(reg, 0x01, 0x00);
+		SET_BITS(pcktCtrl2, 0x01, 0x00);
 		/* Write back to register PCKTCTRL2 */
-		if (ES2lpLldRet_Ok != S2lpLld_WriteReg(PCKTCTRL2_ADDR, &reg, 1)) {
+		if (ES2lpLldRet_Ok
+				!= S2lpLld_WriteReg(S2LP_PCKTCTRL2_ADDR, &pcktCtrl2, 1, NULL)) {
 
 			status = ES2lpApiRet_Error;
 
@@ -933,22 +334,12 @@ ES2lpApiRet S2lpApi_SetPacketLength(THalfWord length) {
 	if (ES2lpApiRet_Ok == status) {
 
 		/* Set PCKTLEN1 field */
-		reg = (length >> 8) & 0xFF;
-		/* Write to register PCKTLEN1 */
-		if (ES2lpLldRet_Ok != S2lpLld_WriteReg(PCKTLEN1_ADDR, &reg, 1)) {
-
-			status = ES2lpApiRet_Error;
-
-		}
-
-	}
-
-	if (ES2lpApiRet_Ok == status) {
-
+		pcktLen[0] = (length >> 8) & 0xFF;
 		/* Set PCKTLEN0 field */
-		reg = length & 0xFF;
-		/* Write to register PCKTLEN0 */
-		if (ES2lpLldRet_Ok != S2lpLld_WriteReg(PCKTLEN0_ADDR, &reg, 1)) {
+		pcktLen[1] = length & 0xFF;
+		/* Write to register PCKTLEN */
+		if (ES2lpLldRet_Ok
+				!= S2lpLld_WriteReg(S2LP_PCKTLEN1_ADDR, pcktLen, sizeof(pcktLen), NULL)) {
 
 			status = ES2lpApiRet_Error;
 
@@ -968,10 +359,10 @@ ES2lpApiRet S2lpApi_SetPacketLength(THalfWord length) {
 ES2lpApiRet S2lpApi_EnableManchester(bool enable) {
 
 	ES2lpApiRet status = ES2lpApiRet_Ok;
-	TByte reg;
+	TByte pcktCtrl2;
 
 	/* Fetch register PCKTCTRL2 */
-	if (ES2lpLldRet_Ok != S2lpLld_ReadReg(PCKTCTRL2_ADDR, &reg, 1)) {
+	if (ES2lpLldRet_Ok != S2lpLld_ReadReg(S2LP_PCKTCTRL2_ADDR, &pcktCtrl2, 1, NULL)) {
 
 		status = ES2lpApiRet_Error;
 
@@ -980,122 +371,12 @@ ES2lpApiRet S2lpApi_EnableManchester(bool enable) {
 	if (ES2lpApiRet_Ok == status) {
 
 		/* Set MANCHESTER_EN field */
-		SET_BITS(reg, 0x02, (enable ? 0x02 : 0x00));
+		SET_BITS(pcktCtrl2, 0x02, (enable ? 0x02 : 0x00));
 		/* Write back to register PCKTCTRL2 */
-		if (ES2lpLldRet_Ok != S2lpLld_WriteReg(PCKTCTRL2_ADDR, &reg, 1)) {
+		if (ES2lpLldRet_Ok
+				!= S2lpLld_WriteReg(S2LP_PCKTCTRL2_ADDR, &pcktCtrl2, 1, NULL)) {
 
 			status = ES2lpApiRet_Error;
-
-		}
-
-	}
-
-	return status;
-
-}
-
-/**
- * @brief Configure CRC calculation
- * @param mode CRC mode
- * @retval ES2lpApiRet Status
- */
-ES2lpApiRet S2lpApi_ConfigCrc(ES2lpApiCrcMode mode) {
-
-	ES2lpApiRet status = ES2lpApiRet_Ok;
-	TByte reg;
-
-	/* Fetch register PCKTCTRL1 */
-	if (ES2lpLldRet_Ok != S2lpLld_ReadReg(PCKTCTRL1_ADDR, &reg, 1)) {
-
-		status = ES2lpApiRet_Error;
-
-	}
-
-	if (ES2lpApiRet_Ok == status) {
-
-		/* Set CRC_MODE field */
-		switch (mode) {
-
-		case ES2lpApiCrcMode_NoCRCField:
-
-			SET_BITS(reg, 0xE0, 0x00);
-			break;
-
-		case ES2lpApiCrcMode_Poly0x07:
-
-			SET_BITS(reg, 0xE0, 0x20);
-			break;
-
-		case ES2lpApiCrcMode_Poly0x8005:
-
-			SET_BITS(reg, 0xE0, 0x40);
-			break;
-
-		case ES2lpApiCrcMode_Poly0x1021:
-
-			SET_BITS(reg, 0xE0, 0x60);
-			break;
-
-		case ES2lpApiCrcMode_Poly0x864CBF:
-
-			SET_BITS(reg, 0xE0, 0x80);
-			break;
-
-		case ES2lpApiCrcMode_Poly0x04C011BB7:
-
-			SET_BITS(reg, 0xE0, 0xA0);
-			break;
-
-		default:
-
-			status = ES2lpApiRet_InvalidParams;
-			break;
-
-		}
-
-	}
-
-	if (ES2lpApiRet_Ok == status) {
-
-		/* Write back to register PCKTCTRL2 */
-		if (ES2lpLldRet_Ok != S2lpLld_WriteReg(PCKTCTRL1_ADDR, &reg, 1)) {
-
-			status = ES2lpApiRet_Error;
-
-		}
-
-	}
-
-	if (ES2lpApiRet_Ok == status) {
-
-		if (ES2lpApiCrcMode_NoCRCField != mode) {
-
-			/* Fetch register PCKT_FLT_OPTIONS */
-			if (ES2lpLldRet_Ok
-					!= S2lpLld_ReadReg(PCKT_FLT_OPTIONS_ADDR, &reg, 1)) {
-
-				status = ES2lpApiRet_Error;
-
-			}
-
-		}
-
-	}
-
-	if (ES2lpApiRet_Ok == status) {
-
-		if (ES2lpApiCrcMode_NoCRCField != mode) {
-
-			/* Set the CRC_FLT field */
-			SET_BITS(reg, 0x01, 0x01);
-
-			/* Write back to register PCKT_FLT_OPTIONS */
-			if (ES2lpLldRet_Ok
-					!= S2lpLld_WriteReg(PCKT_FLT_OPTIONS_ADDR, &reg, 1)) {
-
-				status = ES2lpApiRet_Error;
-
-			}
 
 		}
 
@@ -1113,11 +394,46 @@ ES2lpApiRet S2lpApi_ConfigCrc(ES2lpApiCrcMode mode) {
 ES2lpApiRet S2lpApi_SetSyncWord(TWord sync) {
 
 	ES2lpApiRet status = ES2lpApiRet_Ok;
-	TByte reg;
 
-	reg = (sync >> 24) & 0xFF;
-	/* Write to register SYNC3 */
-	if (ES2lpLldRet_Ok != S2lpLld_WriteReg(SYNC3_ADDR, &reg, 4)) {
+	/* Endianness must not be changed if the host MCU is little-endian!
+	 * By writing to address S2LP_SYNC3_ADDR with increment we change the endianness to big-endian,
+	 * but since S2-LP matches the sync word most-significant-bit-first starting from the least significant
+	 * byte (SYNC0), so in little-endian, this works out exactly as expected with no manual byte swapping
+	 * required. */
+
+	/* Write to register SYNC */
+	if (ES2lpLldRet_Ok
+			!= S2lpLld_WriteReg(S2LP_SYNC3_ADDR, (TByte*) &sync, 4, NULL)) {
+
+		status = ES2lpApiRet_Error;
+
+	}
+
+	return status;
+
+}
+
+/**
+ * @brief Set data rate
+ * @param datarate_m DATARATE_M (mantissa) in the data rate equation
+ * @param datarate_e DATARATE_E (exponent) in the data rate equation
+ * @retval ES2lpApiRet Status
+ */
+ES2lpApiRet S2lpApi_SetDataRate(THalfWord datarate_m, TByte datarate_e) {
+
+	ES2lpApiRet status = ES2lpApiRet_Ok;
+	TByte mod4_2[3];
+
+	/* Assert valid datarate_e value */
+	if (0 != (datarate_e & 0xF0)) {
+
+		return ES2lpApiRet_InvalidParams;
+
+	}
+
+	/* Fetch registers MOD4, MOD3 and MOD2 */
+	if (ES2lpLldRet_Ok
+			!= S2lpLld_ReadReg(S2LP_MOD4_ADDR, mod4_2, sizeof(mod4_2), NULL)) {
 
 		status = ES2lpApiRet_Error;
 
@@ -1125,33 +441,23 @@ ES2lpApiRet S2lpApi_SetSyncWord(TWord sync) {
 
 	if (ES2lpApiRet_Ok == status) {
 
-		reg = (sync >> 16) & 0xFF;
-		/* Write to register SYNC2 */
-		if (ES2lpLldRet_Ok != S2lpLld_WriteReg(SYNC2_ADDR, &reg, 4)) {
+		/* Place the datarate_m MSB in register MOD4 */
+		mod4_2[0] = (datarate_m & 0xFF00) >> 8;
+		/* Place the datarate_m LSB in register MOD3 */
+		mod4_2[1] = datarate_m & 0x00FF;
 
-			status = ES2lpApiRet_Error;
-
-		}
-
-	}
-
-	if (ES2lpApiRet_Ok == status) {
-
-		reg = (sync >> 8) & 0xFF;
-		/* Write to register SYNC1 */
-		if (ES2lpLldRet_Ok != S2lpLld_WriteReg(SYNC1_ADDR, &reg, 4)) {
-
-			status = ES2lpApiRet_Error;
-
-		}
+		/* Clear the DATARATE_E field in register MOD2 */
+		mod4_2[2] &= ~0x0F;
+		/* Set the DATARATE_E field */
+		mod4_2[2] |= datarate_e;
 
 	}
 
 	if (ES2lpApiRet_Ok == status) {
 
-		reg = sync & 0xFF;
-		/* Write to register SYNC0 */
-		if (ES2lpLldRet_Ok != S2lpLld_WriteReg(SYNC0_ADDR, &reg, 4)) {
+		/* Write back to registers MOD4, MOD3 and MOD2 */
+		if (ES2lpLldRet_Ok
+				!= S2lpLld_WriteReg(S2LP_MOD4_ADDR, mod4_2, sizeof(mod4_2), NULL)) {
 
 			status = ES2lpApiRet_Error;
 
@@ -1161,6 +467,110 @@ ES2lpApiRet S2lpApi_SetSyncWord(TWord sync) {
 
 	return status;
 
+}
+
+/**
+ * @brief Set frequency deviation
+ * @param fdev_m FDEV_M (mantissa) in the frequency deviation equation
+ * @param fdev_e FDEV_E (exponent) in the frequency deviation equation
+ * @retval ES2lpApiRet Status
+ */
+ES2lpApiRet S2lpApi_SetFrequencyDeviation(TByte fdev_m, TByte fdev_e) {
+
+	ES2lpApiRet status = ES2lpApiRet_Ok;
+
+	TByte mod1_0[2];
+
+	/* Assert valid fdev_e value */
+	if (0 != (fdev_e & 0xF0)) {
+
+		return ES2lpApiRet_InvalidParams;
+
+	}
+
+	/* Fetch registers MOD1 and MOD0 */
+	if (ES2lpLldRet_Ok
+			!= S2lpLld_ReadReg(S2LP_MOD1_ADDR, mod1_0, sizeof(mod1_0), NULL)) {
+
+		status = ES2lpApiRet_Error;
+
+	}
+
+	if (ES2lpApiRet_Ok == status) {
+
+		/* Clear the FDEV_E field in register MOD1 */
+		mod1_0[0] &= ~0x0F;
+		/* Set the FDEV_E field */
+		mod1_0[0] |= fdev_e;
+
+		/* Write fdev_m to register MOD0 */
+		mod1_0[1] = fdev_m;
+
+	}
+
+	if (ES2lpApiRet_Ok == status) {
+
+		/* Write back to registers MOD1 and MOD0 */
+		if (ES2lpLldRet_Ok
+				!= S2lpLld_WriteReg(S2LP_MOD1_ADDR, mod1_0, sizeof(mod1_0), NULL)) {
+
+			status = ES2lpApiRet_Error;
+
+		}
+
+	}
+
+	return status;
+
+}
+
+/**
+ * @brief Set channel filter bandwidth
+ * @param chflt_m CHFLT_M (mantissa) in the channel filter equation/table
+ * @param chflt_e CHLFT_E (exponent) in the channel filter equation/table
+ * @retval ES2lpApiRet Status
+ */
+ES2lpApiRet S2lpApi_SetChannelFilterBandwidth(TByte chflt_m, TByte chflt_e) {
+
+	ES2lpApiRet status = ES2lpApiRet_Ok;
+
+	TByte chflt;
+
+	/* Assert valid chflt_m and chflt_e values */
+	if (0 != (chflt_m & 0xF0) || 0 != (chflt_e & 0xF0)) {
+
+		return ES2lpApiRet_InvalidParams;
+
+	}
+
+	/* Fetch register CHFLT */
+	if (ES2lpLldRet_Ok
+			!= S2lpLld_ReadReg(S2LP_CHFLT_ADDR, &chflt, 1, NULL)) {
+
+		status = ES2lpApiRet_Error;
+
+	}
+
+	if (ES2lpApiRet_Ok == status) {
+
+		/* Write the chflt_m and chflt_e values to the CHFLT register */
+		chflt = (chflt_m << 4) | chflt_e;
+
+	}
+
+	if (ES2lpApiRet_Ok == status) {
+
+		/* Write back to register CHFLT */
+		if (ES2lpLldRet_Ok
+				!= S2lpLld_WriteReg(S2LP_CHFLT_ADDR, &chflt, 1, NULL)) {
+
+			status = ES2lpApiRet_Error;
+
+		}
+
+	}
+
+	return status;
 }
 
 /**
@@ -1172,461 +582,10 @@ ES2lpApiRet S2lpApi_ReadRssi(TByte *rssiPtr) {
 
 	ES2lpApiRet status = ES2lpApiRet_Ok;
 
-	if (ES2lpLldRet_Ok != S2lpLld_ReadReg(RSSI_LEVEL_ADDR, rssiPtr, 1)) {
+	if (ES2lpLldRet_Ok
+			!= S2lpLld_ReadReg(S2LP_RSSI_LEVEL_ADDR, rssiPtr, 1, NULL)) {
 
 		status = ES2lpApiRet_Error;
-
-	}
-
-	return status;
-
-}
-
-/**
- * @brief Enable/disable IRQ generation on a given event
- * @param event Interrupt event
- * @param enable True to enable IRQ generation, false otherwise
- * @retval ES2lpApiRet Status
- */
-ES2lpApiRet S2lpApi_EnableInterrupt(ES2lpApiInterruptEvent event, bool enable) {
-
-	ES2lpApiRet status = ES2lpApiRet_Ok;
-	TByte addr;
-	TByte reg;
-
-	/* Identify the event */
-	switch (event) {
-
-	case ES2lpApiInterruptEvent_RxDataReady:
-	case ES2lpApiInterruptEvent_RxDataDiscarded:
-	case ES2lpApiInterruptEvent_TxDataSent:
-	case ES2lpApiInterruptEvent_MaxReTxReached:
-	case ES2lpApiInterruptEvent_CrcError:
-	case ES2lpApiInterruptEvent_TxFifoOverflowUnderflowError:
-	case ES2lpApiInterruptEvent_RxFifoOverflowUnderflowError:
-	case ES2lpApiInterruptEvent_TxFifoAlmostFull:
-
-		addr = IRQ_MASK0_ADDR;
-		break;
-
-	case ES2lpApiInterruptEvent_TxFifoAlmostEmpty:
-	case ES2lpApiInterruptEvent_RxFifoAlmostFull:
-	case ES2lpApiInterruptEvent_RxFifoAlmostEmpty:
-	case ES2lpApiInterruptEvent_MaxNoOfBackOffDuringCca:
-	case ES2lpApiInterruptEvent_ValidPreambleDetected:
-	case ES2lpApiInterruptEvent_SyncWordDetected:
-	case ES2lpApiInterruptEvent_RssiAboveThreshold:
-	case ES2lpApiInterruptEvent_WakeUpTimeoutInLdcrMode:
-
-		addr = IRQ_MASK1_ADDR;
-		break;
-
-	case ES2lpApiInterruptEvent_Ready:
-	case ES2lpApiInterruptEvent_StandbyStateSwitchingInProgress:
-	case ES2lpApiInterruptEvent_LowBatteryLevel:
-	case ES2lpApiInterruptEvent_PowerOnReset:
-
-		addr = IRQ_MASK2_ADDR;
-		break;
-
-	case ES2lpApiInterruptEvent_RxTimerTimeout:
-	case ES2lpApiInterruptEvent_SniffTimerTimeout:
-
-		addr = IRQ_MASK3_ADDR;
-		break;
-
-	default:
-
-		status = ES2lpApiRet_InvalidParams;
-		break;
-
-	}
-
-	if (ES2lpApiRet_Ok == status) {
-
-		/* Fetch register IRQ_MASKx */
-		if (ES2lpLldRet_Ok != S2lpLld_ReadReg(addr, &reg, 1)) {
-
-			status = ES2lpApiRet_Error;
-
-		}
-
-	}
-
-	if (ES2lpApiRet_Ok == status) {
-
-		/* Set the INT_MASK field */
-		switch (event) {
-
-		case ES2lpApiInterruptEvent_RxDataReady:
-
-			SET_BITS(reg, 0x01, (enable ? 0x01 : 0x00));
-			break;
-
-		case ES2lpApiInterruptEvent_RxDataDiscarded:
-
-			SET_BITS(reg, 0x02, (enable ? 0x02 : 0x00));
-			break;
-
-		case ES2lpApiInterruptEvent_TxDataSent:
-
-			SET_BITS(reg, 0x04, (enable ? 0x04 : 0x00));
-			break;
-
-		case ES2lpApiInterruptEvent_MaxReTxReached:
-
-			SET_BITS(reg, 0x08, (enable ? 0x08 : 0x00));
-			break;
-
-		case ES2lpApiInterruptEvent_CrcError:
-
-			SET_BITS(reg, 0x10, (enable ? 0x10 : 0x00));
-			break;
-
-		case ES2lpApiInterruptEvent_TxFifoOverflowUnderflowError:
-
-			SET_BITS(reg, 0x20, (enable ? 0x20 : 0x00));
-			break;
-
-		case ES2lpApiInterruptEvent_RxFifoOverflowUnderflowError:
-
-			SET_BITS(reg, 0x40, (enable ? 0x40 : 0x00));
-			break;
-
-		case ES2lpApiInterruptEvent_TxFifoAlmostFull:
-
-			SET_BITS(reg, 0x80, (enable ? 0x80 : 0x00));
-			break;
-
-		case ES2lpApiInterruptEvent_TxFifoAlmostEmpty:
-
-			SET_BITS(reg, 0x01, (enable ? 0x01 : 0x00));
-			break;
-
-		case ES2lpApiInterruptEvent_RxFifoAlmostFull:
-
-			SET_BITS(reg, 0x02, (enable ? 0x02 : 0x00));
-			break;
-
-		case ES2lpApiInterruptEvent_RxFifoAlmostEmpty:
-
-			SET_BITS(reg, 0x04, (enable ? 0x04 : 0x00));
-			break;
-
-		case ES2lpApiInterruptEvent_MaxNoOfBackOffDuringCca:
-
-			SET_BITS(reg, 0x08, (enable ? 0x08 : 0x00));
-			break;
-
-		case ES2lpApiInterruptEvent_ValidPreambleDetected:
-
-			SET_BITS(reg, 0x10, (enable ? 0x10 : 0x00));
-			break;
-
-		case ES2lpApiInterruptEvent_SyncWordDetected:
-
-			SET_BITS(reg, 0x20, (enable ? 0x20 : 0x00));
-			break;
-
-		case ES2lpApiInterruptEvent_RssiAboveThreshold:
-
-			SET_BITS(reg, 0x40, (enable ? 0x40 : 0x00));
-			break;
-
-		case ES2lpApiInterruptEvent_WakeUpTimeoutInLdcrMode:
-
-			SET_BITS(reg, 0x80, (enable ? 0x80 : 0x00));
-			break;
-
-		case ES2lpApiInterruptEvent_Ready:
-
-			SET_BITS(reg, 0x01, (enable ? 0x01 : 0x00));
-			break;
-
-		case ES2lpApiInterruptEvent_StandbyStateSwitchingInProgress:
-
-			SET_BITS(reg, 0x02, (enable ? 0x02 : 0x00));
-			break;
-
-		case ES2lpApiInterruptEvent_LowBatteryLevel:
-
-			SET_BITS(reg, 0x04, (enable ? 0x04 : 0x00));
-			break;
-
-		case ES2lpApiInterruptEvent_PowerOnReset:
-
-			SET_BITS(reg, 0x08, (enable ? 0x08 : 0x00));
-			break;
-
-		case ES2lpApiInterruptEvent_RxTimerTimeout:
-
-			SET_BITS(reg, 0x10, (enable ? 0x10 : 0x00));
-			break;
-
-		case ES2lpApiInterruptEvent_SniffTimerTimeout:
-
-			SET_BITS(reg, 0x20, (enable ? 0x20 : 0x00));
-			break;
-
-		default:
-
-			break;
-
-		}
-
-	}
-
-	if (ES2lpApiRet_Ok == status) {
-
-		/* Write back to register IRQ_MASKx */
-		if (ES2lpLldRet_Ok != S2lpLld_WriteReg(addr, &reg, 1)) {
-
-			status = ES2lpApiRet_Error;
-
-		}
-
-	}
-
-	return status;
-
-}
-
-/**
- * @brief Test if a given interrupt event occured
- * @param event Interrupt event
- * @param booleanPtr Buffer to pass the Boolean value out of the function
- * @retval ES2lpApiRet Status
- */
-ES2lpApiRet S2lpApi_TestInterrupt(ES2lpApiInterruptEvent event,
-bool *booleanPtr) {
-
-	ES2lpApiRet status = ES2lpApiRet_Ok;
-	TByte addr;
-	TByte reg;
-
-	/* Assert valid parameters */
-	if (NULL == booleanPtr) {
-
-		status = ES2lpApiRet_InvalidParams;
-
-	}
-
-	if (ES2lpApiRet_Ok == status) {
-
-		/* Identify the event */
-		switch (event) {
-
-		case ES2lpApiInterruptEvent_RxDataReady:
-		case ES2lpApiInterruptEvent_RxDataDiscarded:
-		case ES2lpApiInterruptEvent_TxDataSent:
-		case ES2lpApiInterruptEvent_MaxReTxReached:
-		case ES2lpApiInterruptEvent_CrcError:
-		case ES2lpApiInterruptEvent_TxFifoOverflowUnderflowError:
-		case ES2lpApiInterruptEvent_RxFifoOverflowUnderflowError:
-		case ES2lpApiInterruptEvent_TxFifoAlmostFull:
-
-			addr = IRQ_STATUS0_ADDR;
-			break;
-
-		case ES2lpApiInterruptEvent_TxFifoAlmostEmpty:
-		case ES2lpApiInterruptEvent_RxFifoAlmostFull:
-		case ES2lpApiInterruptEvent_RxFifoAlmostEmpty:
-		case ES2lpApiInterruptEvent_MaxNoOfBackOffDuringCca:
-		case ES2lpApiInterruptEvent_ValidPreambleDetected:
-		case ES2lpApiInterruptEvent_SyncWordDetected:
-		case ES2lpApiInterruptEvent_RssiAboveThreshold:
-		case ES2lpApiInterruptEvent_WakeUpTimeoutInLdcrMode:
-
-			addr = IRQ_STATUS1_ADDR;
-			break;
-
-		case ES2lpApiInterruptEvent_Ready:
-		case ES2lpApiInterruptEvent_StandbyStateSwitchingInProgress:
-		case ES2lpApiInterruptEvent_LowBatteryLevel:
-		case ES2lpApiInterruptEvent_PowerOnReset:
-
-			addr = IRQ_STATUS2_ADDR;
-			break;
-
-		case ES2lpApiInterruptEvent_RxTimerTimeout:
-		case ES2lpApiInterruptEvent_SniffTimerTimeout:
-
-			addr = IRQ_STATUS3_ADDR;
-			break;
-
-		default:
-
-			status = ES2lpApiRet_InvalidParams;
-			break;
-
-		}
-
-	}
-
-	if (ES2lpApiRet_Ok == status) {
-
-		/* Fetch register IRQ_MASKx */
-		if (ES2lpLldRet_Ok != S2lpLld_ReadReg(addr, &reg, 1)) {
-
-			status = ES2lpApiRet_Error;
-
-		}
-
-	}
-
-	if (ES2lpApiRet_Ok == status) {
-
-		/* Test the interrupt status bit and clear it */
-		switch (event) {
-
-		case ES2lpApiInterruptEvent_RxDataReady:
-
-			*booleanPtr = (reg & 0x01) ? true : false;
-			SET_BITS(reg, 0x01, 0x00);
-			break;
-
-		case ES2lpApiInterruptEvent_RxDataDiscarded:
-
-			*booleanPtr = (reg & 0x02) ? true : false;
-			SET_BITS(reg, 0x02, 0x00);
-			break;
-
-		case ES2lpApiInterruptEvent_TxDataSent:
-
-			*booleanPtr = (reg & 0x04) ? true : false;
-			SET_BITS(reg, 0x04, 0x00);
-			break;
-
-		case ES2lpApiInterruptEvent_MaxReTxReached:
-
-			*booleanPtr = (reg & 0x08) ? true : false;
-			SET_BITS(reg, 0x08, 0x00);
-			break;
-
-		case ES2lpApiInterruptEvent_CrcError:
-
-			*booleanPtr = (reg & 0x10) ? true : false;
-			SET_BITS(reg, 0x10, 0x00);
-			break;
-
-		case ES2lpApiInterruptEvent_TxFifoOverflowUnderflowError:
-
-			*booleanPtr = (reg & 0x20) ? true : false;
-			SET_BITS(reg, 0x20, 0x00);
-			break;
-
-		case ES2lpApiInterruptEvent_RxFifoOverflowUnderflowError:
-
-			*booleanPtr = (reg & 0x40) ? true : false;
-			SET_BITS(reg, 0x40, 0x00);
-			break;
-
-		case ES2lpApiInterruptEvent_TxFifoAlmostFull:
-
-			*booleanPtr = (reg & 0x80) ? true : false;
-			SET_BITS(reg, 0x80, 0x00);
-			break;
-
-		case ES2lpApiInterruptEvent_TxFifoAlmostEmpty:
-
-			*booleanPtr = (reg & 0x01) ? true : false;
-			SET_BITS(reg, 0x01, 0x00);
-			break;
-
-		case ES2lpApiInterruptEvent_RxFifoAlmostFull:
-
-			*booleanPtr = (reg & 0x02) ? true : false;
-			SET_BITS(reg, 0x02, 0x00);
-			break;
-
-		case ES2lpApiInterruptEvent_RxFifoAlmostEmpty:
-
-			*booleanPtr = (reg & 0x04) ? true : false;
-			SET_BITS(reg, 0x04, 0x00);
-			break;
-
-		case ES2lpApiInterruptEvent_MaxNoOfBackOffDuringCca:
-
-			*booleanPtr = (reg & 0x08) ? true : false;
-			SET_BITS(reg, 0x08, 0x00);
-			break;
-
-		case ES2lpApiInterruptEvent_ValidPreambleDetected:
-
-			*booleanPtr = (reg & 0x10) ? true : false;
-			SET_BITS(reg, 0x10, 0x00);
-			break;
-
-		case ES2lpApiInterruptEvent_SyncWordDetected:
-
-			*booleanPtr = (reg & 0x20) ? true : false;
-			SET_BITS(reg, 0x20, 0x00);
-			break;
-
-		case ES2lpApiInterruptEvent_RssiAboveThreshold:
-
-			*booleanPtr = (reg & 0x40) ? true : false;
-			SET_BITS(reg, 0x40, 0x00);
-			break;
-
-		case ES2lpApiInterruptEvent_WakeUpTimeoutInLdcrMode:
-
-			*booleanPtr = (reg & 0x80) ? true : false;
-			SET_BITS(reg, 0x80, 0x00);
-			break;
-
-		case ES2lpApiInterruptEvent_Ready:
-
-			*booleanPtr = (reg & 0x01) ? true : false;
-			SET_BITS(reg, 0x01, 0x00);
-			break;
-
-		case ES2lpApiInterruptEvent_StandbyStateSwitchingInProgress:
-
-			*booleanPtr = (reg & 0x02) ? true : false;
-			SET_BITS(reg, 0x02, 0x00);
-			break;
-
-		case ES2lpApiInterruptEvent_LowBatteryLevel:
-
-			*booleanPtr = (reg & 0x04) ? true : false;
-			SET_BITS(reg, 0x04, 0x00);
-			break;
-
-		case ES2lpApiInterruptEvent_PowerOnReset:
-
-			*booleanPtr = (reg & 0x08) ? true : false;
-			SET_BITS(reg, 0x08, 0x00);
-			break;
-
-		case ES2lpApiInterruptEvent_RxTimerTimeout:
-
-			*booleanPtr = (reg & 0x10) ? true : false;
-			SET_BITS(reg, 0x10, 0x00);
-			break;
-
-		case ES2lpApiInterruptEvent_SniffTimerTimeout:
-
-			*booleanPtr = (reg & 0x20) ? true : false;
-			SET_BITS(reg, 0x20, 0x00);
-			break;
-
-		default:
-
-			break;
-
-		}
-
-	}
-
-	if (ES2lpApiRet_Ok == status) {
-
-		/* Write back to register IRQ_MASKx */
-		if (ES2lpLldRet_Ok != S2lpLld_WriteReg(addr, &reg, 1)) {
-
-			status = ES2lpApiRet_Error;
-
-		}
 
 	}
 
@@ -1654,7 +613,8 @@ ES2lpApiRet S2lpApi_ReadRxPayload(TByte *bufPtr, TSize numOfBytes) {
 	if (ES2lpApiRet_Ok == status) {
 
 		/* Read from the RX FIFO */
-		if (ES2lpLldRet_Ok != S2lpLld_ReadReg(FIFO_ADDR, bufPtr, numOfBytes)) {
+		if (ES2lpLldRet_Ok
+				!= S2lpLld_ReadReg(S2LP_FIFO_ADDR, bufPtr, numOfBytes, NULL)) {
 
 			status = ES2lpApiRet_Error;
 

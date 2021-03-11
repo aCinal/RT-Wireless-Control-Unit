@@ -38,256 +38,108 @@ typedef enum ES2lpApiGpioPin {
 } ES2lpApiGpioPin;
 
 /**
- * @brief S2-LP GPIO modes enumeration
- */
-typedef enum ES2lpApiGpioMode {
-	ES2lpApiGpioMode_DigitalInput = 0,
-	ES2lpApiGpioMode_DigitalOutputLowPower,
-	ES2lpApiGpioMode_DigitalOutputHighPower
-} ES2lpApiGpioMode;
-
-/**
  * @brief S2-LP GPIO signals enumeration
  */
 typedef enum ES2lpApiGpioSignal {
-	ES2lpApiGpioSignal_o_Irq = 0,
-	ES2lpApiGpioSignal_o_PorInverted,
-	ES2lpApiGpioSignal_o_WakeUpTimerExpiration,
-	ES2lpApiGpioSignal_o_LowBatteryDetection,
-	ES2lpApiGpioSignal_o_TxDataInternalClockOutput,
-	ES2lpApiGpioSignal_o_CommandInfoFromRadioTxBlock,
-	ES2lpApiGpioSignal_o_FifoAlmostEmptyFlag,
-	ES2lpApiGpioSignal_o_FifoAlmostFullFlag,
-	ES2lpApiGpioSignal_o_RxDataOutput,
-	ES2lpApiGpioSignal_o_RxClockOutput,
-	ES2lpApiGpioSignal_o_RxStateIndication,
-	ES2lpApiGpioSignal_o_DeviceNotInSleepOrStandbyState,
-	ES2lpApiGpioSignal_o_DeviceInStandbyState,
-	ES2lpApiGpioSignal_o_AntennaSwitchSignal,
-	ES2lpApiGpioSignal_o_ValidPreambleDetectedFlag,
-	ES2lpApiGpioSignal_o_SyncWordDetectedFlag,
-	ES2lpApiGpioSignal_o_RssiAboveThreshold,
-	ES2lpApiGpioSignal_o_TxRxModeIndicator,
-	ES2lpApiGpioSignal_o_Vdd,
-	ES2lpApiGpioSignal_o_Gnd,
-	ES2lpApiGpioSignal_o_ExternalSmpsEnableSignal,
-	ES2lpApiGpioSignal_o_DeviceInSleepState,
-	ES2lpApiGpioSignal_o_DeviceInReadyState,
-	ES2lpApiGpioSignal_o_DeviceInLockState,
-	ES2lpApiGpioSignal_o_DeviceWaitingForHighLockDetectorSignal,
-	ES2lpApiGpioSignal_o_TxDataOokSignal,
-	ES2lpApiGpioSignal_o_DeviceWaitingForHighReady2SignalFromXo,
-	ES2lpApiGpioSignal_o_DeviceWaitingForTimerExpirationToAllowPmBlockSettling,
-	ES2lpApiGpioSignal_o_DeviceWaitingForEndOfVcoCalibration,
-	ES2lpApiGpioSignal_o_DeviceEnablesTheFullSynthBlockCircuitry,
-	ES2lpApiGpioSignal_i_TxCommand,
-	ES2lpApiGpioSignal_i_RxCommand,
-	ES2lpApiGpioSignal_i_TxDataInputForDirectModulation,
-	ES2lpApiGpioSignal_i_WakeUpFromExternalInput,
-	ES2lpApiGpioSignal_i_ExternalClockForLdcModesTiming
+	ES2lpApiGpioSignal_OutputIrq = (S2LP_GPIO_MODE_OUTPUT_LOW_POWER | S2LP_GPIO_SEL_NIRQ),
+	ES2lpApiGpioSignal_OutputPorInverted = (S2LP_GPIO_MODE_OUTPUT_LOW_POWER | S2LP_GPIO_SEL_POR_INVERTED),
+	ES2lpApiGpioSignal_OutputWakeUpTimerExpiration = (S2LP_GPIO_MODE_OUTPUT_LOW_POWER | S2LP_GPIO_SEL_WUT_EXPIRATION),
+	ES2lpApiGpioSignal_OutputLowBatteryDetection = (S2LP_GPIO_MODE_OUTPUT_LOW_POWER | S2LP_GPIO_SEL_LOW_BATTERY),
+	ES2lpApiGpioSignal_OutputTxDataInternalClockOutput = (S2LP_GPIO_MODE_OUTPUT_LOW_POWER | S2LP_GPIO_SEL_TX_DATA_INTERNAL_CLOCK),
+	ES2lpApiGpioSignal_OutputCommandInfoFromRadioTxBlock = (S2LP_GPIO_MODE_OUTPUT_LOW_POWER | S2LP_GPIO_SEL_TX_STATE_RADIO_TX),
+	ES2lpApiGpioSignal_OutputFifoAlmostEmptyFlag = (S2LP_GPIO_MODE_OUTPUT_LOW_POWER | S2LP_GPIO_SEL_TX_RX_FIFO_ALMOST_EMPTY),
+	ES2lpApiGpioSignal_OutputFifoAlmostFullFlag = (S2LP_GPIO_MODE_OUTPUT_LOW_POWER | S2LP_GPIO_SEL_TX_RX_FIFO_ALMOST_FULL),
+	ES2lpApiGpioSignal_OutputRxDataOutput = (S2LP_GPIO_MODE_OUTPUT_LOW_POWER | S2LP_GPIO_SEL_RX_DATA_OUTPUT),
+	ES2lpApiGpioSignal_OutputRxClockOutput = (S2LP_GPIO_MODE_OUTPUT_LOW_POWER | S2LP_GPIO_SEL_RX_CLOCK_OUTPUT),
+	ES2lpApiGpioSignal_OutputRxStateIndication = (S2LP_GPIO_MODE_OUTPUT_LOW_POWER | S2LP_GPIO_SEL_RX_STATE_INDICATION),
+	ES2lpApiGpioSignal_OutputDeviceNotInSleepOrStandbyState = (S2LP_GPIO_MODE_OUTPUT_LOW_POWER | S2LP_GPIO_SEL_NOT_SLEEP_OR_STANDBY),
+	ES2lpApiGpioSignal_OutputDeviceInStandbyState = (S2LP_GPIO_MODE_OUTPUT_LOW_POWER | S2LP_GPIO_SEL_DEVICE_IN_STANDBY_STATE),
+	ES2lpApiGpioSignal_OutputAntennaSwitchSignal = (S2LP_GPIO_MODE_OUTPUT_LOW_POWER | S2LP_GPIO_SEL_ANTENNA_SWITCH_SIGNAL),
+	ES2lpApiGpioSignal_OutputValidPreambleDetectedFlag = (S2LP_GPIO_MODE_OUTPUT_LOW_POWER | S2LP_GPIO_SEL_VALID_PREAMBLE_DETECTED),
+	ES2lpApiGpioSignal_OutputSyncWordDetectedFlag = (S2LP_GPIO_MODE_OUTPUT_LOW_POWER | S2LP_GPIO_SEL_SYNC_WORD_DETECTED),
+	ES2lpApiGpioSignal_OutputRssiAboveThreshold = (S2LP_GPIO_MODE_OUTPUT_LOW_POWER | S2LP_GPIO_SEL_RSSI_ABOVE_THRESHOLD),
+	ES2lpApiGpioSignal_OutputTxRxModeIndicator = (S2LP_GPIO_MODE_OUTPUT_LOW_POWER | S2LP_GPIO_SEL_TX_RX_MODE_INDICATOR),
+	ES2lpApiGpioSignal_OutputVdd = (S2LP_GPIO_MODE_OUTPUT_LOW_POWER | S2LP_GPIO_SEL_VDD),
+	ES2lpApiGpioSignal_OutputGnd = (S2LP_GPIO_MODE_OUTPUT_LOW_POWER | S2LP_GPIO_SEL_GND),
+	ES2lpApiGpioSignal_OutputExternalSmpsEnableSignal = (S2LP_GPIO_MODE_OUTPUT_LOW_POWER | S2LP_GPIO_SEL_SMPS_ENABLE_SIGNAL),
+	ES2lpApiGpioSignal_OutputDeviceInSleepState = (S2LP_GPIO_MODE_OUTPUT_LOW_POWER | S2LP_GPIO_SEL_DEVICE_IN_SLEEP_STATE),
+	ES2lpApiGpioSignal_OutputDeviceInReadyState = (S2LP_GPIO_MODE_OUTPUT_LOW_POWER | S2LP_GPIO_SEL_DEVICE_IN_READY_STATE),
+	ES2lpApiGpioSignal_OutputDeviceInLockState = (S2LP_GPIO_MODE_OUTPUT_LOW_POWER | S2LP_GPIO_SEL_DEVICE_IN_LOCK_STATE),
+	ES2lpApiGpioSignal_OutputDeviceWaitingForHighLockDetectorSignal = (S2LP_GPIO_MODE_OUTPUT_LOW_POWER | S2LP_GPIO_SEL_WAIT_FOR_LOCK_DETECTOR),
+	ES2lpApiGpioSignal_OutputTxDataOokSignal = (S2LP_GPIO_MODE_OUTPUT_LOW_POWER | S2LP_GPIO_SEL_TX_DATA_OOK_SIGNAL),
+	ES2lpApiGpioSignal_OutputDeviceWaitingForHighReady2SignalFromXo = (S2LP_GPIO_MODE_OUTPUT_LOW_POWER | S2LP_GPIO_SEL_WAIT_FOR_XO_READY_SIGNAL),
+	ES2lpApiGpioSignal_OutputDeviceWaitingForTimerExpirationToAllowPmBlockSettling = (S2LP_GPIO_MODE_OUTPUT_LOW_POWER | S2LP_GPIO_SEL_WAIT_FOR_TIMER_EXP),
+	ES2lpApiGpioSignal_OutputDeviceWaitingForEndOfVcoCalibration = (S2LP_GPIO_MODE_OUTPUT_LOW_POWER | S2LP_GPIO_SEL_WAIT_FOR_VCO_CALIB),
+	ES2lpApiGpioSignal_OutputDeviceEnablesTheFullSynthBlockCircuitry = (S2LP_GPIO_MODE_OUTPUT_LOW_POWER | S2LP_GPIO_SEL_SYNTH_BLOCK_ENABLED),
+	ES2lpApiGpioSignal_InputTxCommand = (S2LP_GPIO_MODE_INPUT | S2LP_GPIO_SEL_TX_COMMAND),
+	ES2lpApiGpioSignal_InputRxCommand = (S2LP_GPIO_MODE_INPUT | S2LP_GPIO_SEL_RX_COMMAND),
+	ES2lpApiGpioSignal_InputTxDataInputForDirectModulation = (S2LP_GPIO_MODE_INPUT | S2LP_GPIO_SEL_TX_DATA_INPUT),
+	ES2lpApiGpioSignal_InputWakeUpFromExternalInput = (S2LP_GPIO_MODE_INPUT | S2LP_GPIO_SEL_WAKE_UP_FROM_EXT_INPUT),
+	ES2lpApiGpioSignal_InputExternalClockForLdcModesTiming = (S2LP_GPIO_MODE_INPUT | S2LP_GPIO_SEL_EXT_CLOCK_AT_34_7_Hz)
 } ES2lpApiGpioSignal;
-
-/**
- * @brief Charge pump current enumeration
- */
-typedef enum ES2lpApiIcp {
-	ES2lpApiIcp_120uA = 0,
-	ES2lpApiIcp_200uA,
-	ES2lpApiIcp_140uA,
-	ES2lpApiIcp_240uA
-} ES2lpApiIcp;
-
-/**
- * @brief Base frequency configuration structure
- * @note f_base = (f_xo * SYNT) / 2^(BANDSELECT + REFDIV + 21)
- */
-typedef struct SS2lpApiBaseFrequencyConfig {
-	BIT_FIELD(SYNT, 28);
-	BIT_FIELD(BANDSELECT, 1);
-	BIT_FIELD(REFDIV, 1);
-} SS2lpApiBaseFrequencyConfig;
 
 /**
  * @brief Modulation type enumeration
  */
 typedef enum ES2lpApiModulationType {
-	ES2lpApiModulationType_2_FSK = 0,
-	ES2lpApiModulationType_4_FSK,
-	ES2lpApiModulationType_2_GFSK_BT_1,
-	ES2lpApiModulationType_4_GFSK_BT_1,
-	ES2lpApiModulationType_ASK_OOK,
-	ES2lpApiModulationType_PolarMode,
-	ES2lpApiModulationType_Unmodulated,
-	ES2lpApiModulationType_2_GFSK_BT_0_5,
-	ES2lpApiModulationType_4_GFSK_BT_0_5
+	ES2lpApiModulationType_2_FSK = S2LP_MOD_2_FSK,
+	ES2lpApiModulationType_4_FSK = S2LP_MOD_4_FSK,
+	ES2lpApiModulationType_2_GFSK = S2LP_MOD_2_GFSK,
+	ES2lpApiModulationType_4_GFSK = S2LP_MOD_4_GFSK,
+	ES2lpApiModulationType_ASK_OOK = S2LP_MOD_ASK_OOK,
+	ES2lpApiModulationType_Unmodulated = S2LP_MOD_CW
 } ES2lpApiModulationType;
-
-/**
- * @brief Carrier sense mode enumeration
- */
-typedef enum ES2lpApiCarrierSenseMode {
-	ES2lpApiCarrierSenseMode_Static = 0,
-	ES2lpApiCarrierSenseMode_Dynamic_6db,
-	ES2lpApiCarrierSenseMode_Dynamic_12db,
-	ES2lpApiCarrierSenseMode_Dynamic_18db
-} ES2lpApiCarrierSenseMode;
-
-/**
- * @brief CRC mode enumeration
- */
-typedef enum ES2lpApiCrcMode {
-	ES2lpApiCrcMode_NoCRCField = 0,
-	ES2lpApiCrcMode_Poly0x07,
-	ES2lpApiCrcMode_Poly0x8005,
-	ES2lpApiCrcMode_Poly0x1021,
-	ES2lpApiCrcMode_Poly0x864CBF,
-	ES2lpApiCrcMode_Poly0x04C011BB7
-} ES2lpApiCrcMode;
-
-/**
- * @brief Interrupt event enumeration
- */
-typedef enum ES2lpApiInterruptEvent {
-	ES2lpApiInterruptEvent_RxDataReady = 0,
-	ES2lpApiInterruptEvent_RxDataDiscarded,
-	ES2lpApiInterruptEvent_TxDataSent,
-	ES2lpApiInterruptEvent_MaxReTxReached,
-	ES2lpApiInterruptEvent_CrcError,
-	ES2lpApiInterruptEvent_TxFifoOverflowUnderflowError,
-	ES2lpApiInterruptEvent_RxFifoOverflowUnderflowError,
-	ES2lpApiInterruptEvent_TxFifoAlmostFull,
-	ES2lpApiInterruptEvent_TxFifoAlmostEmpty,
-	ES2lpApiInterruptEvent_RxFifoAlmostFull,
-	ES2lpApiInterruptEvent_RxFifoAlmostEmpty,
-	ES2lpApiInterruptEvent_MaxNoOfBackOffDuringCca,
-	ES2lpApiInterruptEvent_ValidPreambleDetected,
-	ES2lpApiInterruptEvent_SyncWordDetected,
-	ES2lpApiInterruptEvent_RssiAboveThreshold,
-	ES2lpApiInterruptEvent_WakeUpTimeoutInLdcrMode,
-	ES2lpApiInterruptEvent_Ready,
-	ES2lpApiInterruptEvent_StandbyStateSwitchingInProgress,
-	ES2lpApiInterruptEvent_LowBatteryLevel,
-	ES2lpApiInterruptEvent_PowerOnReset,
-	ES2lpApiInterruptEvent_RxTimerTimeout,
-	ES2lpApiInterruptEvent_SniffTimerTimeout
-} ES2lpApiInterruptEvent;
 
 /*---------------------------------------------- Function prototypes ----------------------------------------------*/
 
 /**
- * @brief Send the S2-LP to TX state for transmission
+ * @brief Initialize the device
  * @retval ES2lpApiRet Status
  */
-ES2lpApiRet S2lpApi_GoToTxState(void);
+ES2lpApiRet S2lpApi_Start(void);
 
 /**
- * @brief Send the S2-LP to RX state for reception
+ * @brief Send a command to the S2-LP device
+ * @param command Command to be transmitted
  * @retval ES2lpApiRet Status
  */
-ES2lpApiRet S2lpApi_GoToRxState(void);
+ES2lpApiRet S2lpApi_SendCommand(TByte command);
 
 /**
- * @brief Go to READY state
+ * @brief Enable IRQ generation on a given event
+ * @param events Interrupt event(s) bit(s) (bitwise ORed if multiple)
  * @retval ES2lpApiRet Status
  */
-ES2lpApiRet S2lpApi_GoToReadyState(void);
+ES2lpApiRet S2lpApi_EnableInterrupt(TWord events);
 
 /**
- * @brief Go to STANDBY state
+ * @brief Disable IRQ generation on a given event
+ * @param events Interrupt event(s) bit(s) (bitwise ORed if multiple)
  * @retval ES2lpApiRet Status
  */
-ES2lpApiRet S2lpApi_GoToStandbyState(void);
+ES2lpApiRet S2lpApi_DisableInterrupt(TWord events);
 
 /**
- * @brief Go to SLEEP state
+ * @brief Test if a given interrupt event has occurred and clear the IRQ_STATUS register
+ * @param irqStatusPtr Pointer to pass the IRQ_STATUS register contents out of the function
  * @retval ES2lpApiRet Status
  */
-ES2lpApiRet S2lpApi_GoToSleepState(void);
-
-/**
- * @brief Exit from TX or RX states and go to READY state
- * @retval ES2lpApiRet Status
- */
-ES2lpApiRet S2lpApi_AbortTransmission(void);
-
-/**
- * @brief Reset the S2-LP state machine and registers values
- * @retval ES2lpApiRet Status
- */
-ES2lpApiRet S2lpApi_Reset(void);
-
-/**
- * @brief Clean the RX FIFO
- * @retval ES2lpApiRet Status
- */
-ES2lpApiRet S2lpApi_FlushRxFifo(void);
-
-/**
- * @brief Clean the TX FIFO
- * @retval ES2lpApiRet Status
- */
-ES2lpApiRet S2lpApi_FlushTxFifo(void);
+ES2lpApiRet S2lpApi_FetchInterruptStatus(TWord* irqStatusPtr);
 
 /**
  * @brief Specify GPIO I/O signal
  * @param gpio GPIO to configure
- * @param mode GPIO mode
  * @param sig GPIO I/O signal
  * @retval ES2lpApiRet Status
  */
-ES2lpApiRet S2lpApi_ConfigGpio(ES2lpApiGpioPin gpio, ES2lpApiGpioMode mode, ES2lpApiGpioSignal sig);
+ES2lpApiRet S2lpApi_ConfigGpio(ES2lpApiGpioPin gpio, ES2lpApiGpioSignal sig);
 
 /**
- * @brief Set charge pump current
- * @param icp Charge pump current
- * @retval ES2lpApiRet Status
- */
-ES2lpApiRet S2lpApi_SetChargePumpCurrent(ES2lpApiIcp icp);
-
-/**
- * @brief Set base frequency
- * @param config Configuration structure
- * @retval ES2lpApiRet Status
- * @note f_base = (f_xo * SYNT) / 2^(BANDSELECT + REFDIV + 21)
- */
-ES2lpApiRet S2lpApi_SetBaseFrequency(SS2lpApiBaseFrequencyConfig config);
-
-/**
- * @brief Select the RF channel
- * @param chspace Value to write to register CHSPACE
- * @param chnum Value to write to register CHNUM
- * @retval ES2lpApiRet Status
- * @note f = f_base + f_xo / (2^15 * CHSPACE) * CHNUM
- */
-ES2lpApiRet S2lpApi_SetCenterFrequency(TByte chspace, TByte chnum);
-
-/**
- * @brief Set the data rate by configuring the DATARATE_M and DATARATE_E registers
- * @param mantissa 16-bit mantissa value of the data rate equation (DATARATE_M)
- * @param exponent 4-bit exponent value of the data rate equation (DATARATE_E)
- * @retval ES2lpApiRet Status
- * @note Data rate formula:
- *           DataRate = f_dig * DATARATE_M/2^32 if DATARATE_E = 0
- *           DataRate = f_dig * (2^16 + DATARATE_M) * 2^DATARATE_E / 2^33 if DATARATE_E >0
- *           DataRate = f_dig / (8 * DATARATE_M)
- *       where f_dig is the digital clock frequency
- */
-ES2lpApiRet S2lpApi_SetDataRate(TWord mantissa, TByte exponent);
-
-/**
- * @brief Set modulation type
+ * @brief Select modulation type
  * @param type Modulation type
  * @retval ES2lpApiRet Status
  */
-ES2lpApiRet S2lpApi_SetModulationType(ES2lpApiModulationType type);
-
-/**
- * @brief Set signal detect threshold
- * @param rssiThreshold Value to write to register RSSI_TH
- * @retval ES2lpApiRet Status
- * @note Threshold in dBm is (RSSI_TH - 146)
- */
-ES2lpApiRet S2lpApi_SetSignalDetectThreshold(TByte rssiThreshold);
+ES2lpApiRet S2lpApi_SelectModulationType(ES2lpApiModulationType type);
 
 /**
  * @brief Set a fixed packet length
@@ -304,18 +156,35 @@ ES2lpApiRet S2lpApi_SetPacketLength(THalfWord length);
 ES2lpApiRet S2lpApi_EnableManchester(bool enable);
 
 /**
- * @brief Configure CRC calculation
- * @param mode CRC mode
- * @retval ES2lpApiRet Status
- */
-ES2lpApiRet S2lpApi_ConfigCrc(ES2lpApiCrcMode mode);
-
-/**
  * @brief Set synchronization word
  * @param sync Synchronization word
  * @retval ES2lpApiRet Status
  */
 ES2lpApiRet S2lpApi_SetSyncWord(TWord sync);
+
+/**
+ * @brief Set data rate
+ * @param datarate_m DATARATE_M (mantissa) in the data rate equation
+ * @param datarate_e DATARATE_E (exponent) in the data rate equation
+ * @retval ES2lpApiRet Status
+ */
+ES2lpApiRet S2lpApi_SetDataRate(THalfWord datarate_m, TByte datarate_e);
+
+/**
+ * @brief Set frequency deviation
+ * @param fdev_m FDEV_M (mantissa) in the frequency deviation equation
+ * @param fdev_e FDEV_E (exponent) in the frequency deviation equation
+ * @retval ES2lpApiRet Status
+ */
+ES2lpApiRet S2lpApi_SetFrequencyDeviation(TByte fdev_m, TByte fdev_e);
+
+/**
+ * @brief Set channel filter bandwidth
+ * @param chflt_m CHFLT_M (mantissa) in the channel filter equation/table
+ * @param chflt_e CHLFT_E (exponent) in the channel filter equation/table
+ * @retval ES2lpApiRet Status
+ */
+ES2lpApiRet S2lpApi_SetChannelFilterBandwidth(TByte chflt_m, TByte chflt_e);
 
 /**
  * @brief Read the RSSI level captured at the end of the SYNC word detection of the received packet
@@ -325,28 +194,69 @@ ES2lpApiRet S2lpApi_SetSyncWord(TWord sync);
 ES2lpApiRet S2lpApi_ReadRssi(TByte* rssiPtr);
 
 /**
- * @brief Enable/disable IRQ generation on a given event
- * @param event Interrupt event
- * @param enable True to enable IRQ generation, false otherwise
- * @retval ES2lpApiRet Status
- */
-ES2lpApiRet S2lpApi_EnableInterrupt(ES2lpApiInterruptEvent event, bool enable);
-
-/**
- * @brief Test if a given interrupt event occured
- * @param event Interrupt event
- * @param booleanPtr Buffer to pass the Boolean value out of the function
- * @retval ES2lpApiRet Status
- */
-ES2lpApiRet S2lpApi_TestInterrupt(ES2lpApiInterruptEvent event, bool* booleanPtr);
-
-/**
  * @brief Read RX payload
  * @param bufPtr Buffer to pass the payload out of the function
  * @param numOfBytes Number of bytes to read
  * @retval ES2lpApiRet Status
  */
 ES2lpApiRet S2lpApi_ReadRxPayload(TByte* bufPtr, TSize numOfBytes);
+
+
+/*---------------------------------------------- Macros ----------------------------------------------*/
+
+/**
+ * @brief Send the S2-LP to TX state for transmission
+ * @retval ES2lpApiRet Status
+ */
+#define S2lpApi_GoToTxState()        S2lpApi_SendCommand(S2LP_TX_COMMAND)
+
+/**
+ * @brief Send the S2-LP to RX state for reception
+ * @retval ES2lpApiRet Status
+ */
+#define S2lpApi_GoToRxState()        S2lpApi_SendCommand(S2LP_RX_COMMAND)
+
+/**
+ * @brief Go to READY state
+ * @retval ES2lpApiRet Status
+ */
+#define S2lpApi_GoToReadyState()     S2lpApi_SendCommand(S2LP_READY_COMMAND)
+
+/**
+ * @brief Go to STANDBY state
+ * @retval ES2lpApiRet Status
+ */
+#define S2lpApi_GoToStandbyState()   S2lpApi_SendCommand(S2LP_STANDBY_COMMAND)
+
+/**
+ * @brief Go to SLEEP state
+ * @retval ES2lpApiRet Status
+ */
+#define S2lpApi_GoToSleepState()     S2lpApi_SendCommand(S2LP_SLEEP_COMMAND)
+
+/**
+ * @brief Exit from TX or RX states and go to READY state
+ * @retval ES2lpApiRet Status
+ */
+#define S2lpApi_AbortTransmission()  S2lpApi_SendCommand(S2LP_SABORT_COMMAND)
+
+/**
+ * @brief Reset the S2-LP state machine and registers values
+ * @retval ES2lpApiRet Status
+ */
+#define S2lpApi_Reset()              S2lpApi_SendCommand(S2LP_SRES_COMMAND)
+
+/**
+ * @brief Clean the RX FIFO
+ * @retval ES2lpApiRet Status
+ */
+#define S2lpApi_FlushRxFifo()        S2lpApi_SendCommand(S2LP_FLUSHRXFIFO_COMMAND)
+
+/**
+ * @brief Clean the TX FIFO
+ * @retval ES2lpApiRet Status
+ */
+#define S2lpApi_FlushTxFifo()        S2lpApi_SendCommand(S2LP_FLUSHRXFIFO_COMMAND)
 
 
 #endif /* __S2LP_API_H_ */

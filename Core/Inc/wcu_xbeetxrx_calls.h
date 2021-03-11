@@ -20,10 +20,10 @@ typedef enum EXbeeTxRxRet {
 /**
  * @brief Internal messages enumeration for internal communication between xbeeTxRx task and callbacks
  */
-typedef enum EXbeeTxRxInternalMail {
-	EXbeeTxRxInternalMail_MessageReceived = 0,
-	EXbeeTxRxInternalMail_PeriodElapsed
-} EXbeeTxRxInternalMail;
+typedef enum EXbeeTxRxEvent {
+	EXbeeTxRxEvent_MessageReceived = 0,
+	EXbeeTxRxEvent_PeriodElapsed
+} EXbeeTxRxEvent;
 
 /**
  * @brief Configure the XBEE-Pro device
@@ -38,10 +38,10 @@ EXbeeTxRxRet XbeeTxRxDeviceConfig(void);
 EUartRingBufRet XbeeTxRxStartRingBufferIdleDetectionRx(void);
 
 /**
- * @brief Handle internal messages
+ * @brief Handle event messages
  * @retval EXbeeTxRxRet Status
  */
-EXbeeTxRxRet XbeeTxRxHandleInternalMail(void);
+EXbeeTxRxRet XbeeTxRxHandleEvents(void);
 
 /**
  * @brief Handle transmitting telemetry data

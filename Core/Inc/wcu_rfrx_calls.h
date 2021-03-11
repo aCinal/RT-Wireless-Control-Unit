@@ -19,10 +19,10 @@ typedef enum ERfRxRet {
 /**
  * @brief Internal messages enumeration for internal communication between rfRx task and callbacks
  */
-typedef enum ERfRxInternalMail {
-	ERfRxInternalMail_Exti = 0,
-	ERfRxInternalMail_PeriodElapsed
-} ERfRxInternalMail;
+typedef enum ERfRxEvent {
+	ERfRxEvent_Exti = 0,
+	ERfRxEvent_PeriodElapsed
+} ERfRxEvent;
 
 /**
  * @brief Configure the S2-LP device
@@ -31,10 +31,10 @@ typedef enum ERfRxInternalMail {
 ERfRxRet RfRxDeviceConfig(void);
 
 /**
- * @brief Handle internal messages
+ * @brief Handle event messages
  * @retval ERfRxRet Status
  */
-ERfRxRet RfRxHandleInternalMail(void);
+ERfRxRet RfRxHandleEvents(void);
 
 /**
  * @brief Callback on external interrupt

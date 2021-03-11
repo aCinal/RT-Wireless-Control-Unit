@@ -13,7 +13,7 @@
 #include "stm32f4xx_hal.h"
 #include "cmsis_os.h"
 
-#define MOCK_CAN_TRAFFIC  0                         /* Flag that enables emulating CAN bus traffic */
+#define MOCK_CAN_TRAFFIC  1                         /* Flag that enables emulating CAN bus traffic */
 #if (MOCK_CAN_TRAFFIC)
 #define FAKE_CAN_ID_LO_BOUND  ( (uint32_t) 0x001 )  /* Lower bound for fake CAN IDs */
 #define FAKE_CAN_ID_HI_BOUND  ( (uint32_t) 0x733 )  /* Upper bound for fake CAN IDs */

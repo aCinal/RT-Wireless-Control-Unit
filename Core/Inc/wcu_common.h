@@ -44,8 +44,8 @@ typedef enum EWcuLogSeverityLevel {
 #endif /* defined(RT11) && defined(RT12e) */
 #define ENABLE_INFO_PRINTS            1
 #define ENABLE_ERROR_PRINTS           1
-#define ENABLE_DEBUG_PRINTS           0
-#define REDIRECT_LOGS_TO_SERIAL_PORT  0
+#define ENABLE_DEBUG_PRINTS           1
+#define REDIRECT_LOGS_TO_SERIAL_PORT  1
 
 /* Exported macros -------------------------------------------------------------------------- */
 /* Set/reset pins based on the label */

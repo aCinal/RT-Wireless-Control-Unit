@@ -25,7 +25,7 @@
 #define TPMS_RR_ID          ( (uint32_t) 0x00000003 )  /* Rear-right TPMS sensor ID */
 
 extern osThreadId rfRxHandle;
-extern osMessageQId rfRxInternalMailQueueHandle;
+extern osMessageQId rfRxEventQueueHandle;
 
 /**
  * @brief TPMS data structure
@@ -48,192 +48,21 @@ ERfRxRet RfRxDeviceConfig(void) {
 
 	ERfRxRet status = ERfRxRet_Ok;
 
-	/* Go to standby state */
-	if (ES2lpApiRet_Ok != S2lpApi_GoToStandbyState()) {
-
-		status = ERfRxRet_Error;
-
-	}
-
-	if (ERfRxRet_Ok == status) {
-
-		SS2lpApiBaseFrequencyConfig config;
-		config.BANDSELECT = 1;
-		config.REFDIV = 0;
-		config.SYNT = 0x00400000 * FREQ_TPMS / FREQ_XO;
-		/* Set base frequency */
-		if (ES2lpApiRet_Ok != S2lpApi_SetBaseFrequency(config)) {
-
-			status = ERfRxRet_Error;
-
-		}
-
-	}
-
-	if (ERfRxRet_Ok == status) {
-
-		/* Select channel */
-		if (ES2lpApiRet_Ok != S2lpApi_SetCenterFrequency(0, 0)) {
-
-			status = ERfRxRet_Error;
-
-		}
-
-	}
-
-	if (ERfRxRet_Ok == status) {
-
-		/* Enable Manchester encoding */
-		if (ES2lpApiRet_Ok != S2lpApi_EnableManchester(true)) {
-
-			status = ERfRxRet_Error;
-
-		}
-
-	}
-
-	if (ERfRxRet_Ok == status) {
-
-		/* Configure CRC calculation */
-		if (ES2lpApiRet_Ok != S2lpApi_ConfigCrc(ES2lpApiCrcMode_Poly0x07)) {
-
-			status = ERfRxRet_Error;
-
-		}
-
-	}
-
-	if (ERfRxRet_Ok == status) {
-
-		/* Configure GPIO0 */
-		if (ES2lpApiRet_Ok
-				!= S2lpApi_ConfigGpio(ES2lpApiGpioPin_0,
-						ES2lpApiGpioMode_DigitalOutputLowPower,
-						ES2lpApiGpioSignal_o_Irq)) {
-
-			status = ERfRxRet_Error;
-
-		}
-
-	}
-
-	if (ERfRxRet_Ok == status) {
-
-		/* Enable interrupt on RX data ready event */
-		if (ES2lpApiRet_Ok
-				!= S2lpApi_EnableInterrupt(ES2lpApiInterruptEvent_RxDataReady,
-				true)) {
-
-			status = ERfRxRet_Error;
-
-		}
-
-	}
-
-	if (ERfRxRet_Ok == status) {
-
-		/* Go to READY state */
-		if (ES2lpApiRet_Ok != S2lpApi_GoToReadyState()) {
-
-			status = ERfRxRet_Error;
-
-		}
-
-	}
-
-	if (ERfRxRet_Ok == status) {
-
-		/* Go to RX state */
-		if (ES2lpApiRet_Ok != S2lpApi_GoToRxState()) {
-
-			status = ERfRxRet_Error;
-
-		}
-
-	}
+	/* TODO: Run S2-LP config */
 
 	return status;
 
 }
 
 /**
- * @brief Handle internal messages
+ * @brief Handle event messages
  * @retval ERfRxRet Status
  */
-ERfRxRet RfRxHandleInternalMail(void) {
+ERfRxRet RfRxHandleEvents(void) {
 
 	ERfRxRet status = ERfRxRet_Ok;
 
-	ERfRxInternalMail mail;
-	/* Wait for messages */
-	if (pdPASS
-			== xQueueReceive(rfRxInternalMailQueueHandle, &mail,
-					WCU_COMMON_TIMEOUT)) {
-
-		static SCanFrame canFrame;
-		uint8_t rxBufTbl[RFRX_READ_BUF_SIZE];
-		bool dataReady;
-		STpmsData tpmsData;
-
-		switch (mail) {
-
-		case ERfRxInternalMail_Exti:
-
-			/* Assert data ready */
-			if (ES2lpApiRet_Ok
-					!= S2lpApi_TestInterrupt(ES2lpApiInterruptEvent_RxDataReady,
-							&dataReady)) {
-
-				LogError("RfRxHandleInternalMail: Test interrupt failed");
-				status = ERfRxRet_Error;
-
-			}
-
-			if ((ERfRxRet_Ok == status) && dataReady) {
-
-				/* Read data from the device's FIFO */
-				if (ES2lpApiRet_Ok
-						!= S2lpApi_ReadRxPayload(rxBufTbl,
-								RFRX_READ_BUF_SIZE)) {
-
-					LogError("RfRxHandleInternalMail: Read payload failed");
-					status = ERfRxRet_Error;
-
-				}
-
-			}
-
-			if ((ERfRxRet_Ok == status) && dataReady) {
-
-				/* Parse the data */
-				RfRxParsePayload(&tpmsData, rxBufTbl);
-				/* Add the data to the CAN frame */
-				RfRxAddDataToCanFrame(&canFrame, &tpmsData);
-
-			}
-			break;
-
-		case ERfRxInternalMail_PeriodElapsed:
-
-			/* Configure the CAN Tx header */
-			canFrame.TxHeader.DLC = 8;
-			canFrame.TxHeader.IDE = CAN_ID_STD;
-			canFrame.TxHeader.RTR = CAN_RTR_DATA;
-			canFrame.TxHeader.StdId = CAN_ID_TPMS_1;
-			canFrame.TxHeader.TransmitGlobalTime = DISABLE;
-			/* Transmit the frame */
-			SendToCan(&canFrame);
-			/* Clear the frame */
-			(void) memset(&canFrame, 0, sizeof(canFrame));
-			break;
-
-		default:
-
-			break;
-
-		}
-
-	}
+	/* TODO: Implement event handling */
 
 	return status;
 
@@ -245,9 +74,9 @@ ERfRxRet RfRxHandleInternalMail(void) {
  */
 void RfRxExtiCallback(void) {
 
-	ERfRxInternalMail mail = ERfRxInternalMail_Exti;
+	ERfRxEvent mail = ERfRxEvent_Exti;
 	/* Notify the task */
-	(void) xQueueSendFromISR(rfRxInternalMailQueueHandle, &mail, NULL);
+	(void) xQueueSendFromISR(rfRxEventQueueHandle, &mail, NULL);
 
 }
 
@@ -257,9 +86,9 @@ void RfRxExtiCallback(void) {
  */
 void RfRxPeriodElapsedCallback(void) {
 
-	ERfRxInternalMail mail = ERfRxInternalMail_PeriodElapsed;
+	ERfRxEvent event = ERfRxEvent_PeriodElapsed;
 	/* Notify the task */
-	(void) xQueueSendFromISR(rfRxInternalMailQueueHandle, &mail, NULL);
+	(void) xQueueSendFromISR(rfRxEventQueueHandle, &event, NULL);
 
 }
 
