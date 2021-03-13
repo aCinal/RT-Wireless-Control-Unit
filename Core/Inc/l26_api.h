@@ -57,7 +57,7 @@ typedef struct SL26ApiGnssData {
  */
 typedef enum EL26ApiDataStatus {
 	EL26ApiDataStatus_Ready = 0,
-	EL26ApiDataStatus_Pending,
+	EL26ApiDataStatus_NotReady,
 	EL26ApiDataStatus_Error
 } EL26ApiDataStatus;
 

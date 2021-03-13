@@ -25,14 +25,9 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
-#include "wcu_common.h"
-#include "wcu_cangtkp_calls.h"
-#include "wcu_sdiogtkp_calls.h"
-#include "wcu_btrx_calls.h"
-#include "wcu_gnssrx_calls.h"
-#include "wcu_rfrx_calls.h"
-#include "wcu_xbeetxrx_calls.h"
-#include "wcu_diagnostic_calls.h"
+#include "wcu_defs.h"
+#include "wcu_events.h"
+#include "wcu_wrappers.h"
 
 /* USER CODE END Includes */
 
@@ -44,42 +39,10 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 
-#define TIM_1s_INSTANCE            (TIM7)                  /* TIM7 instance alias */
-#define TIM_1s_HANDLE              (htim7)                 /* TIM7 handle alias */
-
-#if defined (RT12e)
-#define TIM_TPMS_INSTANCE          (TIM10)                 /* TIM10 instance alias */
-#define TIM_TPMS_HANDLE            (htim10)                /* TIM10 handle alias */
-#endif /* defined (RT12e) */
-
-/**
- * @brief Watchdog task notification values
- */
-#define NV_IWDGGTKP_CANGTKP     ( (uint32_t) 0x00000001UL )  /* canGtkp task's unique notification value for checking in with the watchdog */
-#define NV_IWDGGTKP_BTRX        ( (uint32_t) 0x00000002UL )  /* btRx task's unique notification value for checking in with the watchdog */
-#define NV_IWDGGTKP_GNSSRX      ( (uint32_t) 0x00000004UL )  /* gnssRx task's unique notification value for checking in with the watchdog */
-#define NV_IWDGGTKP_RFRX        ( (uint32_t) 0x00000008UL )  /* rfRx task's unique notification value for checking in with the watchdog */
-#define NV_IWDGGTKP_XBEETXRX    ( (uint32_t) 0x00000010UL )  /* xbeeTxRx task's unique notification value for checking in with the watchdog */
-
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-
-/**
- * @brief Check in with the watchdog thread
- */
-#define NOTIFY_WATCHDOG(nv)  ( (void) xTaskNotify(iwdgGtkpHandle, (nv), eSetBits) )
-
-/**
- * @brief Clear the notification value bits based on the provided mask
- */
-#define CLEARNVBITS(nvMask)  ( (void) xTaskNotifyWait( (nvMask), 0, NULL, 0 ) )
-
-/**
- * @brief Clear the notification value
- */
-#define CLEARNV()            ( CLEARNVBITS(CLEAR_ALL_BITS_ON_ENTRY) )
 
 /* USER CODE END PM */
 
@@ -101,6 +64,7 @@ SPI_HandleTypeDef hspi1;
 
 TIM_HandleTypeDef htim7;
 TIM_HandleTypeDef htim10;
+TIM_HandleTypeDef htim11;
 
 UART_HandleTypeDef huart4;
 UART_HandleTypeDef huart1;
@@ -110,27 +74,10 @@ DMA_HandleTypeDef hdma_uart4_rx;
 DMA_HandleTypeDef hdma_usart1_rx;
 DMA_HandleTypeDef hdma_usart3_rx;
 
-osThreadId canGtkpHandle;
-osThreadId sdioGtkpHandle;
-osThreadId iwdgGtkpHandle;
-osThreadId btRxHandle;
-osThreadId gnssRxHandle;
-osThreadId rfRxHandle;
-osThreadId xbeeTxRxHandle;
-osThreadId diagnosticHandle;
-osMessageQId canTxQueueHandle;
-osMessageQId canRxQueueHandle;
-osMessageQId canSubQueueHandle;
-osMessageQId sdioSubQueueHandle;
-osMessageQId sdioLogQueueHandle;
-osMessageQId rfRxEventQueueHandle;
-osMessageQId xbeeTxRxEventQueueHandle;
-osMutexId crcMutexHandle;
+osThreadId watchdogThreadHandle;
+osThreadId dispatcherThreaHandle;
+osMessageQId wcuEventQueueHandle;
 /* USER CODE BEGIN PV */
-
-#if (REDIRECT_LOGS_TO_SERIAL_PORT)
-osMutexId dbSerialMutexHandle;
-#endif /* (REDIRECT_LOGS_TO_SERIAL_PORT) */
 
 /* USER CODE END PV */
 
@@ -150,14 +97,9 @@ static void MX_USART3_UART_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_TIM7_Init(void);
 static void MX_TIM10_Init(void);
-void StartCanGtkpTask(void const * argument);
-void StartSdioGtkpTask(void const * argument);
-void StartIwdgGtkpTask(void const * argument);
-void StartBtRxTask(void const * argument);
-void StartGnssRxTask(void const * argument);
-void StartRfRxTask(void const * argument);
-void StartXbeeTxRxTask(void const * argument);
-void StartDiagnosticTask(void const * argument);
+static void MX_TIM11_Init(void);
+void WatchdogThreadEntryPoint(void const * argument);
+extern void DispatcherThreadEntryPoint(void const * argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -210,23 +152,13 @@ int main(void)
   MX_ADC1_Init();
   MX_TIM7_Init();
   MX_TIM10_Init();
+  MX_TIM11_Init();
   /* USER CODE BEGIN 2 */
 
   /* USER CODE END 2 */
 
-  /* Create the mutex(es) */
-  /* definition and creation of crcMutex */
-  osMutexDef(crcMutex);
-  crcMutexHandle = osMutexCreate(osMutex(crcMutex));
-
   /* USER CODE BEGIN RTOS_MUTEX */
 	/* add mutexes, ... */
-#if (REDIRECT_LOGS_TO_SERIAL_PORT)
-
-	osMutexDef(dbSerialMutex);
-	dbSerialMutexHandle = osMutexCreate(osMutex(dbSerialMutex));
-
-#endif /* (REDIRECT_LOGS_TO_SERIAL_PORT) */
   /* USER CODE END RTOS_MUTEX */
 
   /* USER CODE BEGIN RTOS_SEMAPHORES */
@@ -238,70 +170,22 @@ int main(void)
   /* USER CODE END RTOS_TIMERS */
 
   /* Create the queue(s) */
-  /* definition and creation of canTxQueue */
-  osMessageQDef(canTxQueue, 32, SCanFrame);
-  canTxQueueHandle = osMessageCreate(osMessageQ(canTxQueue), NULL);
-
-  /* definition and creation of canRxQueue */
-  osMessageQDef(canRxQueue, 32, SCanFrame);
-  canRxQueueHandle = osMessageCreate(osMessageQ(canRxQueue), NULL);
-
-  /* definition and creation of canSubQueue */
-  osMessageQDef(canSubQueue, 32, uint32_t);
-  canSubQueueHandle = osMessageCreate(osMessageQ(canSubQueue), NULL);
-
-  /* definition and creation of sdioSubQueue */
-  osMessageQDef(sdioSubQueue, 32, uint32_t);
-  sdioSubQueueHandle = osMessageCreate(osMessageQ(sdioSubQueue), NULL);
-
-  /* definition and creation of sdioLogQueue */
-  osMessageQDef(sdioLogQueue, 16, const char*);
-  sdioLogQueueHandle = osMessageCreate(osMessageQ(sdioLogQueue), NULL);
-
-  /* definition and creation of rfRxEventQueue */
-  osMessageQDef(rfRxEventQueue, 4, ERfRxEvent);
-  rfRxEventQueueHandle = osMessageCreate(osMessageQ(rfRxEventQueue), NULL);
-
-  /* definition and creation of xbeeTxRxEventQueue */
-  osMessageQDef(xbeeTxRxEventQueue, 4, EXbeeTxRxEvent);
-  xbeeTxRxEventQueueHandle = osMessageCreate(osMessageQ(xbeeTxRxEventQueue), NULL);
+  /* definition and creation of wcuEventQueue */
+  osMessageQDef(wcuEventQueue, 128, SWcuEvent);
+  wcuEventQueueHandle = osMessageCreate(osMessageQ(wcuEventQueue), NULL);
 
   /* USER CODE BEGIN RTOS_QUEUES */
 	/* add queues, ... */
   /* USER CODE END RTOS_QUEUES */
 
   /* Create the thread(s) */
-  /* definition and creation of canGtkp */
-  osThreadDef(canGtkp, StartCanGtkpTask, osPriorityNormal, 0, 256);
-  canGtkpHandle = osThreadCreate(osThread(canGtkp), NULL);
+  /* definition and creation of watchdogThread */
+  osThreadDef(watchdogThread, WatchdogThreadEntryPoint, osPriorityHigh, 0, 128);
+  watchdogThreadHandle = osThreadCreate(osThread(watchdogThread), NULL);
 
-  /* definition and creation of sdioGtkp */
-  osThreadDef(sdioGtkp, StartSdioGtkpTask, osPriorityNormal, 0, 2048);
-  sdioGtkpHandle = osThreadCreate(osThread(sdioGtkp), NULL);
-
-  /* definition and creation of iwdgGtkp */
-  osThreadDef(iwdgGtkp, StartIwdgGtkpTask, osPriorityNormal, 0, 128);
-  iwdgGtkpHandle = osThreadCreate(osThread(iwdgGtkp), NULL);
-
-  /* definition and creation of btRx */
-  osThreadDef(btRx, StartBtRxTask, osPriorityNormal, 0, 256);
-  btRxHandle = osThreadCreate(osThread(btRx), NULL);
-
-  /* definition and creation of gnssRx */
-  osThreadDef(gnssRx, StartGnssRxTask, osPriorityNormal, 0, 256);
-  gnssRxHandle = osThreadCreate(osThread(gnssRx), NULL);
-
-  /* definition and creation of rfRx */
-  osThreadDef(rfRx, StartRfRxTask, osPriorityNormal, 0, 128);
-  rfRxHandle = osThreadCreate(osThread(rfRx), NULL);
-
-  /* definition and creation of xbeeTxRx */
-  osThreadDef(xbeeTxRx, StartXbeeTxRxTask, osPriorityNormal, 0, 256);
-  xbeeTxRxHandle = osThreadCreate(osThread(xbeeTxRx), NULL);
-
-  /* definition and creation of diagnostic */
-  osThreadDef(diagnostic, StartDiagnosticTask, osPriorityNormal, 0, 256);
-  diagnosticHandle = osThreadCreate(osThread(diagnostic), NULL);
+  /* definition and creation of dispatcherThrea */
+  osThreadDef(dispatcherThrea, DispatcherThreadEntryPoint, osPriorityNormal, 0, 2048);
+  dispatcherThreaHandle = osThreadCreate(osThread(dispatcherThrea), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
 	/* add threads, ... */
@@ -643,6 +527,37 @@ static void MX_TIM10_Init(void)
 }
 
 /**
+  * @brief TIM11 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM11_Init(void)
+{
+
+  /* USER CODE BEGIN TIM11_Init 0 */
+
+  /* USER CODE END TIM11_Init 0 */
+
+  /* USER CODE BEGIN TIM11_Init 1 */
+
+  /* USER CODE END TIM11_Init 1 */
+  htim11.Instance = TIM11;
+  htim11.Init.Prescaler = 1599;
+  htim11.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim11.Init.Period = 9999;
+  htim11.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim11.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim11) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM11_Init 2 */
+
+  /* USER CODE END TIM11_Init 2 */
+
+}
+
+/**
   * @brief UART4 Initialization Function
   * @param None
   * @retval None
@@ -893,356 +808,62 @@ static void MX_GPIO_Init(void)
  */
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc) {
 
-	if (DIAGNOSTIC_ADC_INSTANCE == hadc->Instance) {
+	if (ADC1 == hadc->Instance) {
 
-		DiagnosticAdcConvCpltcallback();
+		WcuEventSend(EWcuEventSignal_AdcConversionComplete, NULL);
 
 	}
 
 }
+
+/**
+  * @brief  Rx FIFO 0 message pending callback.
+  * @param  hcan pointer to a CAN_HandleTypeDef structure that contains
+  *         the configuration information for the specified CAN.
+  * @retval None
+  */
+void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
+{
+	(void) hcan;
+	static const uint32_t fifo0Identity = CAN_RX_FIFO0;
+	WcuEventSend(EWcuEventSignal_CanPendingMessage, &fifo0Identity);
+}
+
+/**
+  * @brief  Rx FIFO 1 message pending callback.
+  * @param  hcan pointer to a CAN_HandleTypeDef structure that contains
+  *         the configuration information for the specified CAN.
+  * @retval None
+  */
+void HAL_CAN_RxFifo1MsgPendingCallback(CAN_HandleTypeDef *hcan)
+{
+	(void) hcan;
+	static const uint32_t fifo1Identity = CAN_RX_FIFO1;
+	WcuEventSend(EWcuEventSignal_CanPendingMessage, &fifo1Identity);
+}
+
 
 /* USER CODE END 4 */
 
-/* USER CODE BEGIN Header_StartCanGtkpTask */
+/* USER CODE BEGIN Header_WatchdogThreadEntryPoint */
 /**
- * @brief Function implementing the canGtkp thread.
- * @param argument: Not used
- * @retval None
- */
-/* USER CODE END Header_StartCanGtkpTask */
-void StartCanGtkpTask(void const * argument)
+  * @brief  Function implementing the watchdogThread thread.
+  * @param  argument: Not used
+  * @retval None
+  */
+/* USER CODE END Header_WatchdogThreadEntryPoint */
+void WatchdogThreadEntryPoint(void const * argument)
 {
   /* USER CODE BEGIN 5 */
 
-	/* Start the CAN module */
-	if (HAL_OK == HAL_CAN_Start(&hcan1)) {
-
-		LogInfo("StartCanGtkpTask: CAN module started");
-
-	}
-
 	/* Infinite loop */
 	for (;;) {
 
-		/* Check for new telemetry subscription */
-		(void) CanGtkpHandleNewSubscription();
-
-		/* Check for outgoing messages */
-		CanGtkpHandleOutbox();
-
-		/* Check for incoming messages */
-		(void) CanGtkpHandleInbox();
-
-		/* Report to watchdog */
-		NOTIFY_WATCHDOG(NV_IWDGGTKP_CANGTKP);
-
-		vTaskDelay(WCU_COMMON_TASK_DELAY);
-
+	    WcuEventSend(EWcuEventSignal_WatchdogWakeup, NULL);
+	    WcuSleep(WCU_IWDG_SLEEP_TIME);
 	}
 
   /* USER CODE END 5 */
-}
-
-/* USER CODE BEGIN Header_StartSdioGtkpTask */
-/**
- * @brief Function implementing the sdioGtkp thread.
- * @param argument: Not used
- * @retval None
- */
-/* USER CODE END Header_StartSdioGtkpTask */
-void StartSdioGtkpTask(void const * argument)
-{
-  /* USER CODE BEGIN StartSdioGtkpTask */
-
-	static FATFS fatFs;
-	/* Try mounting the logical drive */
-	if (FR_OK != f_mount(&fatFs, SDPath, 1)) {
-
-		/* On f_mount failure, suspend the task indefinitely */
-		vTaskSuspend(NULL);
-
-	}
-
-	/* Try reading the last active subscription */
-	if (ESdioGtkpRet_Ok == SdioGtkpLoadTelemetrySubscription()) {
-
-		LogInfo("StartSdioGtkpTask: Loaded subscription from the SD card");
-
-	}
-
-	/* Infinite loop */
-	for (;;) {
-
-		/* Listen for incoming error messages */
-		SdioGtkpHandleLogger();
-
-		/* Listen for new telemetry subscription */
-		(void) SdioGtkpHandleNewSubscription();
-
-		vTaskDelay(WCU_COMMON_TASK_DELAY);
-
-	}
-
-  /* USER CODE END StartSdioGtkpTask */
-}
-
-/* USER CODE BEGIN Header_StartIwdgGtkpTask */
-/**
- * @brief  Function implementing the iwdgGtkp thread.
- * @param  argument: Not used
- * @retval None
- */
-/* USER CODE END Header_StartIwdgGtkpTask */
-void StartIwdgGtkpTask(void const * argument)
-{
-  /* USER CODE BEGIN StartIwdgGtkpTask */
-
-	/* Give the other tasks time to set up */
-	vTaskDelay(pdMS_TO_TICKS(1000));
-
-	/* Initialize the watchdog */
-	if (HAL_OK == HAL_IWDG_Init(&hiwdg)) {
-
-		LogInfo("StartIwdgGtkpTask: Watchdog started");
-
-	}
-
-	/* Infinite loop */
-	for (;;) {
-
-		static uint32_t nv;
-		/* Wait for notification */
-		if (pdTRUE == xTaskNotifyWait(CLEAR_NO_BITS_ON_ENTRY,
-		CLEAR_NO_BITS_ON_EXIT, &nv,
-		portMAX_DELAY)) {
-
-			/* If all tasks checked in */
-			if ((NV_IWDGGTKP_CANGTKP |
-			NV_IWDGGTKP_BTRX | NV_IWDGGTKP_GNSSRX |
-
-#if defined (RT12e)
-
-					NV_IWDGGTKP_RFRX |
-
-#endif /* defined (RT12e) */
-
-					NV_IWDGGTKP_XBEETXRX) == nv) {
-
-				/* Refresh the counter */
-				(void) HAL_IWDG_Refresh(&hiwdg);
-				/* Clear the notification value */
-				CLEARNV();
-
-			}
-
-		}
-
-		vTaskDelay(WCU_COMMON_TASK_DELAY);
-
-	}
-
-  /* USER CODE END StartIwdgGtkpTask */
-}
-
-/* USER CODE BEGIN Header_StartBtRxTask */
-/**
- * @brief Function implementing the btRx thread.
- * @param argument: Not used
- * @retval None
- */
-/* USER CODE END Header_StartBtRxTask */
-void StartBtRxTask(void const * argument)
-{
-  /* USER CODE BEGIN StartBtRxTask */
-
-	/* Start listening for incoming data */
-	if (EUartRingBufRet_Ok == BtRxStartRingBufferIdleDetectionRx()) {
-
-		LogInfo("StartBtRxTask: Ring buffer initialized");
-
-	}
-
-	/* Infinite loop */
-	for (;;) {
-
-		/* Handle for the message */
-		(void) BtRxHandleCom();
-
-		/* Report to watchdog */
-		NOTIFY_WATCHDOG(NV_IWDGGTKP_BTRX);
-
-		vTaskDelay(WCU_COMMON_TASK_DELAY);
-
-	}
-
-  /* USER CODE END StartBtRxTask */
-}
-
-/* USER CODE BEGIN Header_StartGnssRxTask */
-/**
- * @brief Function implementing the gnssRx thread.
- * @param argument: Not used
- * @retval None
- */
-/* USER CODE END Header_StartGnssRxTask */
-void StartGnssRxTask(void const * argument)
-{
-  /* USER CODE BEGIN StartGnssRxTask */
-
-	/* Configure the device */
-	if (EGnssRxRet_Ok == GnssRxDeviceConfig()) {
-
-		LogInfo("StartGnssRxTask: Device configured");
-
-	}
-
-	/* Start listening for incoming data */
-	if (EUartRingBufRet_Ok == GnssRxStartRingBufferIdleDetectionRx()) {
-
-		LogInfo("StartGnssRxTask: Ring buffer initialized");
-
-	}
-
-	/* Infinite loop */
-	for (;;) {
-
-		/* Handle for the message */
-		(void) GnssRxHandleCom();
-
-		/* Report to watchdog */
-		NOTIFY_WATCHDOG(NV_IWDGGTKP_GNSSRX);
-
-		vTaskDelay(WCU_COMMON_TASK_DELAY);
-
-	}
-
-  /* USER CODE END StartGnssRxTask */
-}
-
-/* USER CODE BEGIN Header_StartRfRxTask */
-/**
- * @brief Function implementing the rfRx thread.
- * @param argument: Not used
- * @retval None
- */
-/* USER CODE END Header_StartRfRxTask */
-void StartRfRxTask(void const * argument)
-{
-  /* USER CODE BEGIN StartRfRxTask */
-
-#if defined (RT11)
-
-	/* No TPMS support for RT11 */
-	vTaskSuspend(NULL);
-
-#elif defined (RT12e)
-
-	/* Configure the device */
-	if(ERfRxRet_Ok == RfRxDeviceConfig()) {
-
-		LogInfo("StartRfRxTask: Device configured");
-
-	}
-
-	/* Start the timer */
-	if(HAL_OK == HAL_TIM_Base_Start_IT(&TIM_TPMS_HANDLE)) {
-
-		LogInfo("StartRfRxTask: Timer started");
-
-	}
-
-	/* Infinite loop */
-	for (;;) {
-
-		/* Listen for internal communication */
-		(void) RfRxHandleInternalMail();
-
-		/* Report to watchdog */
-		NOTIFY_WATCHDOG(NV_IWDGGTKP_RFRX);
-
-		vTaskDelay(WCU_COMMON_TASK_DELAY);
-
-	}
-
-#endif /* defined (RT12e) */
-
-  /* USER CODE END StartRfRxTask */
-}
-
-/* USER CODE BEGIN Header_StartXbeeTxRxTask */
-/**
- * @brief Function implementing the xbeeTxRx thread.
- * @param argument: Not used
- * @retval None
- */
-/* USER CODE END Header_StartXbeeTxRxTask */
-void StartXbeeTxRxTask(void const * argument)
-{
-  /* USER CODE BEGIN StartXbeeTxRxTask */
-
-	/* Configure the device */
-	if (EXbeeTxRxRet_Ok == XbeeTxRxDeviceConfig()) {
-
-		LogInfo("StartXbeeTxRxTask: Device configured");
-
-	}
-
-	/* Start listening for incoming data */
-	if (EUartRingBufRet_Ok == XbeeTxRxStartRingBufferIdleDetectionRx()) {
-
-		LogInfo("StartXbeeTxRxTask: Ring buffer initialized");
-
-	}
-
-	/* Start the timer */
-	if (HAL_OK == HAL_TIM_Base_Start_IT(&TIM_1s_HANDLE)) {
-
-		LogInfo("StartXbeeTxRxTask: Timer started");
-
-	}
-
-	/* Infinite loop */
-	for (;;) {
-
-		/* Listen for internal communication */
-		(void) XbeeTxRxHandleEvents();
-
-		/* Poll the queue for CAN frames to send */
-		XbeeTxRxHandleOutgoingR3tpCom();
-
-		/* Report to watchdog */
-		NOTIFY_WATCHDOG(NV_IWDGGTKP_XBEETXRX);
-
-		vTaskDelay(WCU_COMMON_TASK_DELAY);
-
-	}
-
-  /* USER CODE END StartXbeeTxRxTask */
-}
-
-/* USER CODE BEGIN Header_StartDiagnosticTask */
-/**
- * @brief Function implementing the diagnostic thread.
- * @param argument: Not used
- * @retval None
- */
-/* USER CODE END Header_StartDiagnosticTask */
-void StartDiagnosticTask(void const * argument)
-{
-  /* USER CODE BEGIN StartDiagnosticTask */
-
-	/* Infinite loop */
-	for (;;) {
-
-		/* Run diagnostics */
-		DiagnosticRunDiagnostics();
-
-		/* Sleep for one second */
-		vTaskDelay(pdMS_TO_TICKS(1000));
-
-	}
-
-  /* USER CODE END StartDiagnosticTask */
 }
 
  /**
@@ -1263,21 +884,14 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
   }
   /* USER CODE BEGIN Callback 1 */
 
-	else if (TIM_1s_INSTANCE == htim->Instance) {
+	else if (TIM7 == htim->Instance) {
 
-		XbeeTxRxPeriodElapsedCallback();
+		WcuEventSend(EWcuEventSignal_XbeeStatusTimerExpired, NULL);
 
+	} else if (TIM11 == htim->Instance) {
+
+		WcuEventSend(EWcuEventSignal_DiagnosticsTimerExpired, NULL);
 	}
-
-#if defined (RT12e)
-
-	else if (TIM_TPMS_INSTANCE == htim->Instance) {
-
-		RfRxPeriodElapsedCallback();
-
-	}
-
-#endif /* defined (RT12e) */
 
   /* USER CODE END Callback 1 */
 }

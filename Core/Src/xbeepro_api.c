@@ -8,7 +8,7 @@
 
 #include "xbeepro_config.h"
 
-#define XBEEPROAPI_UART_TIMEOUT ( (uint32_t) 500 )
+#define XBEEPROAPI_UART_TIMEOUT ( (uint32_t) 50 )
 
 /**
  * @brief Transmit payload to be transmitted by XBee-PRO to the device

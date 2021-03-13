@@ -68,7 +68,6 @@ void L26ApiAddNmeaChecksum(char *message) {
 	/* Print the checksum to the string */
 	message[length - 4UL] = FOURBITSTOHEXCHAR((checksum >> 4) & 0x0F);
 	message[length - 3UL] = FOURBITSTOHEXCHAR(checksum & 0x0F);
-
 }
 
 /**
@@ -145,7 +144,7 @@ EL26ApiDataStatus L26ApiParseMessage(SL26ApiGnssData *dataBufPtr,
 	}
 
 	return (L26ApiIsDataComplete(dataBufPtr) ?
-			EL26ApiDataStatus_Ready : EL26ApiDataStatus_Pending);
+			EL26ApiDataStatus_Ready : EL26ApiDataStatus_NotReady);
 
 }
 

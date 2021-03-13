@@ -34,26 +34,21 @@
 #define R3TP_MAX_FRAME_SIZE       (R3TP_VER1_MAX_FRAME_SIZE)  /* R3TP max frame size (of all versions) in bytes */
 
 /* Exported macros */
-/**
- * @brief Return the address at which the payload of an R3TP version 1 frame begins in reference to the start
- */
-#define R3TP_VER1_PAYLOAD(start)         ( (uint8_t*)&( ( (uint8_t*)(start) )[R3TP_VER1_HEADER_SIZE] ) )
 
-/**
- * @brief Calculate the total length of an R3TP version 1 frame based on the number of subscription frames
- */
+/** @brief Return the protocol version of the message pointed to by base */
+#define R3TP_PROTOCOL_VERSION(base)      ( (uint8_t)(base)[0] )
+
+/** @brief Return the address at which the payload of an R3TP version 1 frame begins in reference to the base */
+#define R3TP_VER1_PAYLOAD(base)          ( (uint8_t*)&( ( (uint8_t*)(base) )[R3TP_VER1_HEADER_SIZE] ) )
+
+/** @brief Calculate the total length of an R3TP version 1 frame based on the number of subscription frames */
 #define R3TP_VER1_MESSAGE_LENGTH(frNum)  ( ( (uint32_t)(frNum) ) * 4U + 12U )
 
-/**
- * @brief Read CRC checksum from the message buffer
- */
-#define R3TP_READ_CRC(messageTbl)        ( (uint16_t) ( ( (messageTbl)[2] ) | ( ( (messageTbl)[3] << 8 ) ) ) )
+/** @brief Read CRC checksum from the message buffer */
+#define R3TP_READ_CRC(base)              ( (uint16_t) ( ( (base)[2] ) | ( ( (base)[3] << 8 ) ) ) )
 
-/**
- * @brief Validate R3TP end sequence
- */
-#define R3TP_VALID_END_SEQ(messageTbl, length) \
-                                  ( (R3TP_END_SEQ_LOW_BYTE == (messageTbl)[length - 2U]) \
-                                		  && (R3TP_END_SEQ_HIGH_BYTE == (messageTbl)[length - 1U]) )
+/** @brief Validate R3TP end sequence */
+#define R3TP_VALID_END_SEQ(base, length) ( (R3TP_END_SEQ_LOW_BYTE == (base)[length - 2U]) \
+                                		    && (R3TP_END_SEQ_HIGH_BYTE == (base)[length - 1U]) )
 
 #endif /* __RT12E_LIBS_R3TP_H_ */
