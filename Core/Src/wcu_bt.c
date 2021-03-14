@@ -19,7 +19,7 @@
 #define WCU_BT_RING_BUFFER_SIZE    ( (uint32_t) 50 )     /* UART ring buffer size */
 
 extern UART_HandleTypeDef huart1;
-SUartRingBuf g_WcuBtRingBuffer;
+SUartRb g_WcuBtRingBuffer;
 
 static EWcuRet WcuBtRingBufferInit(void);
 static EWcuRet WcuBtForwardWdtsMessageToCan(void);
@@ -63,13 +63,10 @@ static EWcuRet WcuBtRingBufferInit(void) {
 	static uint8_t ringbuffer[WCU_BT_RING_BUFFER_SIZE];
 
 	/* Configure the ring buffer structure */
-	g_WcuBtRingBuffer.BufferPtr = ringbuffer;
-	g_WcuBtRingBuffer.BufferSize = WCU_BT_RING_BUFFER_SIZE;
-	g_WcuBtRingBuffer.Callback = &WcuBtRxCallback;
-	g_WcuBtRingBuffer.PeriphHandlePtr = &huart1;
+	(void) UartRbInit(&g_WcuBtRingBuffer, &huart1, ringbuffer, sizeof(ringbuffer), &WcuBtRxCallback);
 
 	/* Start listening */
-	if (EUartRingBufRet_Ok != UartRingBufStart(&g_WcuBtRingBuffer)) {
+	if (EUartRbRet_Ok != UartRbStart(&g_WcuBtRingBuffer)) {
 
 		status = EWcuRet_Error;
 	}
@@ -85,11 +82,22 @@ static EWcuRet WcuBtForwardWdtsMessageToCan(void) {
 
 	EWcuRet status = EWcuRet_Ok;
 	uint8_t buffer[R3TP_VER0_FRAME_SIZE];
+	size_t bytesRead = 0;
 	/* Read the message from the ring buffer */
-	if (EUartRingBufRet_Ok != UartRingBufRead(&g_WcuBtRingBuffer, buffer, sizeof(buffer))) {
+	if (EUartRbRet_Ok != UartRbRead(&g_WcuBtRingBuffer, buffer, sizeof(buffer), &bytesRead)) {
 
 		WcuLogError("WcuBtForwardWdtsMessageToCan: Ring buffer read failed");
 		status = EWcuRet_Error;
+	}
+
+	if (EWcuRet_Ok == status) {
+
+		/* Assert valid number of bytes received */
+		if (R3TP_VER0_FRAME_SIZE != bytesRead) {
+
+			WcuLogError("WcuBtForwardWdtsMessageToCan: Invalid number of bytes received");
+			status = EWcuRet_Error;
+		}
 	}
 
 	if (EWcuRet_Ok == status) {

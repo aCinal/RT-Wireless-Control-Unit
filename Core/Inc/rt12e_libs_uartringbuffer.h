@@ -17,71 +17,85 @@
 /**
  * @brief API functions return value enumeration
  */
-typedef enum EUartRingBufRet {
-	EUartRingBufRet_Ok = 0,                /* No error */
-	EUartRingBufRet_InvalidParams,         /* Invalid function parameters */
-	EUartRingBufRet_HalError,              /* HAL error */
-	EUartRingBufRet_BufferEmpty            /* Ring buffer empty */
-} EUartRingBufRet;
+typedef enum EUartRbRet {
+	EUartRbRet_Ok = 0,                    /* No error */
+	EUartRbRet_InvalidParams,             /* Invalid function parameters */
+	EUartRbRet_HalError,                  /* HAL error */
+	EUartRbRet_BufferEmpty                /* Ring buffer empty */
+} EUartRbRet;
 
 /**
- * @brief Ring buffer internal state structure
+ * @brief Ring buffer control block
+ * @note Members of this structure must not be modified directly, a dedicated API should be used instead
  */
-typedef struct SUartRingBufInternalState {
-	volatile size_t Head;                 /* Position of the head */
-	volatile size_t Tail;                 /* Position of the tail */
-	volatile bool Dirty;                  /* Buffer dirty flag */
-} SUartRingBufInternalState;
-
-/**
- * @brief Ring buffer structure
- */
-typedef struct SUartRingBuf {
+typedef struct SUartRb {
 	uint8_t *BufferPtr;                   /* Pointer to the buffer */
 	size_t BufferSize;                    /* Buffer size in bytes */
 	UART_HandleTypeDef *PeriphHandlePtr;  /* Peripheral handle */
 	void (*Callback)(void);               /* Callback */
-	SUartRingBufInternalState State;      /* Internal state */
-} SUartRingBuf;
+	volatile size_t Head;                 /* Position of the head */
+	volatile size_t Tail;                 /* Position of the tail */
+	volatile bool Dirty;                  /* Buffer dirty flag */
+} SUartRb;
 
 /* Exported function prototypes -----------------------------------------------*/
+
+/**
+ * @brief Initialize the ring buffer control block
+ * @param rb Pointer to the ring buffer control block
+ * @param uartHandle UART peripheral handle
+ * @param buffer User-defined buffer
+ * @param bufferSize Size of the user-defined buffer
+ * @param callback Function to be called on message received
+ * @retval EUartRbRet Status
+ */
+EUartRbRet UartRbInit(SUartRb *rb, UART_HandleTypeDef *uartHandle,
+		uint8_t *buffer, size_t bufferSize, void (*callback)(void));
+
 /**
  * @brief Enable interrupts and start the data transfer to the ring buffer
- * @param ringBufPtr Pointer to the ring buffer structure
- * @retval EUartRingBufRet Status
+ * @param rb Pointer to the ring buffer control block
+ * @retval EUartRbRet Status
  */
-EUartRingBufRet UartRingBufStart(SUartRingBuf *ringBufPtr);
+EUartRbRet UartRbStart(SUartRb *rb);
 
 /**
  * @brief Disable interrupts and stop the data transfer
- * @param ringBufPtr Pointer to the ring buffer structure
- * @retval EUartRingBufRet Status
+ * @param rb Pointer to the ring buffer control block
+ * @retval EUartRbRet Status
  */
-EUartRingBufRet UartRingBufStop(SUartRingBuf *ringBufPtr);
+EUartRbRet UartRbStop(SUartRb *rb);
 
 /**
- * @brief ISR callback
+ * @brief Idle line detection interrupt service routine
  * @note This function must be called from the USARTx_IRQHandler
- * @param ringBufPtr Pointer to the ring buffer structure
- * @retval EUartRingBufRet Status
+ * @param rb Pointer to the ring buffer control block
+ * @retval EUartRbRet Status
  */
-EUartRingBufRet UartRingBufIrqHandlerCallback(SUartRingBuf *ringBufPtr);
-
-/**
- * @brief Test if there is unread data in the buffer
- * @param ringBufPtr Pointer to the ring buffer structure
- * @retval bool True if there is new data in the buffer, false otherwise
- */
-bool UartRingBufIsDataReady(SUartRingBuf *ringBufPtr);
+EUartRbRet UartRbIsr(SUartRb *rb);
 
 /**
  * @brief Move the data from the ring buffer to the destination
- * @param ringBufPtr Pointer to the ring buffer structure
- * @param dstBufPtr Destination address
- * @param dstBufSize Size of the destination buffer
- * @retval EUartRingBufRet Status
+ * @param rb Pointer to the ring buffer control block
+ * @param buffer Destination buffer
+ * @param bufferSize Size of the destination buffer
+ * @param bytesRead Number of bytes read from the buffer
+ * @retval EUartRbRet Status
  */
-EUartRingBufRet UartRingBufRead(SUartRingBuf *ringBufPtr,
-		uint8_t *dstBufPtr, size_t dstBufSize);
+EUartRbRet UartRbRead(SUartRb *rb, uint8_t *buffer, size_t bufferSize, size_t* bytesRead);
+
+/**
+ * @brief Test if the buffer is dirty
+ * @param rb Pointer to the ring buffer control block
+ * @retval EUartRbRet Status: EUartRbRet_Ok if the buffer is dirty, EUartRbRet_BufferEmpty otherwise
+ */
+EUartRbRet UartRbDirty(SUartRb *rb);
+
+/**
+ * @brief Flush the buffer and reset the dirty flag
+ * @param rb Pointer to the ring buffer control block
+ * @retval EUartRbRet Status
+ */
+EUartRbRet UartRbInvalidate(SUartRb *rb);
 
 #endif /* __RT12E_LIBS_UARTRINGBUFFER_H_ */

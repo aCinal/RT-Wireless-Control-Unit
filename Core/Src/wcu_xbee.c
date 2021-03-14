@@ -33,7 +33,7 @@ extern TIM_HandleTypeDef htim7;
 static uint8_t g_GreenWarningDuration = 0;
 static uint8_t g_RedWarningDuration = 0;
 static uint8_t g_SeqNum = 0;
-SUartRingBuf g_WcuXbeeRingBuffer;
+SUartRb g_WcuXbeeRingBuffer;
 
 static EWcuRet WcuXbeeRingBufferInit(void);
 static EWcuRet WcuXbeeDeviceConfig(void);
@@ -157,13 +157,11 @@ static EWcuRet WcuXbeeRingBufferInit(void) {
 	static uint8_t ringbuffer[WCU_XBEE_RING_BUFFER_SIZE];
 
 	/* Configure the ring buffer structure */
-	g_WcuXbeeRingBuffer.BufferPtr = ringbuffer;
-	g_WcuXbeeRingBuffer.BufferSize = WCU_XBEE_RING_BUFFER_SIZE;
-	g_WcuXbeeRingBuffer.Callback = &WcuXbeeRxCallback;
-	g_WcuXbeeRingBuffer.PeriphHandlePtr = &huart4;
+	(void) UartRbInit(&g_WcuXbeeRingBuffer, &huart4, ringbuffer,
+			sizeof(ringbuffer), &WcuXbeeRxCallback);
 
 	/* Start listening */
-	if (EUartRingBufRet_Ok != UartRingBufStart(&g_WcuXbeeRingBuffer)) {
+	if (EUartRbRet_Ok != UartRbStart(&g_WcuXbeeRingBuffer)) {
 
 		status = EWcuRet_Error;
 	}
@@ -275,8 +273,11 @@ static EWcuRet WcuXbeeHandleR3tpMessage(void) {
 	EWcuRet status = EWcuRet_Ok;
 
 	uint8_t buffer[R3TP_MAX_FRAME_SIZE];
+	size_t bytesRead = 0;
 	/* Read the message from the buffer */
-	if (EUartRingBufRet_Ok != UartRingBufRead(&g_WcuXbeeRingBuffer, buffer, sizeof(buffer))) {
+	if (EUartRbRet_Ok
+			!= UartRbRead(&g_WcuXbeeRingBuffer, buffer, sizeof(buffer),
+					&bytesRead)) {
 
 		WcuLogError("WcuXbeeHandleR3tpMessage: Ring buffer read failed");
 		status = EWcuRet_Error;
@@ -307,7 +308,6 @@ static EWcuRet WcuXbeeHandleR3tpMessage(void) {
 
 	return status;
 }
-
 
 /**
  * @brief Send the R3TP acknowledge frame
@@ -464,7 +464,7 @@ static EWcuRet WcuXbeeHandleDriverWarning(uint8_t *r3tpMessage) {
 
 		/* Calculate the CRC */
 		uint16_t calculatedCrc = WcuGetR3tpCrc(r3tpMessage,
-				R3TP_VER2_FRAME_SIZE);
+		R3TP_VER2_FRAME_SIZE);
 
 		/* Validate the CRC */
 		if (readCrc != calculatedCrc) {
@@ -521,8 +521,9 @@ static EWcuRet WcuXbeeStoreNewSubscription(uint32_t *ids, uint32_t numOfFrames) 
 	FIL subscriptionFd;
 
 	/* Open the subscription file */
-	if (EWcuRet_Ok != WcuSdioFileOpen(&subscriptionFd, WCU_TELEMETRY_SUBSCRIPTION_PATH,
-	FA_WRITE | FA_CREATE_ALWAYS)) {
+	if (EWcuRet_Ok
+			!= WcuSdioFileOpen(&subscriptionFd, WCU_TELEMETRY_SUBSCRIPTION_PATH,
+			FA_WRITE | FA_CREATE_ALWAYS)) {
 
 		WcuLogError("WcuXbeeStoreNewSubscription: Open failed");
 		status = EWcuRet_Error;
@@ -531,7 +532,9 @@ static EWcuRet WcuXbeeStoreNewSubscription(uint32_t *ids, uint32_t numOfFrames) 
 	if (EWcuRet_Ok == status) {
 
 		/* Print the number of frames to the SD card */
-		if(EWcuRet_Ok != WcuSdioFileWrite(&subscriptionFd, (uint8_t*)numOfFrames, sizeof(numOfFrames))) {
+		if (EWcuRet_Ok
+				!= WcuSdioFileWrite(&subscriptionFd, (uint8_t*) numOfFrames,
+						sizeof(numOfFrames))) {
 
 			WcuLogError("WcuXbeeStoreNewSubscription: Write failed");
 			status = EWcuRet_Error;
@@ -543,7 +546,9 @@ static EWcuRet WcuXbeeStoreNewSubscription(uint32_t *ids, uint32_t numOfFrames) 
 		/* Print the frames themselves to the file */
 		for (uint32_t i = 0; i < numOfFrames; i += 1UL) {
 
-			if(EWcuRet_Ok != WcuSdioFileWrite(&subscriptionFd, (uint8_t*)&(ids[i]), sizeof(ids[i]))) {
+			if (EWcuRet_Ok
+					!= WcuSdioFileWrite(&subscriptionFd, (uint8_t*) &(ids[i]),
+							sizeof(ids[i]))) {
 
 				WcuLogError("WcuXbeeStoreNewSubscription: Write failed");
 				status = EWcuRet_Error;

@@ -8,41 +8,73 @@
 
 #include <stdlib.h>
 
-/**
- * @brief Enables interrupts and starts the data transfer to the ring buffer
- * @param ringBufPtr Pointer to the ring buffer structure
- * @retval EUartUartCircularBufferStatus Status
- */
-EUartRingBufRet UartRingBufStart(SUartRingBuf *ringBufPtr) {
+#define UART_RB_INITIALIZED(rb)  ( ( (rb)->PeriphHandlePtr != NULL ) && ( (rb)->BufferPtr != NULL ) \
+                                  && ( (rb)->BufferSize != 0 ) )
 
-	EUartRingBufRet status = EUartRingBufRet_Ok;
+/**
+ * @brief Initialize the ring buffer control block
+ * @param rb Pointer to the ring buffer control block
+ * @param uartHandle UART peripheral handle
+ * @param buffer User-defined buffer
+ * @param bufferSize Size of the user-defined buffer
+ * @param callback Function to be called on message received
+ * @retval EUartRbRet Status
+ */
+EUartRbRet UartRbInit(SUartRb *rb, UART_HandleTypeDef *uartHandle,
+		uint8_t *buffer, size_t bufferSize, void (*callback)(void)) {
+
+	EUartRbRet status = EUartRbRet_Ok;
 
 	/* Assert valid parameters */
-	if ((NULL == ringBufPtr) || (NULL == ringBufPtr->PeriphHandlePtr)
-			|| (NULL == ringBufPtr->BufferPtr)
-			|| (0 == ringBufPtr->BufferSize)) {
+	if ((NULL == rb) || (NULL == uartHandle) || (NULL == buffer)
+			|| (0 == bufferSize)) {
 
-		status = EUartRingBufRet_InvalidParams;
-
+		status = EUartRbRet_InvalidParams;
 	}
 
-	if (EUartRingBufRet_Ok == status) {
+
+	if (EUartRbRet_Ok == status) {
+
+		rb->PeriphHandlePtr = uartHandle;
+		rb->BufferPtr = buffer;
+		rb->BufferSize = bufferSize;
+		rb->Callback = callback;
 
 		/* Reset the internal state */
-		ringBufPtr->State.Head = 0;
-		ringBufPtr->State.Tail = 0;
-		ringBufPtr->State.Dirty = false;
+		rb->Head = 0;
+		rb->Tail = 0;
+		rb->Dirty = false;
+	}
+
+	return status;
+}
+
+/**
+ * @brief Enables interrupts and starts the data transfer to the ring buffer
+ * @param rb Pointer to the ring buffer control block
+ * @retval EUartUartCircularBufferStatus Status
+ */
+EUartRbRet UartRbStart(SUartRb *rb) {
+
+	EUartRbRet status = EUartRbRet_Ok;
+
+	/* Assert valid parameters */
+	if ((NULL == rb) || !UART_RB_INITIALIZED(rb)) {
+
+		status = EUartRbRet_InvalidParams;
+	}
+
+	if (EUartRbRet_Ok == status) {
 
 		/* Enable interrupts on idle line */
-		__HAL_UART_ENABLE_IT(ringBufPtr->PeriphHandlePtr, UART_IT_IDLE);
+		__HAL_UART_ENABLE_IT(rb->PeriphHandlePtr, UART_IT_IDLE);
 
 		/* Start receving */
 		if (HAL_OK
-				!= HAL_UART_Receive_DMA(ringBufPtr->PeriphHandlePtr,
-						ringBufPtr->BufferPtr, ringBufPtr->BufferSize)) {
+				!= HAL_UART_Receive_DMA(rb->PeriphHandlePtr, rb->BufferPtr,
+						rb->BufferSize)) {
 
-			status = EUartRingBufRet_HalError;
-
+			status = EUartRbRet_HalError;
 		}
 
 	}
@@ -53,236 +85,257 @@ EUartRingBufRet UartRingBufStart(SUartRingBuf *ringBufPtr) {
 
 /**
  * @brief Disables interrupts and stops the data transfer
- * @param ringBufPtr Pointer to the ring buffer structure
- * @retval EUartRingBufRet Status
+ * @param rb Pointer to the ring buffer control block
+ * @retval EUartRbRet Status
  */
-EUartRingBufRet UartRingBufStop(SUartRingBuf *ringBufPtr) {
+EUartRbRet UartRbStop(SUartRb *rb) {
 
-	EUartRingBufRet status = EUartRingBufRet_Ok;
+	EUartRbRet status = EUartRbRet_Ok;
 
 	/* Assert valid parameters */
-	if (NULL == ringBufPtr) {
+	if (NULL == rb || !UART_RB_INITIALIZED(rb)) {
 
-		status = EUartRingBufRet_InvalidParams;
-
+		status = EUartRbRet_InvalidParams;
 	}
 
-	if (EUartRingBufRet_Ok == status) {
+	if (EUartRbRet_Ok == status) {
 
 		/* Disable the idle line detection interrupt */
-		__HAL_UART_DISABLE_IT(ringBufPtr->PeriphHandlePtr, UART_IT_IDLE);
+		__HAL_UART_DISABLE_IT(rb->PeriphHandlePtr, UART_IT_IDLE);
+
 		/* Abort the data transfer */
-		if (HAL_OK != HAL_UART_Abort(ringBufPtr->PeriphHandlePtr)) {
+		if (HAL_OK != HAL_UART_Abort(rb->PeriphHandlePtr)) {
 
-			status = EUartRingBufRet_HalError;
-
+			status = EUartRbRet_HalError;
 		}
-
 	}
 
 	return status;
-
 }
 
 /**
- * @brief The ISR callback
+ * @brief Idle line detection interrupt service routine
  * @note This function must be called from the USARTx_IRQHandler
- * @param ringBufPtr Pointer to the ring buffer structure
- * @retval EUartRingBufRet Status
+ * @param rb Pointer to the ring buffer control block
+ * @retval EUartRbRet Status
  */
-EUartRingBufRet UartRingBufIrqHandlerCallback(SUartRingBuf *ringBufPtr) {
+EUartRbRet UartRbIsr(SUartRb *rb) {
 
-	EUartRingBufRet status = EUartRingBufRet_Ok;
+	EUartRbRet status = EUartRbRet_Ok;
 
 	/* Assert valid parameters */
-	if (NULL == ringBufPtr) {
+	if (NULL == rb || !UART_RB_INITIALIZED(rb)) {
 
-		status = EUartRingBufRet_InvalidParams;
-
+		status = EUartRbRet_InvalidParams;
 	}
 
-	if (EUartRingBufRet_Ok == status) {
+	if (EUartRbRet_Ok == status) {
 
 		/* Assert idle line detection interrupt is on and the line is idle */
-		if (__HAL_UART_GET_IT_SOURCE(ringBufPtr->PeriphHandlePtr,
-				UART_IT_IDLE) && __HAL_UART_GET_FLAG(ringBufPtr->PeriphHandlePtr,
+		if (__HAL_UART_GET_IT_SOURCE(rb->PeriphHandlePtr,
+				UART_IT_IDLE) && __HAL_UART_GET_FLAG(rb->PeriphHandlePtr,
 						UART_FLAG_IDLE)) {
 
 			/* Clear the idle flag */
-			__HAL_UART_CLEAR_IDLEFLAG(ringBufPtr->PeriphHandlePtr);
+			__HAL_UART_CLEAR_IDLEFLAG(rb->PeriphHandlePtr);
 
 			/* Update the head */
-			ringBufPtr->State.Head = ringBufPtr->BufferSize
-					- ringBufPtr->PeriphHandlePtr->hdmarx->Instance->NDTR;
+			rb->Head = rb->BufferSize
+					- rb->PeriphHandlePtr->hdmarx->Instance->NDTR;
 
 			/* Set the dirty flag */
-			ringBufPtr->State.Dirty = true;
+			rb->Dirty = true;
 
-			/* Callback */
-			if (NULL != ringBufPtr->Callback) {
+			/* Call the function registered by the user */
+			if (NULL != rb->Callback) {
 
-				ringBufPtr->Callback();
-
+				rb->Callback();
 			}
-
 		}
-
 	}
 
 	return status;
-
 }
 
-/**
- * @brief Test if there is unread data in the buffer
- * @param ringBufPtr Pointer to the ring buffer structure
- * @retval bool True if there is new data in the buffer, false otherwise
- */
-bool UartRingBufIsDataReady(SUartRingBuf *ringBufPtr) {
-
-	bool ret = false;
-
-	/* Disable interrupts */
-	__HAL_UART_DISABLE_IT(ringBufPtr->PeriphHandlePtr, UART_IT_IDLE);
-
-	/* Assert valid parameters */
-	if (NULL != ringBufPtr) {
-
-		ret = ringBufPtr->State.Dirty;
-
-	}
-
-	/* Enable interrupts */
-	__HAL_UART_ENABLE_IT(ringBufPtr->PeriphHandlePtr, UART_IT_IDLE);
-
-	return ret;
-
-}
 
 /**
- * @brief Moves the data from the ring buffer to the destination
- * @param ringBufPtr Pointer to the ring buffer structure
- * @param dstBufPtr Destination address
- * @param dstBufSize Size of the destination buffer
- * @retval EUartRingBufRet Status
+ * @brief Move the data from the ring buffer to the destination
+ * @param rb Pointer to the ring buffer control block
+ * @param buffer Destination buffer
+ * @param bufferSize Size of the destination buffer
+ * @param bytesRead Number of bytes read from the buffer
+ * @retval EUartRbRet Status
  */
-EUartRingBufRet UartRingBufRead(SUartRingBuf *ringBufPtr, uint8_t *dstBufPtr,
-		size_t dstBufSize) {
+EUartRbRet UartRbRead(SUartRb *rb, uint8_t *buffer, size_t bufferSize, size_t* bytesRead) {
 
-	EUartRingBufRet status = EUartRingBufRet_Ok;
-
-	/* Disable interrupts */
-	__HAL_UART_DISABLE_IT(ringBufPtr->PeriphHandlePtr, UART_IT_IDLE);
+	EUartRbRet status = EUartRbRet_Ok;
 
 	/* Assert valid parameters */
-	if (( NULL == ringBufPtr) || ( NULL == dstBufPtr) || (0 == dstBufSize)) {
+	if (( NULL == rb) || !UART_RB_INITIALIZED(rb) || (NULL == bytesRead)) {
 
-		status = EUartRingBufRet_InvalidParams;
-
+		status = EUartRbRet_InvalidParams;
 	}
 
-	if (EUartRingBufRet_Ok == status) {
+	if (EUartRbRet_InvalidParams != status) {
+
+		/* Disable interrupts */
+		__HAL_UART_DISABLE_IT(rb->PeriphHandlePtr, UART_IT_IDLE);
+	}
+
+	if (EUartRbRet_Ok == status) {
 
 		/* Assert the ring buffer is dirty */
-		if (false == ringBufPtr->State.Dirty) {
+		if (false == rb->Dirty) {
 
-			status = EUartRingBufRet_BufferEmpty;
-
+			status = EUartRbRet_BufferEmpty;
 		}
-
 	}
 
-	if (EUartRingBufRet_Ok == status) {
+	if (EUartRbRet_Ok == status) {
 
 		/* Test if the ring buffer has overflown */
-		if (ringBufPtr->State.Head > ringBufPtr->State.Tail) {
+		if (rb->Head > rb->Tail) {
 
 			size_t len;
 			/* Determine the size of the data to be copied */
-			if ((ringBufPtr->State.Head - ringBufPtr->State.Tail)
-					<= dstBufSize) {
+			if ((rb->Head - rb->Tail) <= bufferSize) {
 
-				len = (ringBufPtr->State.Head - ringBufPtr->State.Tail);
+				len = (rb->Head - rb->Tail);
 				/* Clear the dirty flag, the entire buffer has been read */
-				ringBufPtr->State.Dirty = false;
+				rb->Dirty = false;
 
 			} else {
 
-				len = dstBufSize;
+				len = bufferSize;
 				/* The dirty flag remains set */
-				ringBufPtr->State.Dirty = true;
-
+				rb->Dirty = true;
 			}
 
 			/* Transfer the data */
 			for (size_t i = 0; i < len; i += 1UL) {
 
-				dstBufPtr[i] =
-						ringBufPtr->BufferPtr[ringBufPtr->State.Tail + i];
+				buffer[i] = rb->BufferPtr[rb->Tail + i];
 
 			}
 
 			/* Move the tail forward in the buffer */
-			ringBufPtr->State.Tail += len;
+			rb->Tail += len;
+
+			/* Save the number of bytes read for the caller to inspect */
+			*bytesRead = len;
 
 		} else {
 
 			size_t lenUpper;
 			/* Determine the size of the data to be copied from the upper part of the buffer */
-			if ((ringBufPtr->BufferSize - ringBufPtr->State.Tail)
-					<= dstBufSize) {
+			if ((rb->BufferSize - rb->Tail) <= bufferSize) {
 
-				lenUpper = (ringBufPtr->BufferSize - ringBufPtr->State.Tail);
+				lenUpper = (rb->BufferSize - rb->Tail);
 
 			} else {
 
 				/* Assert no overflow in the destination buffer from the upper part of the buffer */
-				lenUpper = dstBufSize;
+				lenUpper = bufferSize;
 
 			}
 
 			/* Transfer the data from the upper part of the ring buffer */
 			for (size_t i = 0; i < lenUpper; i += 1UL) {
 
-				dstBufPtr[i] =
-						ringBufPtr->BufferPtr[ringBufPtr->State.Tail + i];
+				buffer[i] = rb->BufferPtr[rb->Tail + i];
 
 			}
 
 			size_t lenLower;
 			/* Determine the size of the data to be copied from the upper part of the buffer */
-			if (ringBufPtr->State.Head <= (dstBufSize - lenUpper)) {
+			if (rb->Head <= (bufferSize - lenUpper)) {
 
-				lenLower = ringBufPtr->State.Head;
+				lenLower = rb->Head;
 				/* Clear the dirty flag, the entire buffer has been read */
-				ringBufPtr->State.Dirty = false;
+				rb->Dirty = false;
 
 			} else {
 
 				/* Assert no overflow in the destination buffer from the lower part of the buffer */
-				lenLower = (dstBufSize - lenUpper);
+				lenLower = (bufferSize - lenUpper);
 				/* The dirty flag remains set */
-				ringBufPtr->State.Dirty = true;
+				rb->Dirty = true;
 
 			}
 
 			/* Transfer the data from the lower part of the buffer */
 			for (size_t i = 0; i < lenLower; i += 1UL) {
 
-				dstBufPtr[lenUpper + i] = ringBufPtr->BufferPtr[i];
+				buffer[lenUpper + i] = rb->BufferPtr[i];
 
 			}
 
 			/* Update the tail */
-			ringBufPtr->State.Tail = lenLower;
+			rb->Tail = lenLower;
+
+			/* Save the number of bytes read for the caller to inspect */
+			*bytesRead = lenUpper + lenLower;
 
 		}
 
 	}
 
-	/* Enable interrupts */
-	__HAL_UART_ENABLE_IT(ringBufPtr->PeriphHandlePtr, UART_IT_IDLE);
+	if (EUartRbRet_InvalidParams != status) {
+
+		/* Enable interrupts */
+		__HAL_UART_ENABLE_IT(rb->PeriphHandlePtr, UART_IT_IDLE);
+	}
 
 	return status;
 
+}
+
+/**
+ * @brief Test if the buffer is dirty
+ * @param rb Pointer to the ring buffer control block
+ * @retval EUartRbRet Status: EUartRbRet_Ok if the buffer is dirty, EUartRbRet_BufferEmpty otherwise
+ */
+EUartRbRet UartRbDirty(SUartRb *rb) {
+
+	EUartRbRet status = EUartRbRet_Ok;
+
+	/* Assert valid parameters */
+	if ((NULL == rb) || !UART_RB_INITIALIZED(rb)) {
+
+		status = EUartRbRet_InvalidParams;
+	}
+
+	if (EUartRbRet_Ok == status) {
+
+		if (false == rb->Dirty) {
+
+			status = EUartRbRet_BufferEmpty;
+		}
+	}
+
+	return status;
+}
+
+/**
+ * @brief Flush the buffer and reset the dirty flag
+ * @param rb Pointer to the ring buffer control block
+ * @retval EUartRbRet Status
+ */
+EUartRbRet UartRbInvalidate(SUartRb *rb) {
+
+	EUartRbRet status = EUartRbRet_Ok;
+
+	/* Assert valid parameters */
+	if ((NULL == rb) || !UART_RB_INITIALIZED(rb)) {
+
+		status = EUartRbRet_InvalidParams;
+	}
+
+	if (EUartRbRet_Ok == status) {
+
+		rb->Tail = rb->Head;
+		rb->Dirty = false;
+	}
+
+	return status;
 }

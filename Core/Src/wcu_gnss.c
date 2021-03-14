@@ -26,7 +26,7 @@
 
 extern UART_HandleTypeDef huart3;
 
-SUartRingBuf g_WcuGnssRingBuffer;
+SUartRb g_WcuGnssRingBuffer;
 
 static EWcuRet WcuGnssRingBufferInit(void);
 static EWcuRet WcuGnssDeviceConfig(void);
@@ -82,14 +82,12 @@ static EWcuRet WcuGnssRingBufferInit(void) {
 
 	static uint8_t ringbuffer[WCU_GNSS_RING_BUFFER_SIZE];
 
+
 	/* Configure the ring buffer structure */
-	g_WcuGnssRingBuffer.BufferPtr = ringbuffer;
-	g_WcuGnssRingBuffer.BufferSize = WCU_GNSS_RING_BUFFER_SIZE;
-	g_WcuGnssRingBuffer.Callback = &WcuGnssRxCallback;
-	g_WcuGnssRingBuffer.PeriphHandlePtr = &huart3;
+	(void) UartRbInit(&g_WcuGnssRingBuffer, &huart3, ringbuffer, sizeof(ringbuffer), &WcuGnssRxCallback);
 
 	/* Start listening */
-	if (EUartRingBufRet_Ok != UartRingBufStart(&g_WcuGnssRingBuffer)) {
+	if (EUartRbRet_Ok != UartRbStart(&g_WcuGnssRingBuffer)) {
 
 		status = EWcuRet_Error;
 	}
@@ -158,8 +156,9 @@ static EWcuRet WcuGnssHandleNmeaMessage(void) {
 	EWcuRet status = EWcuRet_Ok;
 
 	uint8_t buffer[WCU_GNSS_PARSE_BUFFER_SIZE];
+	size_t bytesRead = 0;
 	/* Read the message from the buffer */
-	if (EUartRingBufRet_Ok != UartRingBufRead(&g_WcuGnssRingBuffer, buffer, sizeof(buffer))) {
+	if (EUartRbRet_Ok != UartRbRead(&g_WcuGnssRingBuffer, buffer, sizeof(buffer), &bytesRead)) {
 
 		WcuLogError("WcuGnssHandleNmeaMessage: Ring buffer read failed");
 		status = EWcuRet_Error;
