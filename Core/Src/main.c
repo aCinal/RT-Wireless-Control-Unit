@@ -826,7 +826,7 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 {
 	(void) hcan;
 	static const uint32_t fifo0Identity = CAN_RX_FIFO0;
-	WcuEventSend(EWcuEventSignal_CanPendingMessage, &fifo0Identity);
+	WcuEventSend(EWcuEventSignal_CanMessagePending, (void*)&fifo0Identity);
 }
 
 /**
@@ -839,7 +839,7 @@ void HAL_CAN_RxFifo1MsgPendingCallback(CAN_HandleTypeDef *hcan)
 {
 	(void) hcan;
 	static const uint32_t fifo1Identity = CAN_RX_FIFO1;
-	WcuEventSend(EWcuEventSignal_CanPendingMessage, &fifo1Identity);
+	WcuEventSend(EWcuEventSignal_CanMessagePending, (void*)&fifo1Identity);
 }
 
 

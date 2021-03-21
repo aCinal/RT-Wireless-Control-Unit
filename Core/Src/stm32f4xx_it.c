@@ -24,7 +24,8 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
-#include "rt12e_libs_uartringbuffer.h"
+#include "rt12e_libs_uartringbuffer_rx.h"
+#include "rt12e_libs_uartringbuffer_tx.h"
 
 /* USER CODE END Includes */
 
@@ -78,9 +79,10 @@ extern TIM_HandleTypeDef htim6;
 
 /* USER CODE BEGIN EV */
 
-extern SUartRb g_WcuGnssRingBuffer;
-extern SUartRb g_WcuBtRingBuffer;
-extern SUartRb g_WcuXbeeRingBuffer;
+extern SUartRxRb g_WcuGnssRxRingBuffer;
+extern SUartRxRb g_WcuBtRxRingBuffer;
+extern SUartRxRb g_WcuXbeeRxRingBuffer;
+extern SUartTxRb g_WcuXbeeTxRingBuffer;
 
 /* USER CODE END EV */
 
@@ -281,7 +283,7 @@ void USART1_IRQHandler(void) {
 	/* USER CODE BEGIN USART1_IRQn 0 */
 
 	/* Call the ring buffer handler */
-	(void) UartRbIsr(&g_WcuBtRingBuffer);
+	(void) UartRxRbIsr(&g_WcuBtRxRingBuffer);
 
 	/* USER CODE END USART1_IRQn 0 */
 	HAL_UART_IRQHandler(&huart1);
@@ -297,7 +299,7 @@ void USART3_IRQHandler(void) {
 	/* USER CODE BEGIN USART3_IRQn 0 */
 
 	/* Call the ring buffer handler */
-	(void) UartRbIsr(&g_WcuGnssRingBuffer);
+	(void) UartRxRbIsr(&g_WcuGnssRxRingBuffer);
 
 	/* USER CODE END USART3_IRQn 0 */
 	HAL_UART_IRQHandler(&huart3);
@@ -326,7 +328,8 @@ void UART4_IRQHandler(void) {
 	/* USER CODE BEGIN UART4_IRQn 0 */
 
 	/* Call the ring buffer handler */
-	(void) UartRbIsr(&g_WcuXbeeRingBuffer);
+	(void) UartRxRbIsr(&g_WcuXbeeRxRingBuffer);
+	(void) UartTxRbIsr(&g_WcuXbeeTxRingBuffer);
 
 
 	/* USER CODE END UART4_IRQn 0 */

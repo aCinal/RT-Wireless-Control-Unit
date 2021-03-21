@@ -13,14 +13,17 @@
 #include "wcu_bt.h"
 #include "wcu_can.h"
 #include "wcu_gnss.h"
+#include "rt12e_libs_uartringbuffer_tx.h"
 
 #include "wcu_diagnostics.h"
 #include "cmsis_os.h"
 
+#define WCU_EVENT_INFINITE_WAIT_TIME  (portMAX_DELAY)
+
 extern QueueHandle_t wcuEventQueueHandle;
 
 static void WcuRunDispatcher(void);
-static SWcuEvent WcuEventReceive(void);
+static SWcuEvent WcuEventReceive(uint32_t ticksToWait);
 static void WcuEventDispatch(SWcuEvent event);
 
 /**
@@ -82,7 +85,7 @@ static void WcuRunDispatcher(void) {
 	for (;;) {
 
 		/* Block on the event queue */
-		SWcuEvent event = WcuEventReceive();
+		SWcuEvent event = WcuEventReceive(WCU_EVENT_INFINITE_WAIT_TIME);
 		/* Dispatch the received event */
 		WcuEventDispatch(event);
 	}
@@ -90,13 +93,14 @@ static void WcuRunDispatcher(void) {
 
 /**
  * @brief Block on the event queue for the incoming event
+ * @param ticksToWait Timeout
  * @retval SWcuEvent Received event
  */
-static SWcuEvent WcuEventReceive(void) {
+static SWcuEvent WcuEventReceive(uint32_t ticksToWait) {
 
 	SWcuEvent event;
 	/* Block on the event queue indefinitely */
-	(void) xQueueReceive(wcuEventQueueHandle, &event, portMAX_DELAY);
+	(void) xQueueReceive(wcuEventQueueHandle, &event, ticksToWait);
 	return event;
 }
 
@@ -124,7 +128,7 @@ static void WcuEventDispatch(SWcuEvent event) {
 		WcuReloadWatchdogCounter();
 		break;
 
-	case EWcuEventSignal_PendingLogEntry:
+	case EWcuEventSignal_LogEntryPending:
 
 	{
 		char *logEntry = (char*) event.param;
@@ -132,7 +136,7 @@ static void WcuEventDispatch(SWcuEvent event) {
 	}
 		break;
 
-	case EWcuEventSignal_CanPendingMessage:
+	case EWcuEventSignal_CanMessagePending:
 
 	{
 		uint32_t fifo = *(uint32_t*) event.param;
@@ -140,17 +144,33 @@ static void WcuEventDispatch(SWcuEvent event) {
 	}
 		break;
 
-	case EWcuEventSignal_BtPendingMessage:
+	case EWcuEventSignal_BtRxMessagePending:
 
 		WcuBtHandlePendingMessage();
 		break;
 
-	case EWcuEventSignal_GnssPendingMessage:
+	case EWcuEventSignal_GnssRxMessagePending:
 
 		WcuGnssHandlePendingMessage();
 		break;
 
-	case EWcuEventSignal_XbeePendingMessage:
+	case EWcuEventSignal_XbeeTxMessagePending:
+
+	{
+		SUartTxRb *rb = (SUartTxRb*)event.param;
+		if (EUartTxRbRet_Again == UartTxRbSend(rb)) {
+
+			/* If the UART is busy, enqueue the event again */
+			WcuEventSend(event.signal, event.param);
+		}
+	}
+		break;
+
+	case EWcuEventSignal_XbeeTxMessageSent:
+
+		break;
+
+	case EWcuEventSignal_XbeeRxMessagePending:
 
 		WcuXbeeHandlePendingMessage();
 		break;

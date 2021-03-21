@@ -12,20 +12,21 @@
 #include "wcu_wrappers.h"
 #include "wcu_can.h"
 #include "wcu_sdio.h"
-#include "xbeepro_api.h"
 #include "rt12e_libs_can.h"
 #include "rt12e_libs_r3tp.h"
 #include "rt12e_libs_generic.h"
-#include "rt12e_libs_uartringbuffer.h"
+#include "rt12e_libs_uartringbuffer_tx.h"
+#include "rt12e_libs_uartringbuffer_rx.h"
 #include "stm32f4xx.h"
 #include "stm32f4xx_hal.h"
 #include "main.h"
 
-#define WCU_XBEE_RING_BUFFER_SIZE      ( (uint32_t) (2 * R3TP_MAX_FRAME_SIZE) )  /* UART ring buffer size */
-#define WCU_CAN_ID_TELEMETRY_DIAG      ( (uint32_t) 0x733 )                      /* CAN ID: _733_TELEMETRY_DIAG */
-#define WCU_TELEMETRY_STATE_BIT        ( (uint8_t) 0x80 )                        /* Telemetry_State bit of the TELEMETRY_DIAG CAN frame */
-#define WCU_TELEMETRY_WARNING_BIT      ( (uint8_t) 0x40 )                        /* Telemetry_Warning bit of the TELEMETRY_DIAG CAN frame */
-#define WCU_TELEMETRY_PIT_BIT          ( (uint8_t) 0x20 )                        /* Telemetry_Pit bit of the TELEMETRY_DIAG CAN frame */
+#define WCU_XBEE_TX_RING_BUFFER_SIZE   ( (uint32_t) (10 * R3TP_VER0_FRAME_SIZE) )  /* UART TX ring buffer size */
+#define WCU_XBEE_RX_RING_BUFFER_SIZE   ( (uint32_t) (2 * R3TP_MAX_FRAME_SIZE) )    /* UART RX ring buffer size */
+#define WCU_CAN_ID_TELEMETRY_DIAG      ( (uint32_t) 0x733 )                        /* CAN ID: _733_TELEMETRY_DIAG */
+#define WCU_TELEMETRY_STATE_BIT        ( (uint8_t) 0x80 )                          /* Telemetry_State bit of the TELEMETRY_DIAG CAN frame */
+#define WCU_TELEMETRY_WARNING_BIT      ( (uint8_t) 0x40 )                          /* Telemetry_Warning bit of the TELEMETRY_DIAG CAN frame */
+#define WCU_TELEMETRY_PIT_BIT          ( (uint8_t) 0x20 )                          /* Telemetry_Pit bit of the TELEMETRY_DIAG CAN frame */
 
 extern UART_HandleTypeDef huart4;
 extern TIM_HandleTypeDef htim7;
@@ -33,9 +34,11 @@ extern TIM_HandleTypeDef htim7;
 static uint8_t g_GreenWarningDuration = 0;
 static uint8_t g_RedWarningDuration = 0;
 static uint8_t g_SeqNum = 0;
-SUartRb g_WcuXbeeRingBuffer;
+SUartTxRb g_WcuXbeeTxRingBuffer;
+SUartRxRb g_WcuXbeeRxRingBuffer;
 
-static EWcuRet WcuXbeeRingBufferInit(void);
+static EWcuRet WcuXbeeRingTxBufferInit(void);
+static EWcuRet WcuXbeeRingRxBufferInit(void);
 static EWcuRet WcuXbeeDeviceConfig(void);
 static EWcuRet WcuXbeeSendDiagnostics(void);
 static void WcuXbeeWarningsTick(void);
@@ -44,6 +47,8 @@ static EWcuRet WcuXbeeSendAcknowledge(uint8_t msgId);
 static EWcuRet WcuXbeeHandleNewSubscription(uint8_t *r3tpMessage);
 static EWcuRet WcuXbeeHandleDriverWarning(uint8_t *r3tpMessage);
 static EWcuRet WcuXbeeStoreNewSubscription(uint32_t *ids, uint32_t numOfFrames);
+static void WcuXbeeSendData(uint8_t *data, uint32_t len);
+static void WcuXbeeTxCallback(void);
 static void WcuXbeeRxCallback(void);
 
 /**
@@ -52,14 +57,23 @@ static void WcuXbeeRxCallback(void);
  */
 void WcuXbeeStartup(void) {
 
-	/* Initialize the ring buffer */
-	if (EWcuRet_Ok == WcuXbeeRingBufferInit()) {
+	/* Initialize the ring buffers */
+	if (EWcuRet_Ok == WcuXbeeRingTxBufferInit()) {
 
-		WcuLogInfo("WcuXbeeStartup: XBEE ring buffer initialized");
+		WcuLogInfo("WcuXbeeStartup: XBEE TX ring buffer initialized");
 
 	} else {
 
-		WcuLogError("WcuXbeeStartup: XBEE ring buffer initialization failed");
+		WcuLogError("WcuXbeeStartup: XBEE TX ring buffer initialization failed");
+	}
+
+	if (EWcuRet_Ok == WcuXbeeRingRxBufferInit()) {
+
+		WcuLogInfo("WcuXbeeStartup: XBEE RX ring buffer initialized");
+
+	} else {
+
+		WcuLogError("WcuXbeeStartup: XBEE RX ring buffer initialization failed");
 	}
 
 	/* Start the timer */
@@ -136,32 +150,44 @@ EWcuRet WcuXbeeSendTelemetryData(SCanFrame *canMessage) {
 	buffer[3] = _getbyte(calculatedCrc, 1);
 
 	/* Transmit the frame */
-	if (EXbeeProApiRet_Ok
-			!= XbeeProApiSendPayload(buffer, R3TP_VER0_FRAME_SIZE)) {
-
-		WcuLogError("WcuXbeeSendTelemetryData: Send failed");
-		status = EWcuRet_Error;
-	}
+	WcuXbeeSendData(buffer, R3TP_VER0_FRAME_SIZE);
 
 	return status;
 }
 
 /**
- * @brief Initialize the XBEE ring buffer
+ * @brief Initialize the XBEE TX ring buffer
  * @retval EWcuRet Status
  */
-static EWcuRet WcuXbeeRingBufferInit(void) {
+static EWcuRet WcuXbeeRingTxBufferInit(void) {
 
 	EWcuRet status = EWcuRet_Ok;
 
-	static uint8_t ringbuffer[WCU_XBEE_RING_BUFFER_SIZE];
+	static uint8_t ringbuffer[WCU_XBEE_TX_RING_BUFFER_SIZE];
 
 	/* Configure the ring buffer structure */
-	(void) UartRbInit(&g_WcuXbeeRingBuffer, &huart4, ringbuffer,
+	(void) UartTxRbInit(&g_WcuXbeeTxRingBuffer, &huart4, ringbuffer,
+			sizeof(ringbuffer), &WcuXbeeTxCallback);
+
+	return status;
+}
+
+/**
+ * @brief Initialize the XBEE RX ring buffer
+ * @retval EWcuRet Status
+ */
+static EWcuRet WcuXbeeRingRxBufferInit(void) {
+
+	EWcuRet status = EWcuRet_Ok;
+
+	static uint8_t ringbuffer[WCU_XBEE_RX_RING_BUFFER_SIZE];
+
+	/* Configure the ring buffer structure */
+	(void) UartRxRbInit(&g_WcuXbeeRxRingBuffer, &huart4, ringbuffer,
 			sizeof(ringbuffer), &WcuXbeeRxCallback);
 
 	/* Start listening */
-	if (EUartRbRet_Ok != UartRbStart(&g_WcuXbeeRingBuffer)) {
+	if (EUartRxRbRet_Ok != UartRxRbRecv(&g_WcuXbeeRxRingBuffer)) {
 
 		status = EWcuRet_Error;
 	}
@@ -275,8 +301,8 @@ static EWcuRet WcuXbeeHandleR3tpMessage(void) {
 	uint8_t buffer[R3TP_MAX_FRAME_SIZE];
 	size_t bytesRead = 0;
 	/* Read the message from the buffer */
-	if (EUartRbRet_Ok
-			!= UartRbRead(&g_WcuXbeeRingBuffer, buffer, sizeof(buffer),
+	if (EUartRxRbRet_Ok
+			!= UartRxRbRead(&g_WcuXbeeRxRingBuffer, buffer, sizeof(buffer),
 					&bytesRead)) {
 
 		WcuLogError("WcuXbeeHandleR3tpMessage: Ring buffer read failed");
@@ -347,12 +373,7 @@ static EWcuRet WcuXbeeSendAcknowledge(uint8_t msgId) {
 	buffer[3] = _getbyte(calculatedCrc, 1);
 
 	/* Transmit the frame */
-	if (EXbeeProApiRet_Ok
-			!= XbeeProApiSendPayload(buffer, R3TP_VER3_FRAME_SIZE)) {
-
-		WcuLogError("WcuXbeeSendAcknowledge: Send failed");
-		status = EWcuRet_Error;
-	}
+	WcuXbeeSendData(buffer, R3TP_VER3_FRAME_SIZE);
 
 	return status;
 }
@@ -563,10 +584,34 @@ static EWcuRet WcuXbeeStoreNewSubscription(uint32_t *ids, uint32_t numOfFrames) 
 }
 
 /**
+ * @brief Send the data via UART
+ * @param data Data buffer
+ * @param len Length of the data buffer
+ * @retval None
+ */
+static void WcuXbeeSendData(uint8_t *data, uint32_t len) {
+
+	/* Write the data into the ring buffer */
+	(void) UartTxRbWrite(&g_WcuXbeeTxRingBuffer, data, len);
+
+	/* Tell the dispatcher to initiate transmission */
+	(void) WcuEventSend(EWcuEventSignal_XbeeTxMessagePending, &g_WcuXbeeTxRingBuffer);
+}
+
+/**
+ * @brief Message sent callback
+ * @retval None
+ */
+static void WcuXbeeTxCallback(void) {
+
+	(void) WcuEventSend(EWcuEventSignal_XbeeTxMessageSent, NULL);
+}
+
+/**
  * @brief Message received callback
  * @retval None
  */
 static void WcuXbeeRxCallback(void) {
 
-	(void) WcuEventSend(EWcuEventSignal_XbeePendingMessage, NULL);
+	(void) WcuEventSend(EWcuEventSignal_XbeeRxMessagePending, NULL);
 }

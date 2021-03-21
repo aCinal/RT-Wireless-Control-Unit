@@ -11,15 +11,15 @@
 #include "wcu_logger.h"
 #include "wcu_can.h"
 #include "rt12e_libs_generic.h"
-#include "rt12e_libs_uartringbuffer.h"
+#include "rt12e_libs_uartringbuffer_rx.h"
 #include "rt12e_libs_can.h"
 #include "rt12e_libs_r3tp.h"
 #include "stm32f4xx_hal.h"
 
-#define WCU_BT_RING_BUFFER_SIZE    ( (uint32_t) 50 )     /* UART ring buffer size */
+#define WCU_BT_RING_BUFFER_SIZE    ( (uint32_t) 128 )  /* UART ring buffer size */
 
 extern UART_HandleTypeDef huart1;
-SUartRb g_WcuBtRingBuffer;
+SUartRxRb g_WcuBtRxRingBuffer;
 
 static EWcuRet WcuBtRingBufferInit(void);
 static EWcuRet WcuBtForwardWdtsMessageToCan(void);
@@ -63,10 +63,10 @@ static EWcuRet WcuBtRingBufferInit(void) {
 	static uint8_t ringbuffer[WCU_BT_RING_BUFFER_SIZE];
 
 	/* Configure the ring buffer structure */
-	(void) UartRbInit(&g_WcuBtRingBuffer, &huart1, ringbuffer, sizeof(ringbuffer), &WcuBtRxCallback);
+	(void) UartRxRbInit(&g_WcuBtRxRingBuffer, &huart1, ringbuffer, sizeof(ringbuffer), &WcuBtRxCallback);
 
 	/* Start listening */
-	if (EUartRbRet_Ok != UartRbStart(&g_WcuBtRingBuffer)) {
+	if (EUartRxRbRet_Ok != UartRxRbRecv(&g_WcuBtRxRingBuffer)) {
 
 		status = EWcuRet_Error;
 	}
@@ -84,7 +84,7 @@ static EWcuRet WcuBtForwardWdtsMessageToCan(void) {
 	uint8_t buffer[R3TP_VER0_FRAME_SIZE];
 	size_t bytesRead = 0;
 	/* Read the message from the ring buffer */
-	if (EUartRbRet_Ok != UartRbRead(&g_WcuBtRingBuffer, buffer, sizeof(buffer), &bytesRead)) {
+	if (EUartRxRbRet_Ok != UartRxRbRead(&g_WcuBtRxRingBuffer, buffer, sizeof(buffer), &bytesRead)) {
 
 		WcuLogError("WcuBtForwardWdtsMessageToCan: Ring buffer read failed");
 		status = EWcuRet_Error;
@@ -182,5 +182,5 @@ static EWcuRet WcuBtForwardWdtsMessageToCan(void) {
  */
 static void WcuBtRxCallback(void) {
 
-	(void) WcuEventSend(EWcuEventSignal_BtPendingMessage, NULL);
+	(void) WcuEventSend(EWcuEventSignal_BtRxMessagePending, NULL);
 }

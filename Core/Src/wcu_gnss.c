@@ -9,7 +9,7 @@
 #include "wcu_can.h"
 #include "wcu_logger.h"
 #include "wcu_events.h"
-#include "rt12e_libs_uartringbuffer.h"
+#include "rt12e_libs_uartringbuffer_rx.h"
 #include "rt12e_libs_generic.h"
 #include "rt12e_libs_can.h"
 #include "l26_api.h"
@@ -26,7 +26,7 @@
 
 extern UART_HandleTypeDef huart3;
 
-SUartRb g_WcuGnssRingBuffer;
+SUartRxRb g_WcuGnssRxRingBuffer;
 
 static EWcuRet WcuGnssRingBufferInit(void);
 static EWcuRet WcuGnssDeviceConfig(void);
@@ -84,10 +84,10 @@ static EWcuRet WcuGnssRingBufferInit(void) {
 
 
 	/* Configure the ring buffer structure */
-	(void) UartRbInit(&g_WcuGnssRingBuffer, &huart3, ringbuffer, sizeof(ringbuffer), &WcuGnssRxCallback);
+	(void) UartRxRbInit(&g_WcuGnssRxRingBuffer, &huart3, ringbuffer, sizeof(ringbuffer), &WcuGnssRxCallback);
 
 	/* Start listening */
-	if (EUartRbRet_Ok != UartRbStart(&g_WcuGnssRingBuffer)) {
+	if (EUartRxRbRet_Ok != UartRxRbRecv(&g_WcuGnssRxRingBuffer)) {
 
 		status = EWcuRet_Error;
 	}
@@ -158,7 +158,7 @@ static EWcuRet WcuGnssHandleNmeaMessage(void) {
 	uint8_t buffer[WCU_GNSS_PARSE_BUFFER_SIZE];
 	size_t bytesRead = 0;
 	/* Read the message from the buffer */
-	if (EUartRbRet_Ok != UartRbRead(&g_WcuGnssRingBuffer, buffer, sizeof(buffer), &bytesRead)) {
+	if (EUartRxRbRet_Ok != UartRxRbRead(&g_WcuGnssRxRingBuffer, buffer, sizeof(buffer), &bytesRead)) {
 
 		WcuLogError("WcuGnssHandleNmeaMessage: Ring buffer read failed");
 		status = EWcuRet_Error;
@@ -320,7 +320,7 @@ static EWcuRet WcuGnssSendGpsStatus(SL26ApiGnssData *data) {
  */
 static void WcuGnssRxCallback(void) {
 
-	(void) WcuEventSend(EWcuEventSignal_GnssPendingMessage, NULL);
+	(void) WcuEventSend(EWcuEventSignal_GnssRxMessagePending, NULL);
 }
 
 

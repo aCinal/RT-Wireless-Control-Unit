@@ -12,8 +12,8 @@
 /* Compilation flags -------------------------------------------------------------------------- */
 #define WCU_ENABLE_INFO_PRINTS            1
 #define WCU_ENABLE_ERROR_PRINTS           1
-#define WCU_ENABLE_DEBUG_PRINTS           1
-#define REDIRECT_LOGS_TO_SERIAL_PORT      1
+#define WCU_ENABLE_DEBUG_PRINTS           0
+#define REDIRECT_LOGS_TO_SERIAL_PORT      0
 
 /* Exported macros -------------------------------------------------------------------------- */
 #if (WCU_ENABLE_INFO_PRINTS)

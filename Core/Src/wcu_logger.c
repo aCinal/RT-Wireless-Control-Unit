@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "wcu_sdio.h"
+#include "stm32f4xx_hal.h"
 
 #define LOG_TIMESTAMP_LENGTH      ( (uint32_t) 12 )                                           /* Length of the timestamp in decimal */
 #define LOG_SEVERITY_TAG_LENGTH   ( (uint32_t) 4 )                                            /* Length of the severity level tag */
@@ -20,13 +21,16 @@
 #define LOG_PAYLOAD(log)          ( &( (log)[LOG_HEADER_LENGTH] ) )                           /* Get pointer to the log entry payload */
 #define LOG_TRAILER(log, payLen)  ( &( (log)[LOG_HEADER_LENGTH + (payLen)] ) )                /* Get pointer to the log entry trailer */
 
+extern UART_HandleTypeDef huart2;
+
 /**
  * @brief Log an error message
  * @param severityLevel Severity level
  * @param messagePayloadTbl Error message
  * @retval None
  */
-void WcuLoggerPrint(EWcuLogSeverityLevel severityLevel, const char *messagePayloadTbl) {
+void WcuLoggerPrint(EWcuLogSeverityLevel severityLevel,
+		const char *messagePayloadTbl) {
 
 	size_t payloadLength = strlen(messagePayloadTbl);
 	size_t messageSize = LOG_HEADER_LENGTH + payloadLength + LOG_TRAILER_LENGTH;
@@ -37,7 +41,8 @@ void WcuLoggerPrint(EWcuLogSeverityLevel severityLevel, const char *messagePaylo
 	if (logEntryPtr != NULL) {
 
 		/* Write the timestamp to the memory block */
-		(void) sprintf(LOG_TIMESTAMP(logEntryPtr), "<%010lu>", WcuGetUptimeInMs());
+		(void) sprintf(LOG_TIMESTAMP(logEntryPtr), "<%010lu>",
+				WcuGetUptimeInMs());
 
 		/* Write the severity tag to the memory block */
 		switch (severityLevel) {
@@ -69,9 +74,10 @@ void WcuLoggerPrint(EWcuLogSeverityLevel severityLevel, const char *messagePaylo
 		(void) sprintf(LOG_TRAILER(logEntryPtr, payloadLength), "\r\n");
 
 		/* Send the event */
-		if (EWcuRet_Ok != WcuEventSend(EWcuEventSignal_PendingLogEntry, logEntryPtr)) {
+		if (EWcuRet_Ok
+				!= WcuEventSend(EWcuEventSignal_LogEntryPending, logEntryPtr)) {
 
-			/* Cleanup on failure */
+			/* Cleanup on failure to enqueue the event */
 			WcuMemFree(logEntryPtr);
 		}
 	}
@@ -82,9 +88,15 @@ void WcuLoggerPrint(EWcuLogSeverityLevel severityLevel, const char *messagePaylo
  * @param log Log entry
  * @retval None
  */
-void WcuLoggerCommitEntry(char* log) {
+void WcuLoggerCommitEntry(char *log) {
 
-	if(g_WcuLoggerReady) {
+#if REDIRECT_LOGS_TO_SERIAL_PORT
+
+	HAL_UART_Transmit(&huart2, log, strlen(log), 50);
+
+#else /* !REDIRECT_LOGS_TO_SERIAL_PORT */
+
+	if (g_WcuLoggerReady) {
 
 		UINT bytesWritten;
 		/* Write the error message to the file */
@@ -94,4 +106,6 @@ void WcuLoggerCommitEntry(char* log) {
 		/* Free the allocated memory */
 		WcuMemFree(log);
 	}
+
+#endif /* !REDIRECT_LOGS_TO_SERIAL_PORT */
 }

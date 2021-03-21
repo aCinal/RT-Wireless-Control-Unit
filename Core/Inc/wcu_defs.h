@@ -10,7 +10,7 @@
 #include <stddef.h>
 
 /* Exported macros -------------------------------------------------------------------------- */
-#define WCU_IWDG_SLEEP_TIME  (5000)
+#define WCU_IWDG_SLEEP_TIME           (5000)
 
 /* Exported typedefs -------------------------------------------------------------------------- */
 typedef float float32_t;
@@ -31,14 +31,16 @@ typedef enum EWcuLogSeverityLevel {
 typedef enum EWcuEventSignal {
 	EWcuEventSignal_Init = 0,
 	EWcuEventSignal_WatchdogWakeup,
-	EWcuEventSignal_PendingLogEntry,
-    EWcuEventSignal_CanPendingMessage,
-    EWcuEventSignal_BtPendingMessage,
-    EWcuEventSignal_GnssPendingMessage,
-    EWcuEventSignal_XbeePendingMessage,
+	EWcuEventSignal_LogEntryPending,
+    EWcuEventSignal_CanMessagePending,
+    EWcuEventSignal_BtRxMessagePending,
+    EWcuEventSignal_GnssRxMessagePending,
+    EWcuEventSignal_XbeeTxMessagePending,
+	EWcuEventSignal_XbeeTxMessageSent,
+    EWcuEventSignal_XbeeRxMessagePending,
     EWcuEventSignal_XbeeStatusTimerExpired,
     EWcuEventSignal_DiagnosticsTimerExpired,
-    EWcuEventSignal_AdcConversionComplete,
+    EWcuEventSignal_AdcConversionComplete
 } EWcuEventSignal;
 
 typedef struct SWcuEvent {
