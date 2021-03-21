@@ -9,7 +9,7 @@
 #include <string.h>
 
 #define UART_RB_INITIALIZED(rb)  ( ( (rb)->UartHandlePtr != NULL ) && ( (rb)->BufferPtr != NULL ) \
-                                  && ( (rb)->BufferSize != 0 ) && ( (rb)->MsgSentCallback != NULL ) )
+                                  && ( (rb)->BufferSize != 0 ) )
 
 #define UART_RB_HEAD(rb)         ( &( (rb)->BufferPtr[(rb)->Head] ) )
 #define UART_RB_TAIL(rb)         ( &( (rb)->BufferPtr[(rb)->Tail] ) )
@@ -126,7 +126,10 @@ EUartTxRbRet UartTxRbIsr(SUartTxRb *rb) {
 			}
 
 			/* Call the function registered by the user */
-			rb->MsgSentCallback();
+			if (NULL != rb->MsgSentCallback) {
+
+				rb->MsgSentCallback();
+			}
 		}
 	}
 

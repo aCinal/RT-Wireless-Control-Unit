@@ -19,6 +19,7 @@
 #include "rt12e_libs_uartringbuffer_rx.h"
 #include "stm32f4xx.h"
 #include "stm32f4xx_hal.h"
+#include <stddef.h>
 #include "main.h"
 
 #define WCU_XBEE_TX_RING_BUFFER_SIZE   ( (uint32_t) (10 * R3TP_VER0_FRAME_SIZE) )  /* UART TX ring buffer size */
@@ -48,7 +49,6 @@ static EWcuRet WcuXbeeHandleNewSubscription(uint8_t *r3tpMessage);
 static EWcuRet WcuXbeeHandleDriverWarning(uint8_t *r3tpMessage);
 static EWcuRet WcuXbeeStoreNewSubscription(uint32_t *ids, uint32_t numOfFrames);
 static void WcuXbeeSendData(uint8_t *data, uint32_t len);
-static void WcuXbeeTxCallback(void);
 static void WcuXbeeRxCallback(void);
 
 /**
@@ -84,10 +84,10 @@ void WcuXbeeStartup(void) {
 }
 
 /**
- * @brief Handle the pending message
+ * @brief Handle the pending RX message
  * @retval None
  */
-void WcuXbeeHandlePendingMessage(void) {
+void WcuXbeeHandlePendingRxMessage(void) {
 
 	(void) WcuXbeeHandleR3tpMessage();
 }
@@ -167,7 +167,7 @@ static EWcuRet WcuXbeeRingTxBufferInit(void) {
 
 	/* Configure the ring buffer structure */
 	(void) UartTxRbInit(&g_WcuXbeeTxRingBuffer, &huart4, ringbuffer,
-			sizeof(ringbuffer), &WcuXbeeTxCallback);
+			sizeof(ringbuffer), NULL);
 
 	return status;
 }
@@ -595,16 +595,7 @@ static void WcuXbeeSendData(uint8_t *data, uint32_t len) {
 	(void) UartTxRbWrite(&g_WcuXbeeTxRingBuffer, data, len);
 
 	/* Tell the dispatcher to initiate transmission */
-	(void) WcuEventSend(EWcuEventSignal_XbeeTxMessagePending, &g_WcuXbeeTxRingBuffer);
-}
-
-/**
- * @brief Message sent callback
- * @retval None
- */
-static void WcuXbeeTxCallback(void) {
-
-	(void) WcuEventSend(EWcuEventSignal_XbeeTxMessageSent, NULL);
+	(void) WcuEventSend(EWcuEventSignal_UartTxMessagePending, &g_WcuXbeeTxRingBuffer);
 }
 
 /**

@@ -72,6 +72,7 @@ UART_HandleTypeDef huart2;
 UART_HandleTypeDef huart3;
 DMA_HandleTypeDef hdma_uart4_rx;
 DMA_HandleTypeDef hdma_usart1_rx;
+DMA_HandleTypeDef hdma_usart2_tx;
 DMA_HandleTypeDef hdma_usart3_rx;
 
 osThreadId watchdogThreadHandle;
@@ -706,6 +707,9 @@ static void MX_DMA_Init(void)
   /* DMA1_Stream2_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Stream2_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA1_Stream2_IRQn);
+  /* DMA1_Stream6_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Stream6_IRQn, 5, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Stream6_IRQn);
   /* DMA2_Stream2_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA2_Stream2_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA2_Stream2_IRQn);
@@ -826,7 +830,7 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 {
 	(void) hcan;
 	static const uint32_t fifo0Identity = CAN_RX_FIFO0;
-	WcuEventSend(EWcuEventSignal_CanMessagePending, (void*)&fifo0Identity);
+	WcuEventSend(EWcuEventSignal_CanRxMessagePending, (void*)&fifo0Identity);
 }
 
 /**
@@ -839,7 +843,7 @@ void HAL_CAN_RxFifo1MsgPendingCallback(CAN_HandleTypeDef *hcan)
 {
 	(void) hcan;
 	static const uint32_t fifo1Identity = CAN_RX_FIFO1;
-	WcuEventSend(EWcuEventSignal_CanMessagePending, (void*)&fifo1Identity);
+	WcuEventSend(EWcuEventSignal_CanRxMessagePending, (void*)&fifo1Identity);
 }
 
 

@@ -17,10 +17,10 @@
 void WcuXbeeStartup(void);
 
 /**
- * @brief Handle the pending message
+ * @brief Handle the pending RX message
  * @retval None
  */
-void WcuXbeeHandlePendingMessage(void);
+void WcuXbeeHandlePendingRxMessage(void);
 
 /**
  * @brief Handle the timer expired event

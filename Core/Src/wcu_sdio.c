@@ -6,12 +6,15 @@
 
 #include "wcu_sdio.h"
 #include "wcu_defs.h"
+#include "wcu_logger.h"
 #include "fatfs.h"
 
 static FATFS g_Filesystem;
-FIL g_WcuLogfileFd;
 bool g_WcuSdioReady = false;
+#if !WCU_REDIRECT_LOGS_TO_SERIAL_PORT
 bool g_WcuLoggerReady = false;
+FIL g_WcuLogfileFd;
+#endif /* !WCU_REDIRECT_LOGS_TO_SERIAL_PORT */
 
 /**
  * @brief SDIO service
@@ -25,6 +28,7 @@ void WcuSdioStartup(void) {
 		g_WcuSdioReady = true;
 	}
 
+#if !WCU_REDIRECT_LOGS_TO_SERIAL_PORT
 	if (g_WcuSdioReady) {
 
 		/* Open the logfile for writing in append mode */
@@ -34,6 +38,7 @@ void WcuSdioStartup(void) {
 			g_WcuLoggerReady = true;
 		}
 	}
+#endif /* !WCU_REDIRECT_LOGS_TO_SERIAL_PORT */
 }
 
 /**

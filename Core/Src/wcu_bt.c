@@ -40,7 +40,6 @@ void WcuBtStartup(void) {
 
 		WcuLogError("WcuBtStartup: BT ring buffer initialization failed");
 	}
-
 }
 
 /**

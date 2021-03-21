@@ -7,19 +7,30 @@
 #include "wcu_logger.h"
 #include "wcu_wrappers.h"
 #include "wcu_events.h"
+#include "wcu_sdio.h"
+#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
-#include "wcu_sdio.h"
 #include "stm32f4xx_hal.h"
 
-#define LOG_TIMESTAMP_LENGTH      ( (uint32_t) 12 )                                           /* Length of the timestamp in decimal */
-#define LOG_SEVERITY_TAG_LENGTH   ( (uint32_t) 4 )                                            /* Length of the severity level tag */
-#define LOG_HEADER_LENGTH         ( LOG_TIMESTAMP_LENGTH + LOG_SEVERITY_TAG_LENGTH )          /* Total length of the log entry header */
-#define LOG_TRAILER_LENGTH        ( (uint32_t) 3 )                                            /* <CR><LF><NUL> sequence length */
-#define LOG_TIMESTAMP(log)        (log)                                                       /* Get pointer to the log entry timestamp */
-#define LOG_SEVERITY_TAG(log)     ( &( (log)[LOG_TIMESTAMP_LENGTH] ) )                        /* Get pointer to the log entry severity tag */
-#define LOG_PAYLOAD(log)          ( &( (log)[LOG_HEADER_LENGTH] ) )                           /* Get pointer to the log entry payload */
-#define LOG_TRAILER(log, payLen)  ( &( (log)[LOG_HEADER_LENGTH + (payLen)] ) )                /* Get pointer to the log entry trailer */
+#if WCU_REDIRECT_LOGS_TO_SERIAL_PORT
+#include "rt12e_libs_uartringbuffer_tx.h"
+#endif /* WCU_REDIRECT_LOGS_TO_SERIAL_PORT */
+
+#define LOG_TIMESTAMP_LENGTH         ( (uint32_t) 12 )                                   /* Length of the timestamp in decimal */
+#define LOG_SEVERITY_TAG_LENGTH      ( (uint32_t) 4 )                                    /* Length of the severity level tag */
+#define LOG_HEADER_LENGTH            ( LOG_TIMESTAMP_LENGTH + LOG_SEVERITY_TAG_LENGTH )  /* Total length of the log entry header */
+#define LOG_TRAILER_LENGTH           ( (uint32_t) 3 )                                    /* <CR><LF><NUL> sequence length */
+#define LOG_TIMESTAMP(log)           (log)                                               /* Get pointer to the log entry timestamp */
+#define LOG_SEVERITY_TAG(log)        ( &( (log)[LOG_TIMESTAMP_LENGTH] ) )                /* Get pointer to the log entry severity tag */
+#define LOG_PAYLOAD(log)             ( &( (log)[LOG_HEADER_LENGTH] ) )                   /* Get pointer to the log entry payload */
+#define LOG_TRAILER(log, payLen)     ( &( (log)[LOG_HEADER_LENGTH + (payLen)] ) )        /* Get pointer to the log entry trailer */
+#if WCU_REDIRECT_LOGS_TO_SERIAL_PORT
+#define WCU_LOGGER_RING_BUFFER_SIZE  (512)                                               /* Logger ring buffer size */
+
+SUartTxRb g_WcuLoggerTxRingBuffer;
+static bool g_LoggerRbInitialized = false;
+#endif /* WCU_REDIRECT_LOGS_TO_SERIAL_PORT */
 
 extern UART_HandleTypeDef huart2;
 
@@ -90,22 +101,31 @@ void WcuLoggerPrint(EWcuLogSeverityLevel severityLevel,
  */
 void WcuLoggerCommitEntry(char *log) {
 
-#if REDIRECT_LOGS_TO_SERIAL_PORT
+#if WCU_REDIRECT_LOGS_TO_SERIAL_PORT
 
-	HAL_UART_Transmit(&huart2, log, strlen(log), 50);
+	if (!g_LoggerRbInitialized) {
 
-#else /* !REDIRECT_LOGS_TO_SERIAL_PORT */
+		static uint8_t ringbuffer[WCU_LOGGER_RING_BUFFER_SIZE];
+
+		/* On first commit, initialize the ring buffer */
+		UartTxRbInit(&g_WcuLoggerTxRingBuffer, &huart2, ringbuffer, sizeof(ringbuffer), NULL);
+	}
+
+	/* Write data to the ring buffer */
+	(void) UartTxRbWrite(&g_WcuLoggerTxRingBuffer, (uint8_t*)log, strlen(log));
+
+	(void) WcuEventSend(EWcuEventSignal_UartTxMessagePending, &g_WcuLoggerTxRingBuffer);
+
+#else /* !WCU_REDIRECT_LOGS_TO_SERIAL_PORT */
 
 	if (g_WcuLoggerReady) {
 
-		UINT bytesWritten;
 		/* Write the error message to the file */
-		(void) f_write(&g_WcuLogfileFd, log, strlen(log),
-				&bytesWritten);
+		(void) WcuSdioFileWrite(&g_WcuLogfileFd, (uint8_t*)log, strlen(log));
 
 		/* Free the allocated memory */
 		WcuMemFree(log);
 	}
 
-#endif /* !REDIRECT_LOGS_TO_SERIAL_PORT */
+#endif /* !WCU_REDIRECT_LOGS_TO_SERIAL_PORT */
 }

@@ -26,6 +26,7 @@
 
 #include "rt12e_libs_uartringbuffer_rx.h"
 #include "rt12e_libs_uartringbuffer_tx.h"
+#include "wcu_logger.h"
 
 /* USER CODE END Includes */
 
@@ -71,9 +72,11 @@ extern TIM_HandleTypeDef htim10;
 extern TIM_HandleTypeDef htim11;
 extern DMA_HandleTypeDef hdma_uart4_rx;
 extern DMA_HandleTypeDef hdma_usart1_rx;
+extern DMA_HandleTypeDef hdma_usart2_tx;
 extern DMA_HandleTypeDef hdma_usart3_rx;
 extern UART_HandleTypeDef huart4;
 extern UART_HandleTypeDef huart1;
+extern UART_HandleTypeDef huart2;
 extern UART_HandleTypeDef huart3;
 extern TIM_HandleTypeDef htim6;
 
@@ -83,6 +86,9 @@ extern SUartRxRb g_WcuGnssRxRingBuffer;
 extern SUartRxRb g_WcuBtRxRingBuffer;
 extern SUartRxRb g_WcuXbeeRxRingBuffer;
 extern SUartTxRb g_WcuXbeeTxRingBuffer;
+#if WCU_REDIRECT_LOGS_TO_SERIAL_PORT
+extern SUartTxRb g_WcuLoggerTxRingBuffer;
+#endif /* WCU_REDIRECT_LOGS_TO_SERIAL_PORT */
 
 /* USER CODE END EV */
 
@@ -212,6 +218,19 @@ void DMA1_Stream2_IRQHandler(void) {
 }
 
 /**
+ * @brief This function handles DMA1 stream6 global interrupt.
+ */
+void DMA1_Stream6_IRQHandler(void) {
+	/* USER CODE BEGIN DMA1_Stream6_IRQn 0 */
+
+	/* USER CODE END DMA1_Stream6_IRQn 0 */
+	HAL_DMA_IRQHandler(&hdma_usart2_tx);
+	/* USER CODE BEGIN DMA1_Stream6_IRQn 1 */
+
+	/* USER CODE END DMA1_Stream6_IRQn 1 */
+}
+
+/**
  * @brief This function handles ADC1, ADC2 and ADC3 global interrupts.
  */
 void ADC_IRQHandler(void) {
@@ -293,6 +312,24 @@ void USART1_IRQHandler(void) {
 }
 
 /**
+ * @brief This function handles USART2 global interrupt.
+ */
+void USART2_IRQHandler(void) {
+	/* USER CODE BEGIN USART2_IRQn 0 */
+
+#if WCU_REDIRECT_LOGS_TO_SERIAL_PORT
+	/* Call the ring buffer handler */
+	(void) UartTxRbIsr(&g_WcuLoggerTxRingBuffer);
+#endif /* WCU_REDIRECT_LOGS_TO_SERIAL_PORT */
+
+	/* USER CODE END USART2_IRQn 0 */
+	HAL_UART_IRQHandler(&huart2);
+	/* USER CODE BEGIN USART2_IRQn 1 */
+
+	/* USER CODE END USART2_IRQn 1 */
+}
+
+/**
  * @brief This function handles USART3 global interrupt.
  */
 void USART3_IRQHandler(void) {
@@ -330,7 +367,6 @@ void UART4_IRQHandler(void) {
 	/* Call the ring buffer handler */
 	(void) UartRxRbIsr(&g_WcuXbeeRxRingBuffer);
 	(void) UartTxRbIsr(&g_WcuXbeeTxRingBuffer);
-
 
 	/* USER CODE END UART4_IRQn 0 */
 	HAL_UART_IRQHandler(&huart4);

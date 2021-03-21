@@ -35,8 +35,13 @@ void DispatcherThreadEntryPoint(void const *argument) {
 
 	(void) argument;
 
-	/* Send the init event before entering the event loop */
-	WcuEventSend(EWcuEventSignal_Init, NULL);
+	/* Run startups */
+	WcuSdioStartup();
+	WcuCanStartup();
+	WcuXbeeStartup();
+	WcuGnssStartup();
+	WcuBtStartup();
+	WcuDiagnosticsStartup();
 
 	/* Run the dispatcher */
 	WcuRunDispatcher();
@@ -113,19 +118,32 @@ static void WcuEventDispatch(SWcuEvent event) {
 
 	switch (event.signal) {
 
-	case EWcuEventSignal_Init:
+	case EWcuEventSignal_AdcConversionComplete:
 
-		WcuSdioStartup();
-		WcuCanStartup();
-		WcuXbeeStartup();
-		WcuGnssStartup();
-		WcuBtStartup();
-		WcuDiagnosticsStartup();
+		WcuDiagnosticsHandleAdcConversionComplete();
 		break;
 
-	case EWcuEventSignal_WatchdogWakeup:
+	case EWcuEventSignal_BtRxMessagePending:
 
-		WcuReloadWatchdogCounter();
+		WcuBtHandlePendingMessage();
+		break;
+
+	case EWcuEventSignal_CanRxMessagePending:
+
+	{
+		uint32_t fifo = *(uint32_t*) event.param;
+		WcuCanHandlePendingMessage(fifo);
+	}
+		break;
+
+	case EWcuEventSignal_DiagnosticsTimerExpired:
+
+		WcuDiagnosticsHandleTimerExpired();
+		break;
+
+	case EWcuEventSignal_GnssRxMessagePending:
+
+		WcuGnssHandlePendingMessage();
 		break;
 
 	case EWcuEventSignal_LogEntryPending:
@@ -136,25 +154,7 @@ static void WcuEventDispatch(SWcuEvent event) {
 	}
 		break;
 
-	case EWcuEventSignal_CanMessagePending:
-
-	{
-		uint32_t fifo = *(uint32_t*) event.param;
-		WcuCanHandlePendingMessage(fifo);
-	}
-		break;
-
-	case EWcuEventSignal_BtRxMessagePending:
-
-		WcuBtHandlePendingMessage();
-		break;
-
-	case EWcuEventSignal_GnssRxMessagePending:
-
-		WcuGnssHandlePendingMessage();
-		break;
-
-	case EWcuEventSignal_XbeeTxMessagePending:
+	case EWcuEventSignal_UartTxMessagePending:
 
 	{
 		SUartTxRb *rb = (SUartTxRb*)event.param;
@@ -166,28 +166,19 @@ static void WcuEventDispatch(SWcuEvent event) {
 	}
 		break;
 
-	case EWcuEventSignal_XbeeTxMessageSent:
+	case EWcuEventSignal_WatchdogWakeup:
 
+		WcuReloadWatchdogCounter();
 		break;
 
 	case EWcuEventSignal_XbeeRxMessagePending:
 
-		WcuXbeeHandlePendingMessage();
+		WcuXbeeHandlePendingRxMessage();
 		break;
 
 	case EWcuEventSignal_XbeeStatusTimerExpired:
 
 		WcuXbeeHandleTimerExpired();
-		break;
-
-	case EWcuEventSignal_DiagnosticsTimerExpired:
-
-		WcuDiagnosticsHandleTimerExpired();
-		break;
-
-	case EWcuEventSignal_AdcConversionComplete:
-
-		WcuDiagnosticsHandleAdcConversionComplete();
 		break;
 
 	default:

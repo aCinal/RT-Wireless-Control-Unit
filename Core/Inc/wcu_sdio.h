@@ -17,9 +17,9 @@
 #define WCU_TELEMETRY_SUBSCRIPTION_PATH  ("subscription.txt")
 
 /* Exported variables -------------------------------------------------------------------------- */
-extern FIL g_WcuLogfileFd;
 extern bool g_WcuSdioReady;
 extern bool g_WcuLoggerReady;
+extern FIL g_WcuLogfileFd;
 
 /* Public functions prototypes -------------------------------------------------------------------------- */
 /**
