@@ -27,7 +27,6 @@
 
 #include "wcu_defs.h"
 #include "wcu_events.h"
-#include "wcu_wrappers.h"
 
 /* USER CODE END Includes */
 
@@ -65,6 +64,7 @@ SPI_HandleTypeDef hspi1;
 TIM_HandleTypeDef htim7;
 TIM_HandleTypeDef htim10;
 TIM_HandleTypeDef htim11;
+TIM_HandleTypeDef htim13;
 
 UART_HandleTypeDef huart4;
 UART_HandleTypeDef huart1;
@@ -75,8 +75,7 @@ DMA_HandleTypeDef hdma_usart1_rx;
 DMA_HandleTypeDef hdma_usart2_tx;
 DMA_HandleTypeDef hdma_usart3_rx;
 
-osThreadId watchdogThreadHandle;
-osThreadId dispatcherThreaHandle;
+osThreadId EventDispatcherHandle;
 osMessageQId wcuEventQueueHandle;
 /* USER CODE BEGIN PV */
 
@@ -99,8 +98,8 @@ static void MX_ADC1_Init(void);
 static void MX_TIM7_Init(void);
 static void MX_TIM10_Init(void);
 static void MX_TIM11_Init(void);
-void WatchdogThreadEntryPoint(void const * argument);
-extern void DispatcherThreadEntryPoint(void const * argument);
+static void MX_TIM13_Init(void);
+void DispatcherEntryPoint(void const * argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -154,6 +153,7 @@ int main(void)
   MX_TIM7_Init();
   MX_TIM10_Init();
   MX_TIM11_Init();
+  MX_TIM13_Init();
   /* USER CODE BEGIN 2 */
 
   /* USER CODE END 2 */
@@ -180,13 +180,9 @@ int main(void)
   /* USER CODE END RTOS_QUEUES */
 
   /* Create the thread(s) */
-  /* definition and creation of watchdogThread */
-  osThreadDef(watchdogThread, WatchdogThreadEntryPoint, osPriorityHigh, 0, 128);
-  watchdogThreadHandle = osThreadCreate(osThread(watchdogThread), NULL);
-
-  /* definition and creation of dispatcherThrea */
-  osThreadDef(dispatcherThrea, DispatcherThreadEntryPoint, osPriorityNormal, 0, 2048);
-  dispatcherThreaHandle = osThreadCreate(osThread(dispatcherThrea), NULL);
+  /* definition and creation of EventDispatcher */
+  osThreadDef(EventDispatcher, DispatcherEntryPoint, osPriorityNormal, 0, 2048);
+  EventDispatcherHandle = osThreadCreate(osThread(EventDispatcher), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
 	/* add threads, ... */
@@ -559,6 +555,37 @@ static void MX_TIM11_Init(void)
 }
 
 /**
+  * @brief TIM13 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM13_Init(void)
+{
+
+  /* USER CODE BEGIN TIM13_Init 0 */
+
+  /* USER CODE END TIM13_Init 0 */
+
+  /* USER CODE BEGIN TIM13_Init 1 */
+
+  /* USER CODE END TIM13_Init 1 */
+  htim13.Instance = TIM13;
+  htim13.Init.Prescaler = 159;
+  htim13.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim13.Init.Period = 9999;
+  htim13.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim13.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim13) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM13_Init 2 */
+
+  /* USER CODE END TIM13_Init 2 */
+
+}
+
+/**
   * @brief UART4 Initialization Function
   * @param None
   * @retval None
@@ -821,50 +848,47 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc) {
 }
 
 /**
-  * @brief  Rx FIFO 0 message pending callback.
-  * @param  hcan pointer to a CAN_HandleTypeDef structure that contains
-  *         the configuration information for the specified CAN.
-  * @retval None
-  */
-void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
-{
+ * @brief  Rx FIFO 0 message pending callback.
+ * @param  hcan pointer to a CAN_HandleTypeDef structure that contains
+ *         the configuration information for the specified CAN.
+ * @retval None
+ */
+void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
+
 	(void) hcan;
 	static const uint32_t fifo0Identity = CAN_RX_FIFO0;
-	WcuEventSend(EWcuEventSignal_CanRxMessagePending, (void*)&fifo0Identity);
+	WcuEventSend(EWcuEventSignal_CanRxMessagePending, (void*) &fifo0Identity);
 }
 
 /**
-  * @brief  Rx FIFO 1 message pending callback.
-  * @param  hcan pointer to a CAN_HandleTypeDef structure that contains
-  *         the configuration information for the specified CAN.
-  * @retval None
-  */
-void HAL_CAN_RxFifo1MsgPendingCallback(CAN_HandleTypeDef *hcan)
-{
+ * @brief  Rx FIFO 1 message pending callback.
+ * @param  hcan pointer to a CAN_HandleTypeDef structure that contains
+ *         the configuration information for the specified CAN.
+ * @retval None
+ */
+void HAL_CAN_RxFifo1MsgPendingCallback(CAN_HandleTypeDef *hcan) {
+
 	(void) hcan;
 	static const uint32_t fifo1Identity = CAN_RX_FIFO1;
-	WcuEventSend(EWcuEventSignal_CanRxMessagePending, (void*)&fifo1Identity);
+	WcuEventSend(EWcuEventSignal_CanRxMessagePending, (void*) &fifo1Identity);
 }
-
 
 /* USER CODE END 4 */
 
-/* USER CODE BEGIN Header_WatchdogThreadEntryPoint */
+/* USER CODE BEGIN Header_DispatcherEntryPoint */
 /**
-  * @brief  Function implementing the watchdogThread thread.
-  * @param  argument: Not used
-  * @retval None
-  */
-/* USER CODE END Header_WatchdogThreadEntryPoint */
-void WatchdogThreadEntryPoint(void const * argument)
+ * @brief  Function implementing the EventDispatcher thread.
+ * @param  argument: Not used
+ * @retval None
+ */
+/* USER CODE END Header_DispatcherEntryPoint */
+__weak void DispatcherEntryPoint(void const * argument)
 {
   /* USER CODE BEGIN 5 */
 
 	/* Infinite loop */
 	for (;;) {
 
-	    WcuEventSend(EWcuEventSignal_WatchdogWakeup, NULL);
-	    WcuSleep(WCU_IWDG_SLEEP_TIME);
 	}
 
   /* USER CODE END 5 */
@@ -895,6 +919,10 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 	} else if (TIM11 == htim->Instance) {
 
 		WcuEventSend(EWcuEventSignal_DiagnosticsTimerExpired, NULL);
+
+	} else if (TIM13 == htim->Instance) {
+
+		WcuEventSend(EWcuEventSignal_WatchdogTimerExpired, NULL);
 	}
 
   /* USER CODE END Callback 1 */

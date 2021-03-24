@@ -27,11 +27,11 @@ static SWcuEvent WcuEventReceive(uint32_t ticksToWait);
 static void WcuEventDispatch(SWcuEvent event);
 
 /**
- * @brief  Function implementing the dispatcherThread thread.
+ * @brief  Function implementing the EventDispatcher thread.
  * @param  argument: Not used
  * @retval None
  */
-void DispatcherThreadEntryPoint(void const *argument) {
+void DispatcherEntryPoint(void const *argument) {
 
 	(void) argument;
 
@@ -166,7 +166,7 @@ static void WcuEventDispatch(SWcuEvent event) {
 	}
 		break;
 
-	case EWcuEventSignal_WatchdogWakeup:
+	case EWcuEventSignal_WatchdogTimerExpired:
 
 		WcuReloadWatchdogCounter();
 		break;

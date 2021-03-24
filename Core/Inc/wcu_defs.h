@@ -9,9 +9,6 @@
 
 #include <stddef.h>
 
-/* Exported macros -------------------------------------------------------------------------- */
-#define WCU_IWDG_SLEEP_TIME           (500)
-
 /* Exported typedefs -------------------------------------------------------------------------- */
 typedef float float32_t;
 typedef double float64_t;
@@ -36,7 +33,7 @@ typedef enum EWcuEventSignal {
     EWcuEventSignal_GnssRxMessagePending,
 	EWcuEventSignal_LogEntryPending,
 	EWcuEventSignal_UartTxMessagePending,
-	EWcuEventSignal_WatchdogWakeup,
+	EWcuEventSignal_WatchdogTimerExpired,
     EWcuEventSignal_XbeeRxMessagePending,
     EWcuEventSignal_XbeeStatusTimerExpired,
 } EWcuEventSignal;
