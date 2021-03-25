@@ -20,6 +20,7 @@
 #include "stm32f4xx.h"
 #include "stm32f4xx_hal.h"
 #include <stddef.h>
+#include <string.h>
 #include "main.h"
 
 #define WCU_XBEE_TX_RING_BUFFER_SIZE   ( (uint32_t) (10 * R3TP_VER0_FRAME_SIZE) )  /* UART TX ring buffer size */
@@ -113,15 +114,14 @@ EWcuRet WcuXbeeSendTelemetryData(SCanFrame *canMessage) {
 
 	uint8_t buffer[R3TP_VER0_FRAME_SIZE];
 
+	/* Clear the buffer */
+	memset(buffer, 0, sizeof(buffer));
+
 	buffer[0] = R3TP_VER0_VER_BYTE;
 	/* Set the SEQ NUM field */
 	buffer[1] = g_SeqNum;
 	/* Increment the sequence number */
 	g_SeqNum = (g_SeqNum < 255U) ? g_SeqNum + 1U : 0;
-
-	/* Clear the CHECKSUM field before calculating the CRC */
-	buffer[2] = 0;
-	buffer[3] = 0;
 
 	/* Set CAN ID field - note that the CAN ID is transmitted as little endian */
 	buffer[4] = _getbyte(canMessage->RxHeader.StdId, 0);
@@ -346,6 +346,9 @@ static EWcuRet WcuXbeeSendAcknowledge(uint8_t msgId) {
 
 	uint8_t buffer[R3TP_VER3_FRAME_SIZE];
 
+	/* Clear the buffer */
+	memset(buffer, 0, sizeof(buffer));
+
 	/* Set the VER field */
 	buffer[0] = R3TP_VER3_VER_BYTE;
 
@@ -353,10 +356,6 @@ static EWcuRet WcuXbeeSendAcknowledge(uint8_t msgId) {
 	buffer[1] = g_SeqNum;
 	/* Increment the sequence number */
 	g_SeqNum = (g_SeqNum < 255U) ? g_SeqNum + 1U : 0;
-
-	/* Clear the CHECKSUM field before calculating the CRC */
-	buffer[2] = 0;
-	buffer[3] = 0;
 
 	/* Set the MSG ID field */
 	buffer[4] = msgId;
