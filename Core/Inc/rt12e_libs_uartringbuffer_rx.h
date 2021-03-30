@@ -38,8 +38,6 @@ typedef struct SUartRxRb {
 	volatile bool Dirty;                /* Buffer dirty flag */
 } SUartRxRb;
 
-
-
 /* Exported function prototypes -----------------------------------------------*/
 /**
  * @brief Initialize the ring buffer control block

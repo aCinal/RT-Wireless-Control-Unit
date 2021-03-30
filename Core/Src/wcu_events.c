@@ -39,8 +39,8 @@ void DispatcherEntryPoint(void const *argument) {
 	WcuSdioStartup();
 	WcuCanStartup();
 	WcuXbeeStartup();
-	WcuGnssStartup();
 	WcuBtStartup();
+	WcuGnssStartup();
 	WcuDiagnosticsStartup();
 
 	/* Run the dispatcher */

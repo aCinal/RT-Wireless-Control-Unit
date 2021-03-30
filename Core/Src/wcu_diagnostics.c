@@ -18,17 +18,18 @@
 #define CAN_DLC_WCU_DIAG  ( (uint32_t) 4 )
 
 #define VDD               ( (float32_t) 3.3 )             /* Supply voltage */
-#define V25               ( (float32_t) 0.76 )            /* Temperature sensor's voltage at 25 degreeC */
+#define V25               ( (float32_t) 0.76 )            /* Temperature sensor's voltage at 25 degrees Celsius */
 #define AVG_SLOPE         ( (float32_t) (2.5 / 1000.0) )  /* Average slope: 2.5 mV/degreeC */
 
 /* Convert 12-bit ADC value to floating-point input voltage */
-#define Adc12BitToVoltage(val)  ( (float32_t) (val * (VDD / (float32_t) 0x0FFFU ) ) )
+#define Adc12BitToVoltage(val)  ( (float32_t) (VDD * ( (float32_t)(val) / (float32_t) 0x0FFFU ) ) )
+/* Convert sensed voltage to temperature in degrees Celsius */
+#define SensedVoltageToDegreesCelsius(volt)  ( (float32_t) ( ( ( (float32_t)(volt) - V25 ) / AVG_SLOPE ) + 25.0F ) )
 
 extern ADC_HandleTypeDef hadc1;
 extern TIM_HandleTypeDef htim11;
 
-static uint16_t g_adcBuffer;
-
+static uint16_t g_AdcBuffer;
 
 /**
  * @brief Diagnostic service startup
@@ -47,7 +48,7 @@ void WcuDiagnosticsStartup(void) {
 void WcuDiagnosticsHandleTimerExpired(void) {
 
 	/* Start the ADC conversion and return */
-	(void) HAL_ADC_Start_DMA(&hadc1, (uint32_t*)&g_adcBuffer, sizeof(g_adcBuffer));
+	(void) HAL_ADC_Start_DMA(&hadc1, (uint32_t*)&g_AdcBuffer, sizeof(g_AdcBuffer));
 }
 
 /**
@@ -56,7 +57,7 @@ void WcuDiagnosticsHandleTimerExpired(void) {
  */
 void WcuDiagnosticsHandleAdcConversionComplete(void) {
 
-	SCanFrame canMessage;
+	SCanMessage canMessage;
 	/* Configure the CAN Tx header */
 	canMessage.TxHeader.DLC = CAN_DLC_WCU_DIAG;
 	canMessage.TxHeader.IDE = CAN_ID_STD;
@@ -65,10 +66,10 @@ void WcuDiagnosticsHandleAdcConversionComplete(void) {
 	canMessage.TxHeader.TransmitGlobalTime = DISABLE;
 
 	/* Calculate the sensed voltage */
-	float32_t Vsense = Adc12BitToVoltage(g_adcBuffer);
+	float32_t Vsense = Adc12BitToVoltage(g_AdcBuffer);
 
 	/* Calculate the MCU temperature based on the sensed voltage */
-	float32_t floatTemperature = ((Vsense - V25) / AVG_SLOPE) + 25.0;
+	float32_t floatTemperature = SensedVoltageToDegreesCelsius(Vsense);
 
 	/* Normalize the temperature to fit it in the CAN frame */
 	int16_t mcuTemperature = (int16_t) lround(floatTemperature * 10.0);

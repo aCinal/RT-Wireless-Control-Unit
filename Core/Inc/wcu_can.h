@@ -28,7 +28,7 @@ void WcuCanHandlePendingMessage(uint32_t fifo);
  * @param message CAN frame
  * @retval EWcuRet Status
  */
-EWcuRet WcuCanMessageSend(SCanFrame* message);
+EWcuRet WcuCanMessageSend(SCanMessage* message);
 
 /**
  * @brief Set the new telemetry subscription

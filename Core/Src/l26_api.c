@@ -25,7 +25,7 @@ typedef enum EL26ApiNmeaParserRet {
 	EL26ApiNmeaParserRet_InvalidFormat,
 	EL26ApiNmeaParserRet_InvalidChecksum,
 	EL26ApiNmeaParserRet_InvalidId,
-	EL26ApiNmeaParserRet_InvalidData,
+	EL26ApiNmeaParserRet_InvalidData
 } EL26ApiNmeaParserRet;
 
 /**
@@ -98,7 +98,6 @@ EL26ApiDataStatus L26ApiParseMessage(SL26ApiGnssData *dataBufPtr,
 				/* Reset the counter */
 				sentenceLength = 0;
 				return EL26ApiDataStatus_Error;
-
 			}
 
 		} else {
@@ -110,9 +109,7 @@ EL26ApiDataStatus L26ApiParseMessage(SL26ApiGnssData *dataBufPtr,
 				sentenceLength += 1UL;
 				/* Save the start character */
 				sentenceBuffer[sentenceLength - 1UL] = messagePtr[i];
-
 			}
-
 		}
 
 		/* If the length exceeds the minimum sentence length necessary to validate the format */
@@ -131,21 +128,16 @@ EL26ApiDataStatus L26ApiParseMessage(SL26ApiGnssData *dataBufPtr,
 					/* Reset the counter */
 					sentenceLength = 0;
 					return EL26ApiDataStatus_Error;
-
 				}
 
 				/* Reset the counter */
 				sentenceLength = 0;
-
 			}
-
 		}
-
 	}
 
 	return (L26ApiIsDataComplete(dataBufPtr) ?
 			EL26ApiDataStatus_Ready : EL26ApiDataStatus_NotReady);
-
 }
 
 /**

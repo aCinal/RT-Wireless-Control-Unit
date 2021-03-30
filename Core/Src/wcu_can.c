@@ -29,6 +29,7 @@ void WcuCanStartup(void) {
 		/* Try fetching the subscription from the SD card */
 		(void) WcuCanLoadSubscription();
 	}
+
 	/* Start the CAN peripheral */
 	(void) HAL_CAN_Start(&hcan1);
 }
@@ -40,7 +41,7 @@ void WcuCanStartup(void) {
  */
 void WcuCanHandlePendingMessage(uint32_t fifo) {
 
-	SCanFrame message;
+	SCanMessage message;
 	/* Receive the message */
 	if (HAL_OK
 			== HAL_CAN_GetRxMessage(&hcan1, fifo, &message.RxHeader,
@@ -62,7 +63,7 @@ void WcuCanHandlePendingMessage(uint32_t fifo) {
  * @param message CAN frame
  * @retval EWcuRet Status
  */
-EWcuRet WcuCanMessageSend(SCanFrame *message) {
+EWcuRet WcuCanMessageSend(SCanMessage *message) {
 
 	EWcuRet status = EWcuRet_Ok;
 

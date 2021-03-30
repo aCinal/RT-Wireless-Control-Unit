@@ -842,9 +842,7 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc) {
 	if (ADC1 == hadc->Instance) {
 
 		WcuEventSend(EWcuEventSignal_AdcConversionComplete, NULL);
-
 	}
-
 }
 
 /**

@@ -28,7 +28,7 @@ extern UART_HandleTypeDef huart3;
 
 SUartRxRb g_WcuGnssRxRingBuffer;
 
-static EWcuRet WcuGnssRingBufferInit(void);
+static EWcuRet WcuGnssRxRingBufferInit(void);
 static EWcuRet WcuGnssDeviceConfig(void);
 static EWcuRet WcuGnssSendCommand(char* command);
 static EWcuRet WcuGnssHandleNmeaMessage(void);
@@ -50,7 +50,7 @@ static uint32_t WcuGnssNormalizeTime(float64_t time);
 void WcuGnssStartup(void) {
 
 	/* Initialize the ring buffer */
-	if (EWcuRet_Ok == WcuGnssRingBufferInit()) {
+	if (EWcuRet_Ok == WcuGnssRxRingBufferInit()) {
 
 		WcuLogInfo("WcuGnssStartup: GNSS ring buffer initialized");
 
@@ -76,12 +76,11 @@ void WcuGnssHandlePendingMessage(void) {
  * @brief Initialize the GNSS ring buffer
  * @retval EWcuRet Status
  */
-static EWcuRet WcuGnssRingBufferInit(void) {
+static EWcuRet WcuGnssRxRingBufferInit(void) {
 
 	EWcuRet status = EWcuRet_Ok;
 
 	static uint8_t ringbuffer[WCU_GNSS_RING_BUFFER_SIZE];
-
 
 	/* Configure the ring buffer structure */
 	(void) UartRxRbInit(&g_WcuGnssRxRingBuffer, &huart3, ringbuffer, sizeof(ringbuffer), &WcuGnssRxCallback);
@@ -137,6 +136,7 @@ static EWcuRet WcuGnssSendCommand(char* command) {
 	/* Print the checksum to the command string */
 	L26ApiAddNmeaChecksum(command);
 
+	/* Only allow blocking (polling) call during startup */
 	if (HAL_OK
 			!= HAL_UART_Transmit(&huart3, (uint8_t*) command,
 					strlen(command), 50)) {
@@ -170,7 +170,7 @@ static EWcuRet WcuGnssHandleNmeaMessage(void) {
 
 		/* Try parsing the message */
 		switch (L26ApiParseMessage(&parsedData, (char*) buffer,
-		sizeof(buffer))) {
+				bytesRead)) {
 
 		case EL26ApiDataStatus_Ready:
 
@@ -210,7 +210,7 @@ static EWcuRet WcuGnssHandleNmeaMessage(void) {
  */
 static EWcuRet WcuGnssSendGpsPos(SL26ApiGnssData *data) {
 
-	SCanFrame canMessage;
+	SCanMessage canMessage;
 	/* Configure the CAN Tx header */
 	canMessage.TxHeader.DLC = 8;
 	canMessage.TxHeader.IDE = CAN_ID_STD;
@@ -245,7 +245,7 @@ static EWcuRet WcuGnssSendGpsPos(SL26ApiGnssData *data) {
  */
 static EWcuRet WcuGnssSendGpsPos2(SL26ApiGnssData *data) {
 
-	SCanFrame canMessage;
+	SCanMessage canMessage;
 	/* Configure the CAN Tx header */
 	canMessage.TxHeader.DLC = 6;
 	canMessage.TxHeader.IDE = CAN_ID_STD;
@@ -279,7 +279,7 @@ static EWcuRet WcuGnssSendGpsPos2(SL26ApiGnssData *data) {
  */
 static EWcuRet WcuGnssSendGpsStatus(SL26ApiGnssData *data) {
 
-	SCanFrame canMessage;
+	SCanMessage canMessage;
 	/* Configure the CAN Tx header */
 	canMessage.TxHeader.DLC = 8;
 	canMessage.TxHeader.IDE = CAN_ID_STD;

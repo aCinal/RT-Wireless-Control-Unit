@@ -33,6 +33,6 @@ void WcuXbeeHandleTimerExpired(void);
  * @param canMessage Pointer to the CAN frame
  * @retval EWcuRet Status
  */
-EWcuRet WcuXbeeSendTelemetryData(SCanFrame* canMessage);
+EWcuRet WcuXbeeSendTelemetryData(SCanMessage* canMessage);
 
 #endif /* __WCU_XBEE_H_ */

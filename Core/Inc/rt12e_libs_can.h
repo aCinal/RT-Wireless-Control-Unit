@@ -11,7 +11,7 @@
 
 /* Exported defines ------------------------------------------------------------*/
 #define CAN_FILTERBANKS_COUNT  ( (uint32_t) 28 )  /* Number of CAN filter banks */
-#define CAN_PAYLOAD_SIZE       ( (uint32_t) 8 )   /* CAN payload size in bytes */
+#define CAN_MAX_PAYLOAD_SIZE   ( (uint32_t) 8 )   /* Maximum CAN payload size in bytes */
 
 /* Conditional compilation flag: if set only a single FIFO (CAN_RX_FIFO0) will be used for CAN Rx */
 #define CAN_SINGLE_FIFO
@@ -19,13 +19,15 @@
 
 /* Exported typedef ------------------------------------------------------------*/
 /**
- * @brief Structure facilitating communication with the CAN peripheral gatekeeper
+ * @brief CAN message structure
  */
-typedef struct SCanFrame {
-	CAN_TxHeaderTypeDef TxHeader;          /* Tx header */
-	CAN_RxHeaderTypeDef RxHeader;          /* Rx header */
-	uint8_t PayloadTbl[CAN_PAYLOAD_SIZE];  /* Payload */
-} SCanFrame;
+typedef struct SCanMessage {
+	union {
+		CAN_TxHeaderTypeDef TxHeader;          /* Tx header */
+		CAN_RxHeaderTypeDef RxHeader;          /* Rx header */
+	};
+	uint8_t PayloadTbl[CAN_MAX_PAYLOAD_SIZE];  /* Payload */
+} SCanMessage;
 
 /* Exported macro ------------------------------------------------------------*/
 /**

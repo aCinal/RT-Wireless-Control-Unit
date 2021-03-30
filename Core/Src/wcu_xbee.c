@@ -39,8 +39,8 @@ static uint8_t g_SeqNum = 0;
 SUartTxRb g_WcuXbeeTxRingBuffer;
 SUartRxRb g_WcuXbeeRxRingBuffer;
 
-static EWcuRet WcuXbeeRingTxBufferInit(void);
-static EWcuRet WcuXbeeRingRxBufferInit(void);
+static EWcuRet WcuXbeeTxRingBufferInit(void);
+static EWcuRet WcuXbeeRxRingBufferInit(void);
 static EWcuRet WcuXbeeDeviceConfig(void);
 static EWcuRet WcuXbeeSendDiagnostics(void);
 static void WcuXbeeWarningsTick(void);
@@ -59,22 +59,24 @@ static void WcuXbeeRxCallback(void);
 void WcuXbeeStartup(void) {
 
 	/* Initialize the ring buffers */
-	if (EWcuRet_Ok == WcuXbeeRingTxBufferInit()) {
+	if (EWcuRet_Ok == WcuXbeeTxRingBufferInit()) {
 
 		WcuLogInfo("WcuXbeeStartup: XBEE TX ring buffer initialized");
 
 	} else {
 
-		WcuLogError("WcuXbeeStartup: XBEE TX ring buffer initialization failed");
+		WcuLogError(
+				"WcuXbeeStartup: XBEE TX ring buffer initialization failed");
 	}
 
-	if (EWcuRet_Ok == WcuXbeeRingRxBufferInit()) {
+	if (EWcuRet_Ok == WcuXbeeRxRingBufferInit()) {
 
 		WcuLogInfo("WcuXbeeStartup: XBEE RX ring buffer initialized");
 
 	} else {
 
-		WcuLogError("WcuXbeeStartup: XBEE RX ring buffer initialization failed");
+		WcuLogError(
+				"WcuXbeeStartup: XBEE RX ring buffer initialization failed");
 	}
 
 	/* Start the timer */
@@ -108,7 +110,7 @@ void WcuXbeeHandleTimerExpired(void) {
  * @param canMessage Pointer to the CAN frame
  * @retval EWcuRet Status
  */
-EWcuRet WcuXbeeSendTelemetryData(SCanFrame *canMessage) {
+EWcuRet WcuXbeeSendTelemetryData(SCanMessage *canMessage) {
 
 	EWcuRet status = EWcuRet_Ok;
 
@@ -159,7 +161,7 @@ EWcuRet WcuXbeeSendTelemetryData(SCanFrame *canMessage) {
  * @brief Initialize the XBEE TX ring buffer
  * @retval EWcuRet Status
  */
-static EWcuRet WcuXbeeRingTxBufferInit(void) {
+static EWcuRet WcuXbeeTxRingBufferInit(void) {
 
 	EWcuRet status = EWcuRet_Ok;
 
@@ -176,7 +178,7 @@ static EWcuRet WcuXbeeRingTxBufferInit(void) {
  * @brief Initialize the XBEE RX ring buffer
  * @retval EWcuRet Status
  */
-static EWcuRet WcuXbeeRingRxBufferInit(void) {
+static EWcuRet WcuXbeeRxRingBufferInit(void) {
 
 	EWcuRet status = EWcuRet_Ok;
 
@@ -222,7 +224,7 @@ static EWcuRet WcuXbeeDeviceConfig(void) {
 static EWcuRet WcuXbeeSendDiagnostics(void) {
 
 	EWcuRet status = EWcuRet_Ok;
-	SCanFrame canMessage;
+	SCanMessage canMessage;
 	/* Configure the CAN Tx header */
 	canMessage.TxHeader.DLC = 2;
 	canMessage.TxHeader.IDE = CAN_ID_STD;
@@ -564,15 +566,12 @@ static EWcuRet WcuXbeeStoreNewSubscription(uint32_t *ids, uint32_t numOfFrames) 
 	if (EWcuRet_Ok == status) {
 
 		/* Print the frames themselves to the file */
-		for (uint32_t i = 0; i < numOfFrames; i += 1UL) {
+		if (EWcuRet_Ok
+				!= WcuSdioFileWrite(&subscriptionFd, (uint8_t*) ids,
+						sizeof(ids[0]) * numOfFrames)) {
 
-			if (EWcuRet_Ok
-					!= WcuSdioFileWrite(&subscriptionFd, (uint8_t*) &(ids[i]),
-							sizeof(ids[i]))) {
-
-				WcuLogError("WcuXbeeStoreNewSubscription: Write failed");
-				status = EWcuRet_Error;
-			}
+			WcuLogError("WcuXbeeStoreNewSubscription: Write failed");
+			status = EWcuRet_Error;
 		}
 	}
 
@@ -594,7 +593,8 @@ static void WcuXbeeSendData(uint8_t *data, uint32_t len) {
 	(void) UartTxRbWrite(&g_WcuXbeeTxRingBuffer, data, len);
 
 	/* Tell the dispatcher to initiate transmission */
-	(void) WcuEventSend(EWcuEventSignal_UartTxMessagePending, &g_WcuXbeeTxRingBuffer);
+	(void) WcuEventSend(EWcuEventSignal_UartTxMessagePending,
+			&g_WcuXbeeTxRingBuffer);
 }
 
 /**

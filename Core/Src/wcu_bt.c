@@ -80,6 +80,8 @@ static EWcuRet WcuBtRingBufferInit(void) {
 static EWcuRet WcuBtForwardWdtsMessageToCan(void) {
 
 	EWcuRet status = EWcuRet_Ok;
+	SCanMessage canMessage;
+
 	uint8_t buffer[R3TP_VER0_FRAME_SIZE];
 	size_t bytesRead = 0;
 	/* Read the message from the ring buffer */
@@ -102,7 +104,7 @@ static EWcuRet WcuBtForwardWdtsMessageToCan(void) {
 	if (EWcuRet_Ok == status) {
 
 		/* Assert valid protocol version used */
-		if (R3TP_VER0_VER_BYTE == R3TP_PROTOCOL_VERSION(buffer)) {
+		if (R3TP_VER0_VER_BYTE != R3TP_PROTOCOL_VERSION(buffer)) {
 
 			WcuLogError("WcuBtForwardWdtsMessageToCan: Unknown protocol version");
 			status = EWcuRet_Error;
@@ -139,8 +141,6 @@ static EWcuRet WcuBtForwardWdtsMessageToCan(void) {
 		}
 	}
 
-	SCanFrame canMessage;
-
 	if (EWcuRet_Ok == status) {
 
 		/* Read the CAN ID - note that the CAN ID is transmitted as little endian */
@@ -149,7 +149,7 @@ static EWcuRet WcuBtForwardWdtsMessageToCan(void) {
 		/* Read the DLC */
 		canMessage.TxHeader.DLC = (uint32_t) buffer[8];
 		/* Assert valid DLC */
-		if (CAN_PAYLOAD_SIZE < canMessage.TxHeader.DLC) {
+		if (CAN_MAX_PAYLOAD_SIZE < canMessage.TxHeader.DLC) {
 
 			WcuLogError("WcuBtForwardWdtsMessageToCan: Invalid DLC");
 			status = EWcuRet_Error;

@@ -108,13 +108,20 @@ void WcuLoggerCommitEntry(char *log) {
 		static uint8_t ringbuffer[WCU_LOGGER_RING_BUFFER_SIZE];
 
 		/* On first commit, initialize the ring buffer */
-		UartTxRbInit(&g_WcuLoggerTxRingBuffer, &huart2, ringbuffer, sizeof(ringbuffer), NULL);
+		if (EUartTxRbRet_Ok == UartTxRbInit(&g_WcuLoggerTxRingBuffer, &huart2, ringbuffer, sizeof(ringbuffer), NULL)) {
+
+			g_LoggerRbInitialized = true;
+		}
 	}
 
-	/* Write data to the ring buffer */
+	/* Write the error message to the ring buffer */
 	(void) UartTxRbWrite(&g_WcuLoggerTxRingBuffer, (uint8_t*)log, strlen(log));
 
+	/* Tell the dispatcher to initiate transmission */
 	(void) WcuEventSend(EWcuEventSignal_UartTxMessagePending, &g_WcuLoggerTxRingBuffer);
+
+	/* Free the allocated memory */
+	WcuMemFree(log);
 
 #else /* !WCU_REDIRECT_LOGS_TO_SERIAL_PORT */
 

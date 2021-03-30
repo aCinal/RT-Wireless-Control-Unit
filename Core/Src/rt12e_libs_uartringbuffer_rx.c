@@ -217,7 +217,6 @@ EUartRxRbRet UartRxRbRead(SUartRxRb *rb, uint8_t *buffer, size_t bufferSize,
 			for (size_t i = 0; i < len; i += 1UL) {
 
 				buffer[i] = rb->BufferPtr[rb->Tail + i];
-
 			}
 
 			/* Move the tail forward in the buffer */
@@ -238,14 +237,12 @@ EUartRxRbRet UartRxRbRead(SUartRxRb *rb, uint8_t *buffer, size_t bufferSize,
 
 				/* Assert no overflow in the destination buffer from the upper part of the buffer */
 				lenUpper = bufferSize;
-
 			}
 
 			/* Transfer the data from the upper part of the ring buffer */
 			for (size_t i = 0; i < lenUpper; i += 1UL) {
 
 				buffer[i] = rb->BufferPtr[rb->Tail + i];
-
 			}
 
 			size_t lenLower;
@@ -262,14 +259,12 @@ EUartRxRbRet UartRxRbRead(SUartRxRb *rb, uint8_t *buffer, size_t bufferSize,
 				lenLower = (bufferSize - lenUpper);
 				/* The dirty flag remains set */
 				rb->Dirty = true;
-
 			}
 
 			/* Transfer the data from the lower part of the buffer */
 			for (size_t i = 0; i < lenLower; i += 1UL) {
 
 				buffer[lenUpper + i] = rb->BufferPtr[i];
-
 			}
 
 			/* Update the tail */
@@ -277,9 +272,7 @@ EUartRxRbRet UartRxRbRead(SUartRxRb *rb, uint8_t *buffer, size_t bufferSize,
 
 			/* Save the number of bytes read for the caller to inspect */
 			*bytesRead = lenUpper + lenLower;
-
 		}
-
 	}
 
 	if (EUartRxRbRet_InvalidParams != status) {
