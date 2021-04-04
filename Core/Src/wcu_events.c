@@ -18,12 +18,10 @@
 #include "wcu_diagnostics.h"
 #include "cmsis_os.h"
 
-#define WCU_EVENT_INFINITE_WAIT_TIME  (portMAX_DELAY)
-
 extern QueueHandle_t wcuEventQueueHandle;
 
 static void WcuRunDispatcher(void);
-static SWcuEvent WcuEventReceive(uint32_t ticksToWait);
+static SWcuEvent WcuEventReceive(void);
 static void WcuEventDispatch(SWcuEvent event);
 
 /**
@@ -49,11 +47,11 @@ void DispatcherEntryPoint(void const *argument) {
 
 /**
  * @brief Create and send event
- * @param signal Event signal (event ID)
+ * @param signal Event type
  * @param param Pointer to event parameters
  * @retval EWcuRet Status
  */
-EWcuRet WcuEventSend(EWcuEventSignal signal, void *param) {
+EWcuRet WcuEventSend(EWcuEventType signal, void *param) {
 
 	EWcuRet status = EWcuRet_Ok;
 
@@ -90,7 +88,7 @@ static void WcuRunDispatcher(void) {
 	for (;;) {
 
 		/* Block on the event queue */
-		SWcuEvent event = WcuEventReceive(WCU_EVENT_INFINITE_WAIT_TIME);
+		SWcuEvent event = WcuEventReceive();
 		/* Dispatch the received event */
 		WcuEventDispatch(event);
 	}
@@ -98,14 +96,13 @@ static void WcuRunDispatcher(void) {
 
 /**
  * @brief Block on the event queue for the incoming event
- * @param ticksToWait Timeout
  * @retval SWcuEvent Received event
  */
-static SWcuEvent WcuEventReceive(uint32_t ticksToWait) {
+static SWcuEvent WcuEventReceive(void) {
 
 	SWcuEvent event;
 	/* Block on the event queue indefinitely */
-	(void) xQueueReceive(wcuEventQueueHandle, &event, ticksToWait);
+	(void) xQueueReceive(wcuEventQueueHandle, &event, portMAX_DELAY);
 	return event;
 }
 
@@ -118,17 +115,17 @@ static void WcuEventDispatch(SWcuEvent event) {
 
 	switch (event.signal) {
 
-	case EWcuEventSignal_AdcConversionComplete:
+	case EWcuEventType_AdcConversionComplete:
 
 		WcuDiagnosticsHandleAdcConversionComplete();
 		break;
 
-	case EWcuEventSignal_BtRxMessagePending:
+	case EWcuEventType_BtRxMessagePending:
 
 		WcuBtHandlePendingMessage();
 		break;
 
-	case EWcuEventSignal_CanRxMessagePending:
+	case EWcuEventType_CanRxMessagePending:
 
 	{
 		uint32_t fifo = *(uint32_t*) event.param;
@@ -136,17 +133,17 @@ static void WcuEventDispatch(SWcuEvent event) {
 	}
 		break;
 
-	case EWcuEventSignal_DiagnosticsTimerExpired:
+	case EWcuEventType_DiagnosticsTimerExpired:
 
 		WcuDiagnosticsHandleTimerExpired();
 		break;
 
-	case EWcuEventSignal_GnssRxMessagePending:
+	case EWcuEventType_GnssRxMessagePending:
 
 		WcuGnssHandlePendingMessage();
 		break;
 
-	case EWcuEventSignal_LogEntryPending:
+	case EWcuEventType_LogEntryPending:
 
 	{
 		char *logEntry = (char*) event.param;
@@ -154,7 +151,7 @@ static void WcuEventDispatch(SWcuEvent event) {
 	}
 		break;
 
-	case EWcuEventSignal_UartTxMessagePending:
+	case EWcuEventType_UartTxMessagePending:
 
 	{
 		SUartTxRb *rb = (SUartTxRb*)event.param;
@@ -166,17 +163,17 @@ static void WcuEventDispatch(SWcuEvent event) {
 	}
 		break;
 
-	case EWcuEventSignal_WatchdogTimerExpired:
+	case EWcuEventType_WatchdogTimerExpired:
 
 		WcuReloadWatchdogCounter();
 		break;
 
-	case EWcuEventSignal_XbeeRxMessagePending:
+	case EWcuEventType_XbeeRxMessagePending:
 
 		WcuXbeeHandlePendingRxMessage();
 		break;
 
-	case EWcuEventSignal_XbeeStatusTimerExpired:
+	case EWcuEventType_XbeeStatusTimerExpired:
 
 		WcuXbeeHandleTimerExpired();
 		break;

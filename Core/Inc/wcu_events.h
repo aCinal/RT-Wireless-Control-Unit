@@ -18,10 +18,10 @@ void DispatcherThreadEntryPoint(void const * argument);
 
 /**
  * @brief Create and send event
- * @param signal Event signal (event ID)
+ * @param signal Event type
  * @param param Pointer to event parameters
  * @retval EWcuRet Status
  */
-EWcuRet WcuEventSend(EWcuEventSignal signal, void *param);
+EWcuRet WcuEventSend(EWcuEventType signal, void *param);
 
 #endif /* __WCU_EVENTS_H_ */

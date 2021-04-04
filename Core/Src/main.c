@@ -841,7 +841,7 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc) {
 
 	if (ADC1 == hadc->Instance) {
 
-		WcuEventSend(EWcuEventSignal_AdcConversionComplete, NULL);
+		WcuEventSend(EWcuEventType_AdcConversionComplete, NULL);
 	}
 }
 
@@ -855,7 +855,7 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
 
 	(void) hcan;
 	static const uint32_t fifo0Identity = CAN_RX_FIFO0;
-	WcuEventSend(EWcuEventSignal_CanRxMessagePending, (void*) &fifo0Identity);
+	WcuEventSend(EWcuEventType_CanRxMessagePending, (void*) &fifo0Identity);
 }
 
 /**
@@ -868,7 +868,7 @@ void HAL_CAN_RxFifo1MsgPendingCallback(CAN_HandleTypeDef *hcan) {
 
 	(void) hcan;
 	static const uint32_t fifo1Identity = CAN_RX_FIFO1;
-	WcuEventSend(EWcuEventSignal_CanRxMessagePending, (void*) &fifo1Identity);
+	WcuEventSend(EWcuEventType_CanRxMessagePending, (void*) &fifo1Identity);
 }
 
 /* USER CODE END 4 */
@@ -912,15 +912,15 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
 	else if (TIM7 == htim->Instance) {
 
-		WcuEventSend(EWcuEventSignal_XbeeStatusTimerExpired, NULL);
+		WcuEventSend(EWcuEventType_XbeeStatusTimerExpired, NULL);
 
 	} else if (TIM11 == htim->Instance) {
 
-		WcuEventSend(EWcuEventSignal_DiagnosticsTimerExpired, NULL);
+		WcuEventSend(EWcuEventType_DiagnosticsTimerExpired, NULL);
 
 	} else if (TIM13 == htim->Instance) {
 
-		WcuEventSend(EWcuEventSignal_WatchdogTimerExpired, NULL);
+		WcuEventSend(EWcuEventType_WatchdogTimerExpired, NULL);
 	}
 
   /* USER CODE END Callback 1 */

@@ -568,7 +568,7 @@ static EWcuRet WcuXbeeStoreNewSubscription(uint32_t *ids, uint32_t numOfFrames) 
 		/* Print the frames themselves to the file */
 		if (EWcuRet_Ok
 				!= WcuSdioFileWrite(&subscriptionFd, (uint8_t*) ids,
-						sizeof(ids[0]) * numOfFrames)) {
+						numOfFrames * sizeof(uint32_t))) {
 
 			WcuLogError("WcuXbeeStoreNewSubscription: Write failed");
 			status = EWcuRet_Error;
@@ -593,7 +593,7 @@ static void WcuXbeeSendData(uint8_t *data, uint32_t len) {
 	(void) UartTxRbWrite(&g_WcuXbeeTxRingBuffer, data, len);
 
 	/* Tell the dispatcher to initiate transmission */
-	(void) WcuEventSend(EWcuEventSignal_UartTxMessagePending,
+	(void) WcuEventSend(EWcuEventType_UartTxMessagePending,
 			&g_WcuXbeeTxRingBuffer);
 }
 
@@ -603,5 +603,5 @@ static void WcuXbeeSendData(uint8_t *data, uint32_t len) {
  */
 static void WcuXbeeRxCallback(void) {
 
-	(void) WcuEventSend(EWcuEventSignal_XbeeRxMessagePending, NULL);
+	(void) WcuEventSend(EWcuEventType_XbeeRxMessagePending, NULL);
 }

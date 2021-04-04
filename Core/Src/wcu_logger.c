@@ -86,7 +86,7 @@ void WcuLoggerPrint(EWcuLogSeverityLevel severityLevel,
 
 		/* Send the event */
 		if (EWcuRet_Ok
-				!= WcuEventSend(EWcuEventSignal_LogEntryPending, logEntryPtr)) {
+				!= WcuEventSend(EWcuEventType_LogEntryPending, logEntryPtr)) {
 
 			/* Cleanup on failure to enqueue the event */
 			WcuMemFree(logEntryPtr);
@@ -118,7 +118,7 @@ void WcuLoggerCommitEntry(char *log) {
 	(void) UartTxRbWrite(&g_WcuLoggerTxRingBuffer, (uint8_t*)log, strlen(log));
 
 	/* Tell the dispatcher to initiate transmission */
-	(void) WcuEventSend(EWcuEventSignal_UartTxMessagePending, &g_WcuLoggerTxRingBuffer);
+	(void) WcuEventSend(EWcuEventType_UartTxMessagePending, &g_WcuLoggerTxRingBuffer);
 
 	/* Free the allocated memory */
 	WcuMemFree(log);

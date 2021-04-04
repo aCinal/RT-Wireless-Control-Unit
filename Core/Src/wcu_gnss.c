@@ -320,7 +320,7 @@ static EWcuRet WcuGnssSendGpsStatus(SL26ApiGnssData *data) {
  */
 static void WcuGnssRxCallback(void) {
 
-	(void) WcuEventSend(EWcuEventSignal_GnssRxMessagePending, NULL);
+	(void) WcuEventSend(EWcuEventType_GnssRxMessagePending, NULL);
 }
 
 

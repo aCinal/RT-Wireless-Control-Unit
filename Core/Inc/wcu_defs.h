@@ -13,33 +13,45 @@
 typedef float float32_t;
 typedef double float64_t;
 
+/**
+ * @brief WCU functions return value
+ */
 typedef enum EWcuRet {
     EWcuRet_Ok = 0,
     EWcuRet_InvalidParams,
     EWcuRet_Error
 } EWcuRet;
 
+/**
+ * @brief Log entry severity level
+ */
 typedef enum EWcuLogSeverityLevel {
 	EWcuLogSeverityLevel_Info = 0,
 	EWcuLogSeverityLevel_Error,
 	EWcuLogSeverityLevel_Debug
 } EWcuLogSeverityLevel;
 
-typedef enum EWcuEventSignal {
-    EWcuEventSignal_AdcConversionComplete = 0,
-    EWcuEventSignal_BtRxMessagePending,
-    EWcuEventSignal_CanRxMessagePending,
-    EWcuEventSignal_DiagnosticsTimerExpired,
-    EWcuEventSignal_GnssRxMessagePending,
-	EWcuEventSignal_LogEntryPending,
-	EWcuEventSignal_UartTxMessagePending,
-	EWcuEventSignal_WatchdogTimerExpired,
-    EWcuEventSignal_XbeeRxMessagePending,
-    EWcuEventSignal_XbeeStatusTimerExpired,
-} EWcuEventSignal;
+/**
+ * @brief Event type
+ */
+typedef enum EWcuEventType {
+    EWcuEventType_AdcConversionComplete = 0,
+    EWcuEventType_BtRxMessagePending,
+    EWcuEventType_CanRxMessagePending,
+    EWcuEventType_DiagnosticsTimerExpired,
+    EWcuEventType_GnssRxMessagePending,
+	EWcuEventType_LogEntryPending,
+	EWcuEventType_UartTxMessagePending,
+	EWcuEventType_WatchdogTimerExpired,
+    EWcuEventType_XbeeRxMessagePending,
+    EWcuEventType_XbeeStatusTimerExpired,
+} EWcuEventType;
 
+/**
+ * @brief Event structure
+ */
 typedef struct SWcuEvent {
-    EWcuEventSignal signal;
+    EWcuEventType signal;
     void *param;
 } SWcuEvent;
 

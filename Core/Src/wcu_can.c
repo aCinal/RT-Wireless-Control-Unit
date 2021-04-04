@@ -150,5 +150,4 @@ static EWcuRet WcuCanLoadSubscription(void) {
 	(void) WcuSdioFileClose(&subscriptionFd);
 
 	return status;
-
 }

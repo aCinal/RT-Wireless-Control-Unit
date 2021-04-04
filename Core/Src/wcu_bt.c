@@ -181,5 +181,5 @@ static EWcuRet WcuBtForwardWdtsMessageToCan(void) {
  */
 static void WcuBtRxCallback(void) {
 
-	(void) WcuEventSend(EWcuEventSignal_BtRxMessagePending, NULL);
+	(void) WcuEventSend(EWcuEventType_BtRxMessagePending, NULL);
 }

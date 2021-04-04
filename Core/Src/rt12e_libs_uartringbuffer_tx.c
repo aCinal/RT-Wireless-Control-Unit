@@ -69,7 +69,7 @@ EUartTxRbRet UartTxRbInit(SUartTxRb *rb, UART_HandleTypeDef *uartHandle,
 
 	/* Assert valid parameters */
 	if ((NULL == rb) || (NULL == uartHandle) || (NULL == buffer)
-			|| (0 == bufferSize) || (NULL == msgSentCallback)) {
+			|| (0 == bufferSize)) {
 
 		status = EUartTxRbRet_InvalidParams;
 	}
@@ -267,7 +267,6 @@ EUartTxRbRet UartTxRbSend(SUartTxRb *rb) {
 			}
 
 			/* On allocation failure still invalidate the buffer to avoid entering a corrupted state. */
-
 		}
 
 		/* Invalidate data in the buffer */
