@@ -28,7 +28,7 @@
  * @param bufferSize Size of the memory block to be allocated
  * @retval Pointer to the allocated block on success or NULL on failure
  */
-static void *UartTxRbAllocateBuffer(size_t bufferSize) {
+static void* UartTxRbAllocateBuffer(size_t bufferSize) {
 
 #if UART_RB_FREERTOS_IN_USE
 	return pvPortMalloc(bufferSize);
@@ -156,6 +156,17 @@ EUartTxRbRet UartTxRbWrite(SUartTxRb *rb, uint8_t *data, size_t len) {
 
 	if (EUartTxRbRet_Ok == status) {
 
+		size_t freeSpace = 0;
+		(void) UartTxRbGetFreeSpace(rb, &freeSpace);
+		/* Assert there is enough free space in the buffer */
+		if (len > freeSpace) {
+
+			status = EUartTxRbRet_WouldOverflow;
+		}
+	}
+
+	if (EUartTxRbRet_Ok == status) {
+
 		/* Test for overflow */
 		if (rb->Head + len > rb->BufferSize) {
 
@@ -270,6 +281,61 @@ EUartTxRbRet UartTxRbSend(SUartTxRb *rb) {
 		}
 
 		/* Invalidate data in the buffer */
+		(void) UartTxRbInvalidate(rb);
+	}
+
+	return status;
+}
+
+/**
+ * @brief Get number of free bytes in the buffer
+ * @param rb Pointer to the ring buffer control block
+ * @param freeSpace Pointer to pass the number of available bytes out of the funcion
+ * @retval EUartTxRbRet Status
+ */
+EUartTxRbRet UartTxRbGetFreeSpace(SUartTxRb *rb, size_t *freeSpace) {
+
+	EUartTxRbRet status = EUartTxRbRet_Ok;
+
+	/* Assert valid parameters */
+	if (NULL == rb || !UART_RB_INITIALIZED(rb) || NULL == freeSpace) {
+
+		status = EUartTxRbRet_InvalidParams;
+	}
+
+	if (EUartTxRbRet_Ok == status) {
+
+		/* Test if the ring buffer has overflowed */
+		if (rb->Head > rb->Tail) {
+
+			*freeSpace = rb->BufferSize - (rb->Head - rb->Tail);
+
+		} else {
+
+			*freeSpace = rb->Tail - rb->Head;
+		}
+	}
+
+	return status;
+}
+
+/**
+ * @brief Invalidate data in the buffer
+ * @param rb Pointer to the ring buffer control block
+ * @retval EUartTxRbRet Status
+ */
+EUartTxRbRet UartTxRbInvalidate(SUartTxRb *rb) {
+
+	EUartTxRbRet status = EUartTxRbRet_Ok;
+
+	/* Assert valid parameters */
+	if (NULL == rb || !UART_RB_INITIALIZED(rb)) {
+
+		status = EUartTxRbRet_InvalidParams;
+	}
+
+	if (EUartTxRbRet_Ok == status) {
+
 		rb->Tail = rb->Head;
 		rb->Dirty = false;
 	}

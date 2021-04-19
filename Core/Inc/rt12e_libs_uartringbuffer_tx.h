@@ -22,7 +22,8 @@ typedef enum EUartTxRbRet {
 	EUartTxRbRet_InvalidParams,         /* Invalid function parameters */
 	EUartTxRbRet_Error,                 /* Internal error */
 	EUartTxRbRet_BufferEmpty,           /* Empty buffer */
-	EUartTxRbRet_Again                  /* Transmission is in progress, try again later */
+	EUartTxRbRet_Again,                 /* Transmission is in progress, try again later */
+	EUartTxRbRet_WouldOverflow          /* Buffer would overflow if the write were to proceed */
 } EUartTxRbRet;
 
 /**
@@ -77,5 +78,20 @@ EUartTxRbRet UartTxRbWrite(SUartTxRb *rb, uint8_t *data, size_t len);
  * @retval EUartTxRbRet Status
  */
 EUartTxRbRet UartTxRbSend(SUartTxRb *rb);
+
+/**
+ * @brief Get number of free bytes in the buffer
+ * @param rb Pointer to the ring buffer control block
+ * @param freeSpace Pointer to pass the number of available bytes out of the funcion
+ * @retval EUartTxRbRet Status
+ */
+EUartTxRbRet UartTxRbGetFreeSpace(SUartTxRb *rb, size_t *freeSpace);
+
+/**
+ * @brief Invalidate data in the buffer
+ * @param rb Pointer to the ring buffer control block
+ * @retval EUartTxRbRet Status
+ */
+EUartTxRbRet UartTxRbInvalidate(SUartTxRb *rb);
 
 #endif /* __RT12E_LIBS_UARTRINGBUFFER_TX_H_ */
