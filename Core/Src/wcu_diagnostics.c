@@ -31,6 +31,8 @@ extern TIM_HandleTypeDef htim11;
 
 static uint16_t g_AdcBuffer;
 
+SWcuDiagnosticsDatabase g_WcuDiagnosticsDatabase;
+
 /**
  * @brief Diagnostic service startup
  * @retval None

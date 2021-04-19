@@ -8,6 +8,7 @@
 #include "wcu_wrappers.h"
 #include "wcu_events.h"
 #include "wcu_sdio.h"
+#include "wcu_diagnostics.h"
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
@@ -86,7 +87,11 @@ void WcuLoggerPrint(EWcuLogSeverityLevel severityLevel,
 
 		/* Send the event */
 		if (EWcuRet_Ok
-				!= WcuEventSend(EWcuEventType_LogEntryPending, logEntryPtr)) {
+				== WcuEventSend(EWcuEventType_LogEntryPending, logEntryPtr)) {
+
+			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(LoggerEntriesQueued);
+
+		} else {
 
 			/* Cleanup on failure to enqueue the event */
 			WcuMemFree(logEntryPtr);
@@ -126,6 +131,8 @@ void WcuLoggerCommitEntry(char *log) {
 #else /* !WCU_REDIRECT_LOGS_TO_SERIAL_PORT */
 
 	if (g_WcuLoggerReady) {
+
+		WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(LoggerEntriesCommitted);
 
 		/* Write the error message to the file */
 		(void) WcuSdioFileWrite(&g_WcuLogfileFd, (uint8_t*)log, strlen(log));

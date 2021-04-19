@@ -13,10 +13,10 @@
 #include "wcu_bt.h"
 #include "wcu_can.h"
 #include "wcu_gnss.h"
-#include "rt12e_libs_uartringbuffer_tx.h"
-
+#include "wcu_watchdog.h"
 #include "wcu_diagnostics.h"
 #include "cmsis_os.h"
+#include "rt12e_libs_uartringbuffer_tx.h"
 
 extern QueueHandle_t wcuEventQueueHandle;
 
@@ -39,6 +39,7 @@ void DispatcherEntryPoint(void const *argument) {
 	WcuXbeeStartup();
 	WcuBtStartup();
 	WcuGnssStartup();
+	WcuWatchdogStartup();
 	WcuDiagnosticsStartup();
 
 	/* Run the dispatcher */
@@ -65,6 +66,7 @@ EWcuRet WcuEventSend(EWcuEventType signal, void *param) {
 
 		if (pdPASS != xQueueSendFromISR(wcuEventQueueHandle, &event, NULL)) {
 
+			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(EventsNotSent);
 			status = EWcuRet_Error;
 		}
 
@@ -72,6 +74,7 @@ EWcuRet WcuEventSend(EWcuEventType signal, void *param) {
 
 		if (pdPASS != xQueueSend(wcuEventQueueHandle, &event, 0)) {
 
+			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(EventsNotSent);
 			status = EWcuRet_Error;
 		}
 	}
@@ -91,6 +94,7 @@ static void WcuRunDispatcher(void) {
 		SWcuEvent event = WcuEventReceive();
 		/* Dispatch the received event */
 		WcuEventDispatch(event);
+		WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(EventsDispatched);
 	}
 }
 
@@ -103,6 +107,7 @@ static SWcuEvent WcuEventReceive(void) {
 	SWcuEvent event;
 	/* Block on the event queue indefinitely */
 	(void) xQueueReceive(wcuEventQueueHandle, &event, portMAX_DELAY);
+
 	return event;
 }
 
@@ -154,7 +159,7 @@ static void WcuEventDispatch(SWcuEvent event) {
 	case EWcuEventType_UartTxMessagePending:
 
 	{
-		SUartTxRb *rb = (SUartTxRb*)event.param;
+		SUartTxRb *rb = (SUartTxRb*) event.param;
 		if (EUartTxRbRet_Again == UartTxRbSend(rb)) {
 
 			/* If the UART is busy, enqueue the event again */
@@ -165,7 +170,7 @@ static void WcuEventDispatch(SWcuEvent event) {
 
 	case EWcuEventType_WatchdogTimerExpired:
 
-		WcuReloadWatchdogCounter();
+		WcuWatchdogReload();
 		break;
 
 	case EWcuEventType_XbeeRxMessagePending:

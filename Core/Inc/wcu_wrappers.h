@@ -1,7 +1,7 @@
 /**
  * @author Adrian Cinal
- * @file wcu_event_wrappers.h
- * @brief Header file containing wrappers declarations for WCU
+ * @file wcu_wrappers.h
+ * @brief Header file containing wrappers declarations for the WCU application
  */
 
 #ifndef __WCU_WRAPPERS_H_
@@ -9,24 +9,6 @@
 
 #include "wcu_defs.h"
 #include <stdint.h>
-
-/**
- * @brief Initialize the CAN module
- * @retval EWcuRet Status
- */
-EWcuRet WcuStartCan(void);
-
-/**
- * @brief Initialize the IWDG peripheral
- * @retval EWcuRet Status
- */
-EWcuRet WcuStartWatchdog(void);
-
-/**
- * @brief Initialize hardware timers
- * @retval EWcuRet Status
- */
-EWcuRet WcuStartTimers(void);
 
 /**
  * @brief Reload the IWDG counter

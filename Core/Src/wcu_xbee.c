@@ -12,6 +12,7 @@
 #include "wcu_wrappers.h"
 #include "wcu_can.h"
 #include "wcu_sdio.h"
+#include "wcu_diagnostics.h"
 #include "rt12e_libs_can.h"
 #include "rt12e_libs_r3tp.h"
 #include "rt12e_libs_generic.h"
@@ -59,21 +60,13 @@ static void WcuXbeeRxCallback(void);
 void WcuXbeeStartup(void) {
 
 	/* Initialize the ring buffers */
-	if (EWcuRet_Ok == WcuXbeeTxRingBufferInit()) {
-
-		WcuLogInfo("WcuXbeeStartup: XBEE TX ring buffer initialized");
-
-	} else {
+	if (EWcuRet_Ok != WcuXbeeTxRingBufferInit()) {
 
 		WcuLogError(
 				"WcuXbeeStartup: XBEE TX ring buffer initialization failed");
 	}
 
-	if (EWcuRet_Ok == WcuXbeeRxRingBufferInit()) {
-
-		WcuLogInfo("WcuXbeeStartup: XBEE RX ring buffer initialized");
-
-	} else {
+	if (EWcuRet_Ok != WcuXbeeRxRingBufferInit()) {
 
 		WcuLogError(
 				"WcuXbeeStartup: XBEE RX ring buffer initialization failed");
@@ -153,6 +146,8 @@ EWcuRet WcuXbeeSendTelemetryData(SCanMessage *canMessage) {
 
 	/* Transmit the frame */
 	WcuXbeeSendData(buffer, R3TP_VER0_FRAME_SIZE);
+
+	WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(XbeeTelemetryMessagesSent);
 
 	return status;
 }
@@ -318,16 +313,23 @@ static EWcuRet WcuXbeeHandleR3tpMessage(void) {
 
 		case R3TP_VER1_VER_BYTE:
 
-			WcuXbeeHandleNewSubscription(buffer);
+			if(EWcuRet_Ok == WcuXbeeHandleNewSubscription(buffer)) {
+
+				WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(XbeeNewSubscriptionMessagesReceived);
+			}
 			break;
 
 		case R3TP_VER2_VER_BYTE:
 
-			WcuXbeeHandleDriverWarning(buffer);
+			if (EWcuRet_Ok == WcuXbeeHandleDriverWarning(buffer)) {
+
+				WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(XbeeDriverWarningMessagesReceived);
+			}
 			break;
 
 		default:
 
+			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(XbeeDroppedMessages);
 			WcuLogError("WcuXbeeHandleR3tpMessage: Unknown protocol version");
 			status = EWcuRet_Error;
 			break;
@@ -375,6 +377,8 @@ static EWcuRet WcuXbeeSendAcknowledge(uint8_t msgId) {
 
 	/* Transmit the frame */
 	WcuXbeeSendData(buffer, R3TP_VER3_FRAME_SIZE);
+
+	WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(XbeeAcknowledgeMessagesSent);
 
 	return status;
 }

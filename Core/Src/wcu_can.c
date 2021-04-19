@@ -9,6 +9,7 @@
 #include "wcu_logger.h"
 #include "wcu_sdio.h"
 #include "wcu_xbee.h"
+#include "wcu_diagnostics.h"
 #include "rt12e_libs_can.h"
 #include "rt12e_libs_r3tp.h"
 #include "stm32f4xx_hal.h"
@@ -50,6 +51,8 @@ void WcuCanHandlePendingMessage(uint32_t fifo) {
 		/* Turn on the LED */
 		SET_PIN(CAN_LED);
 
+		WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(CanMessagesReceived);
+
 		/* Send the telemetry data via XBEE-Pro */
 		(void) WcuXbeeSendTelemetryData(&message);
 
@@ -70,8 +73,12 @@ EWcuRet WcuCanMessageSend(SCanMessage *message) {
 	uint32_t dummy;
 	/* Send the message */
 	if (HAL_OK
-			!= HAL_CAN_AddTxMessage(&hcan1, &message->TxHeader,
+			== HAL_CAN_AddTxMessage(&hcan1, &message->TxHeader,
 					message->PayloadTbl, &dummy)) {
+
+		WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(CanMessagesSent);
+
+	} else {
 
 		WcuLogError("WcuCanMessageSend: Send failed");
 		status = EWcuRet_Error;

@@ -9,6 +9,7 @@
 #include "wcu_can.h"
 #include "wcu_logger.h"
 #include "wcu_events.h"
+#include "wcu_diagnostics.h"
 #include "rt12e_libs_uartringbuffer_rx.h"
 #include "rt12e_libs_generic.h"
 #include "rt12e_libs_can.h"
@@ -18,8 +19,8 @@
 #include <string.h>
 #include <math.h>
 
-#define WCU_GNSS_RING_BUFFER_SIZE   ( (uint32_t) 200 )    /* UART ring buffer size */
-#define WCU_GNSS_PARSE_BUFFER_SIZE  ( (uint32_t) 50 )     /* NMEA parser's internal buffer's size */
+#define WCU_GNSS_RING_BUFFER_SIZE   ( (uint32_t) 4096 )   /* UART ring buffer size */
+#define WCU_GNSS_PARSE_BUFFER_SIZE  ( (uint32_t) 2048 )   /* NMEA parser's internal buffer's size */
 #define WCU_CAN_ID_GPS_POS          ( (uint32_t) 0x500 )  /* CAN ID: _500_GPS_POS */
 #define WCU_CAN_ID_GPS_POS2         ( (uint32_t) 0x501 )  /* CAN ID: _501_GPS_POS2 */
 #define WCU_CAN_ID_GPS_STATUS       ( (uint32_t) 0x502 )  /* CAN ID: _502_GPS_STATUS */
@@ -164,6 +165,8 @@ static EWcuRet WcuGnssHandleNmeaMessage(void) {
 		status = EWcuRet_Error;
 	}
 
+	WCU_DIAGNOSTICS_DATABASE_STORE_IF_GREATER_THAN_CURRENT(GnssLargestBurstRead, bytesRead);
+
 	if (EWcuRet_Ok == status) {
 
 		static SL26ApiGnssData parsedData;
@@ -173,6 +176,8 @@ static EWcuRet WcuGnssHandleNmeaMessage(void) {
 				bytesRead)) {
 
 		case EL26ApiDataStatus_Ready:
+
+			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(GnssNmeaParserDataReadyCount);
 
 			/* Send the data to CAN */
 			WcuGnssSendGpsPos(&parsedData);
@@ -185,10 +190,14 @@ static EWcuRet WcuGnssHandleNmeaMessage(void) {
 
 		case EL26ApiDataStatus_NotReady:
 
+			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(GnssNmeaParserDataNotReadyCount);
+
 			/* If the data is not complete, continue listening */
 			break;
 
 		case EL26ApiDataStatus_Error:
+
+			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(GnssNmeaParserErrorCount);
 
 			WcuLogError("WcuGnssHandleNmeaMessage: Parser failed");
 			status = EWcuRet_Error;

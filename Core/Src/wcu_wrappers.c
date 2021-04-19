@@ -1,7 +1,7 @@
 /**
  * @author Adrian Cinal
- * @file wcu_event_wrappers.c
- * @brief Header file containing wrappers implementation for WCU
+ * @file wcu_wrappers.c
+ * @brief Source file implementing wrappers for the WCU application
  */
 
 #include "wcu_wrappers.h"
@@ -9,17 +9,7 @@
 #include "cmsis_os.h"
 #include <stdint.h>
 
-extern IWDG_HandleTypeDef hiwdg;
 extern CRC_HandleTypeDef hcrc;
-
-/**
- * @brief Reload the IWDG counter
- * @retval None
- */
-void WcuReloadWatchdogCounter(void) {
-
-	(void) HAL_IWDG_Refresh(&hiwdg);
-}
 
 /**
  * @brief Put the current thread to sleep
