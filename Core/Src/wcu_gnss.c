@@ -121,9 +121,22 @@ static EWcuRet WcuGnssDeviceConfig(void) {
 		status = EWcuRet_Error;
 	}
 
+	char PMTK_API_SET_NMEA_OUTPUT[] = "$PMTK314,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0*00\r\n";
+	/* Send packet 314 PMTK_API_SET_NMEA_OUTPUT - set NMEA sentence output frequencies:
+	 * 0 GLL - disable,
+	 * 1 RMC - update once every one position fix,
+	 * 2 VTG - update once every one position fix,
+	 * 3 GGA - update once every one position fix,
+	 * 4 GSA - update once every one position fix,
+	 * 5 GSV - update once every one position fix
+	 */
+	if (EWcuRet_Error == WcuGnssSendCommand(PMTK_API_SET_NMEA_OUTPUT)) {
+
+		status = EWcuRet_Error;
+	}
+
 	return status;
 }
-
 
 /**
  * @brief Send a command to the Quectel L26 device

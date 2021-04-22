@@ -4,29 +4,30 @@
  * @brief L26-DR API source file
  */
 
-#include <l26_api.h>
+#include "l26_api.h"
 #include <string.h>
 
 #define NMEA_PAYLOAD_BEGIN(start)  ( (char*)&( ( (char*)(start) )[7]) )              /* Get the address of the start of the payload */
 #define NMEA_PAYLOAD_LENGTH(sentenceLength) ( (size_t)( (sentenceLength) - 11UL ) )  /* Get payload length */
 #define NMEA_PARSER_SENTENCE_BUFSIZE   ( (uint32_t) 64UL )                           /* Message parser sentence buffer size */
 #define NMEA_PARSER_DATAFIELD_BUFSIZE  ( (uint32_t) 11UL )                           /* Sentence parser data field buffer size */
+#define PMTK_PAYLOAD_BEGIN(start)
+#define PMTK_MESSAGE_ID(start)
 
-#define UNUSED(x)  ( (void) x )  /* Tell the compiler that a variable is purposefully ignored, i.e. not used */
-
+#define UNUSED(x)  ( (void) x )
 #define FOURBITSTOHEXCHAR(x) \
 	( (char)( ( ( (x) & (0x0FU) ) < 0x0AU ) ? ( '0' + ( (x) & 0x0FU ) ) : ( 'A' + ( (x) & 0x0FU ) - 0x0AU ) ) )
 
 /**
  * @brief NMEA parser status typedef
  */
-typedef enum EL26ApiNmeaParserRet {
-	EL26ApiNmeaParserRet_Ok = 0,
-	EL26ApiNmeaParserRet_InvalidFormat,
-	EL26ApiNmeaParserRet_InvalidChecksum,
-	EL26ApiNmeaParserRet_InvalidId,
-	EL26ApiNmeaParserRet_InvalidData
-} EL26ApiNmeaParserRet;
+typedef enum EL26ApiParserRet {
+	EL26ApiParserRet_Ok = 0,
+	EL26ApiParserRet_UnsupportedSentence,
+	EL26ApiParserRet_InvalidFormat,
+	EL26ApiParserRet_InvalidChecksum,
+	EL26ApiParserRet_InvalidData
+} EL26ApiParserRet;
 
 /**
  * @brief --GSV sentence talker ID typedef
@@ -36,24 +37,25 @@ typedef enum EL26ApiGsvTalkerId {
 } EL26ApiGsvTalkerId;
 
 static uint8_t L26ApiGetNmeaChecksum(const char *message, size_t length);
-static EL26ApiNmeaParserRet L26ApiParseNmeaSentence(SL26ApiGnssData *dataBufPtr,
+static EL26ApiParserRet L26ApiParseSentence(SL26ApiGnssData *dataBufPtr,
 		const char *sentencePtr, size_t length);
 static bool L26ApiIsDataComplete(SL26ApiGnssData *dataPtr);
-static EL26ApiNmeaParserRet L26ApiNmeaParseRmcPayload(
-		SL26ApiGnssData *dataBufPtr, const char *pPayload, size_t length);
-static EL26ApiNmeaParserRet L26ApiNmeaParseVtgPayload(
-		SL26ApiGnssData *dataBufPtr, const char *pPayload, size_t length);
-static EL26ApiNmeaParserRet L26ApiNmeaParseGgaPayload(
-		SL26ApiGnssData *dataBufPtr, const char *pPayload, size_t length);
-static EL26ApiNmeaParserRet L26ApiNmeaParseGsaPayload(
-		SL26ApiGnssData *dataBufPtr, const char *pPayload, size_t length);
-static EL26ApiNmeaParserRet L26ApiNmeaParseGsvPayload(
-		SL26ApiGnssData *dataBufPtr, const char *pPayload, size_t length,
-		EL26ApiGsvTalkerId talkerId);
-static EL26ApiNmeaParserRet L26ApiNmeaParseGllPayload(
-		SL26ApiGnssData *dataBufPtr, const char *pPayload, size_t length);
-static EL26ApiNmeaParserRet L26ApiNmeaParseTxtPayload(
-		SL26ApiGnssData *dataBufPtr, const char *pPayload, size_t length);
+static EL26ApiParserRet L26ApiNmeaParseRmcPayload(SL26ApiGnssData *dataBufPtr,
+		const char *pPayload, size_t length);
+static EL26ApiParserRet L26ApiNmeaParseVtgPayload(SL26ApiGnssData *dataBufPtr,
+		const char *pPayload, size_t length);
+static EL26ApiParserRet L26ApiNmeaParseGgaPayload(SL26ApiGnssData *dataBufPtr,
+		const char *pPayload, size_t length);
+static EL26ApiParserRet L26ApiNmeaParseGsaPayload(SL26ApiGnssData *dataBufPtr,
+		const char *pPayload, size_t length);
+static EL26ApiParserRet L26ApiNmeaParseGsvPayload(SL26ApiGnssData *dataBufPtr,
+		const char *pPayload, size_t length, EL26ApiGsvTalkerId talkerId);
+static EL26ApiParserRet L26ApiNmeaParseGllPayload(SL26ApiGnssData *dataBufPtr,
+		const char *pPayload, size_t length);
+static EL26ApiParserRet L26ApiNmeaParseTxtPayload(SL26ApiGnssData *dataBufPtr,
+		const char *pPayload, size_t length);
+static EL26ApiParserRet L26ApiHandlePmtkSentence(const char *pMessage,
+		size_t length);
 
 /**
  * @brief Add an NMEA checksum to the sentence string
@@ -121,8 +123,8 @@ EL26ApiDataStatus L26ApiParseMessage(SL26ApiGnssData *dataBufPtr,
 					&& ('*' == sentenceBuffer[sentenceLength - 5UL])) {
 
 				/* Parse the received sentence */
-				if (EL26ApiNmeaParserRet_Ok
-						!= L26ApiParseNmeaSentence(dataBufPtr, sentenceBuffer,
+				if (EL26ApiParserRet_Ok
+						!= L26ApiParseSentence(dataBufPtr, sentenceBuffer,
 								sentenceLength)) {
 
 					/* Reset the counter */
@@ -157,17 +159,16 @@ static uint8_t L26ApiGetNmeaChecksum(const char *message, size_t length) {
 	}
 
 	return ret;
-
 }
 
 /**
- * @brief Parse an NMEA sentence
+ * @brief Parse an NMEA/PMTK sentence
  * @param[out] dataBufPtr Pointer to the GNSS data structure where the parsed data will be stored
- * @param[in] sentencePtr Pointer to the NMEA sentence
+ * @param[in] sentencePtr Pointer to the NMEA/PMTK sentence
  * @param[in] length Length of the sentence
- * @retval EL26ApiNmeaParserRet Status
+ * @retval EL26ApiParserRet Status
  */
-static EL26ApiNmeaParserRet L26ApiParseNmeaSentence(SL26ApiGnssData *dataBufPtr,
+static EL26ApiParserRet L26ApiParseSentence(SL26ApiGnssData *dataBufPtr,
 		const char *sentencePtr, size_t length) {
 
 	/* Retrieve the message ID */
@@ -186,8 +187,7 @@ static EL26ApiNmeaParserRet L26ApiParseNmeaSentence(SL26ApiGnssData *dataBufPtr,
 	/* Validate the checksum */
 	if (readChecksum != calculatedChecksum) {
 
-		return EL26ApiNmeaParserRet_InvalidChecksum;
-
+		return EL26ApiParserRet_InvalidChecksum;
 	}
 
 	/* Identify the sentence by the message ID */
@@ -197,7 +197,6 @@ static EL26ApiNmeaParserRet L26ApiParseNmeaSentence(SL26ApiGnssData *dataBufPtr,
 		/* Parse the payload */
 		return L26ApiNmeaParseRmcPayload(dataBufPtr,
 				NMEA_PAYLOAD_BEGIN(sentencePtr), NMEA_PAYLOAD_LENGTH(length));
-
 	}
 
 	if (0 == strcmp(messageId, "GPVTG")) {
@@ -205,7 +204,6 @@ static EL26ApiNmeaParserRet L26ApiParseNmeaSentence(SL26ApiGnssData *dataBufPtr,
 		/* Parse the payload */
 		return L26ApiNmeaParseVtgPayload(dataBufPtr,
 				NMEA_PAYLOAD_BEGIN(sentencePtr), NMEA_PAYLOAD_LENGTH(length));
-
 	}
 
 	if (0 == strcmp(messageId, "GPGGA")) {
@@ -213,7 +211,6 @@ static EL26ApiNmeaParserRet L26ApiParseNmeaSentence(SL26ApiGnssData *dataBufPtr,
 		/* Parse the payload */
 		return L26ApiNmeaParseGgaPayload(dataBufPtr,
 				NMEA_PAYLOAD_BEGIN(sentencePtr), NMEA_PAYLOAD_LENGTH(length));
-
 	}
 
 	if ((0 == strcmp(messageId, "GPGSA"))
@@ -222,7 +219,6 @@ static EL26ApiNmeaParserRet L26ApiParseNmeaSentence(SL26ApiGnssData *dataBufPtr,
 		/* Parse the payload */
 		return L26ApiNmeaParseGsaPayload(dataBufPtr,
 				NMEA_PAYLOAD_BEGIN(sentencePtr), NMEA_PAYLOAD_LENGTH(length));
-
 	}
 
 	if (0 == strcmp(messageId, "GLGSV")) {
@@ -231,7 +227,6 @@ static EL26ApiNmeaParserRet L26ApiParseNmeaSentence(SL26ApiGnssData *dataBufPtr,
 		return L26ApiNmeaParseGsvPayload(dataBufPtr,
 				NMEA_PAYLOAD_BEGIN(sentencePtr), NMEA_PAYLOAD_LENGTH(length),
 				EL26ApiGsvTalkerId_GL);
-
 	}
 
 	if (0 == strcmp(messageId, "GPGSV")) {
@@ -240,16 +235,13 @@ static EL26ApiNmeaParserRet L26ApiParseNmeaSentence(SL26ApiGnssData *dataBufPtr,
 		return L26ApiNmeaParseGsvPayload(dataBufPtr,
 				NMEA_PAYLOAD_BEGIN(sentencePtr), NMEA_PAYLOAD_LENGTH(length),
 				EL26ApiGsvTalkerId_GP);
-
 	}
 
-	if ((0 == strcmp(messageId, "GPGLL"))
-			|| (0 == strcmp(messageId, "GNGLL"))) {
+	if (0 == strcmp(messageId, "GPGLL")) {
 
 		/* Parse the payload */
 		return L26ApiNmeaParseGllPayload(dataBufPtr,
 				NMEA_PAYLOAD_BEGIN(sentencePtr), NMEA_PAYLOAD_LENGTH(length));
-
 	}
 
 	if (0 == strcmp(messageId, "GPTXT")) {
@@ -257,11 +249,16 @@ static EL26ApiNmeaParserRet L26ApiParseNmeaSentence(SL26ApiGnssData *dataBufPtr,
 		/* Parse the payload */
 		return L26ApiNmeaParseTxtPayload(dataBufPtr,
 				NMEA_PAYLOAD_BEGIN(sentencePtr), NMEA_PAYLOAD_LENGTH(length));
-
 	}
 
-	return EL26ApiNmeaParserRet_InvalidId;
+	messageId[4] = '\0';
+	if (0 == strcmp(messageId, "PMTK")) {
 
+		/* Handle a PMTK sentence */
+		return L26ApiHandlePmtkSentence(sentencePtr, length);
+	}
+
+	return EL26ApiParserRet_UnsupportedSentence;
 }
 
 /**
@@ -274,9 +271,8 @@ static bool L26ApiIsDataComplete(SL26ApiGnssData *dataPtr) {
 	/* Test if all flags are set */
 	return ((L26API_NMEA_RMC_RECEIVED | L26API_NMEA_VTG_RECEIVED
 			| L26API_NMEA_GGA_RECEIVED | L26API_NMEA_GSA_RECEIVED
-			| L26API_NMEA_GPGSV_RECEIVED | L26API_NMEA_GLGSV_RECEIVED
-			| L26API_NMEA_GLL_RECEIVED) == dataPtr->SentencesReceived);
-
+			| L26API_NMEA_GLGSV_RECEIVED | L26API_NMEA_GPGSV_RECEIVED)
+			== dataPtr->SentencesReceived);
 }
 
 /**
@@ -284,10 +280,10 @@ static bool L26ApiIsDataComplete(SL26ApiGnssData *dataPtr) {
  * @param[out] dataBufPtr Pointer to the GNSS data structure where the parsed data will be stored
  * @param[in] pPayload Pointer to the sentence payload
  * @param[in] length Length of the payload
- * @retval EL26ApiNmeaParserRet Status
+ * @retval EL26ApiParserRet Status
  */
-static EL26ApiNmeaParserRet L26ApiNmeaParseRmcPayload(
-		SL26ApiGnssData *dataBufPtr, const char *pPayload, size_t length) {
+static EL26ApiParserRet L26ApiNmeaParseRmcPayload(SL26ApiGnssData *dataBufPtr,
+		const char *pPayload, size_t length) {
 
 	char dataFieldBuffer[NMEA_PARSER_DATAFIELD_BUFSIZE];
 	size_t bufferIndex = 0;
@@ -304,7 +300,8 @@ static EL26ApiNmeaParserRet L26ApiNmeaParseRmcPayload(
 			bufferIndex += 1UL;
 			/* Test for buffer overflow */
 			if (bufferIndex >= NMEA_PARSER_DATAFIELD_BUFSIZE) {
-				return EL26ApiNmeaParserRet_InvalidFormat;
+
+				return EL26ApiParserRet_InvalidFormat;
 			}
 
 		} else {
@@ -321,8 +318,7 @@ static EL26ApiNmeaParserRet L26ApiNmeaParseRmcPayload(
 
 				if ('A' != dataFieldBuffer[0]) {
 
-					return EL26ApiNmeaParserRet_InvalidData;
-
+					return EL26ApiParserRet_InvalidData;
 				}
 				break;
 
@@ -347,7 +343,7 @@ static EL26ApiNmeaParserRet L26ApiNmeaParseRmcPayload(
 
 				default:
 
-					return EL26ApiNmeaParserRet_InvalidData;
+					return EL26ApiParserRet_InvalidData;
 
 				}
 				break;
@@ -373,8 +369,7 @@ static EL26ApiNmeaParserRet L26ApiNmeaParseRmcPayload(
 
 				default:
 
-					return EL26ApiNmeaParserRet_InvalidData;
-
+					return EL26ApiParserRet_InvalidData;
 				}
 				break;
 
@@ -386,7 +381,6 @@ static EL26ApiNmeaParserRet L26ApiNmeaParseRmcPayload(
 			default: /* Ignore all other fields */
 
 				break;
-
 			}
 
 			/* Clear the buffer */
@@ -396,14 +390,12 @@ static EL26ApiNmeaParserRet L26ApiNmeaParseRmcPayload(
 			bufferIndex = 0;
 			/* Increment the number of the data field */
 			dataFieldNumber += 1U;
-
 		}
 	}
 
 	/* Set the flag */
 	dataBufPtr->SentencesReceived |= L26API_NMEA_RMC_RECEIVED;
-	return EL26ApiNmeaParserRet_Ok;
-
+	return EL26ApiParserRet_Ok;
 }
 
 /**
@@ -411,10 +403,10 @@ static EL26ApiNmeaParserRet L26ApiNmeaParseRmcPayload(
  * @param[out] dataBufPtr Pointer to the GNSS data structure where the parsed data will be stored
  * @param[in] pPayload Pointer to the sentence payload
  * @param[in] length Length of the payload
- * @retval EL26ApiNmeaParserRet Status
+ * @retval EL26ApiParserRet Status
  */
-static EL26ApiNmeaParserRet L26ApiNmeaParseVtgPayload(
-		SL26ApiGnssData *dataBufPtr, const char *pPayload, size_t length) {
+static EL26ApiParserRet L26ApiNmeaParseVtgPayload(SL26ApiGnssData *dataBufPtr,
+		const char *pPayload, size_t length) {
 
 	char dataFieldBuffer[NMEA_PARSER_DATAFIELD_BUFSIZE]; /* Buffer for the data field */
 	size_t bufferIndex = 0; /* Buffer index */
@@ -433,8 +425,7 @@ static EL26ApiNmeaParserRet L26ApiNmeaParseVtgPayload(
 			/* Test for buffer overflow */
 			if (bufferIndex >= NMEA_PARSER_DATAFIELD_BUFSIZE) {
 
-				return EL26ApiNmeaParserRet_InvalidFormat;
-
+				return EL26ApiParserRet_InvalidFormat;
 			}
 
 		} else {
@@ -455,7 +446,6 @@ static EL26ApiNmeaParserRet L26ApiNmeaParseVtgPayload(
 			default: /* Ignore all other fields */
 
 				break;
-
 			}
 
 			/* Clear the buffer */
@@ -465,15 +455,12 @@ static EL26ApiNmeaParserRet L26ApiNmeaParseVtgPayload(
 			bufferIndex = 0;
 			/* Increment the number of the data field */
 			dataFieldNumber += 1U;
-
 		}
-
 	}
 
 	/* Set the flag */
 	dataBufPtr->SentencesReceived |= L26API_NMEA_VTG_RECEIVED;
-	return EL26ApiNmeaParserRet_Ok;
-
+	return EL26ApiParserRet_Ok;
 }
 
 /**
@@ -481,10 +468,10 @@ static EL26ApiNmeaParserRet L26ApiNmeaParseVtgPayload(
  * @param[out] dataBufPtr Pointer to the GNSS data structure where the parsed data will be stored
  * @param[in] pPayload Pointer to the sentence payload
  * @param[in] length Length of the payload
- * @retval EL26ApiNmeaParserRet Status
+ * @retval EL26ApiParserRet Status
  */
-static EL26ApiNmeaParserRet L26ApiNmeaParseGgaPayload(
-		SL26ApiGnssData *dataBufPtr, const char *pPayload, size_t length) {
+static EL26ApiParserRet L26ApiNmeaParseGgaPayload(SL26ApiGnssData *dataBufPtr,
+		const char *pPayload, size_t length) {
 
 	char dataFieldBuffer[NMEA_PARSER_DATAFIELD_BUFSIZE]; /* Buffer for the data field */
 	size_t bufferIndex = 0; /* Buffer index */
@@ -503,8 +490,7 @@ static EL26ApiNmeaParserRet L26ApiNmeaParseGgaPayload(
 			/* Test for buffer overflow */
 			if (bufferIndex >= NMEA_PARSER_DATAFIELD_BUFSIZE) {
 
-				return EL26ApiNmeaParserRet_InvalidFormat;
-
+				return EL26ApiParserRet_InvalidFormat;
 			}
 
 		} else {
@@ -526,7 +512,6 @@ static EL26ApiNmeaParserRet L26ApiNmeaParseGgaPayload(
 			default: /* Ignore all other fields */
 
 				break;
-
 			}
 
 			/* Clear the buffer */
@@ -536,15 +521,12 @@ static EL26ApiNmeaParserRet L26ApiNmeaParseGgaPayload(
 			bufferIndex = 0;
 			/* Increment the number of the data field */
 			dataFieldNumber += 1U;
-
 		}
-
 	}
 
 	/* Set the flag */
 	dataBufPtr->SentencesReceived |= L26API_NMEA_GGA_RECEIVED;
-	return EL26ApiNmeaParserRet_Ok;
-
+	return EL26ApiParserRet_Ok;
 }
 
 /**
@@ -552,10 +534,10 @@ static EL26ApiNmeaParserRet L26ApiNmeaParseGgaPayload(
  * @param[out] dataBufPtr Pointer to the GNSS data structure where the parsed data will be stored
  * @param[in] pPayload Pointer to the sentence payload
  * @param[in] length Length of the payload
- * @retval EL26ApiNmeaParserRet Status
+ * @retval EL26ApiParserRet Status
  */
-static EL26ApiNmeaParserRet L26ApiNmeaParseGsaPayload(
-		SL26ApiGnssData *dataBufPtr, const char *pPayload, size_t length) {
+static EL26ApiParserRet L26ApiNmeaParseGsaPayload(SL26ApiGnssData *dataBufPtr,
+		const char *pPayload, size_t length) {
 
 	char dataFieldBuffer[NMEA_PARSER_DATAFIELD_BUFSIZE]; /* Buffer for the data field */
 	size_t bufferIndex = 0; /* Buffer index */
@@ -574,8 +556,7 @@ static EL26ApiNmeaParserRet L26ApiNmeaParseGsaPayload(
 			/* Test for buffer overflow */
 			if (bufferIndex >= NMEA_PARSER_DATAFIELD_BUFSIZE) {
 
-				return EL26ApiNmeaParserRet_InvalidFormat;
-
+				return EL26ApiParserRet_InvalidFormat;
 			}
 
 		} else {
@@ -604,8 +585,7 @@ static EL26ApiNmeaParserRet L26ApiNmeaParseGsaPayload(
 
 				default:
 
-					return EL26ApiNmeaParserRet_InvalidData;
-
+					return EL26ApiParserRet_InvalidData;
 				}
 				break;
 
@@ -622,14 +602,12 @@ static EL26ApiNmeaParserRet L26ApiNmeaParseGsaPayload(
 			bufferIndex = 0;
 			/* Increment the number of the data field */
 			dataFieldNumber += 1U;
-
 		}
-
 	}
 
 	/* Set the flag */
 	dataBufPtr->SentencesReceived |= L26API_NMEA_GSA_RECEIVED;
-	return EL26ApiNmeaParserRet_Ok;
+	return EL26ApiParserRet_Ok;
 
 }
 
@@ -639,11 +617,10 @@ static EL26ApiNmeaParserRet L26ApiNmeaParseGsaPayload(
  * @param[in] pPayload Pointer to the sentence payload
  * @param[in] length Length of the payload
  * @param[in] talkerId The --GSV sentence talker ID
- * @retval EL26ApiNmeaParserRet Status
+ * @retval EL26ApiParserRet Status
  */
-static EL26ApiNmeaParserRet L26ApiNmeaParseGsvPayload(
-		SL26ApiGnssData *dataBufPtr, const char *pPayload, size_t length,
-		EL26ApiGsvTalkerId talkerId) {
+static EL26ApiParserRet L26ApiNmeaParseGsvPayload(SL26ApiGnssData *dataBufPtr,
+		const char *pPayload, size_t length, EL26ApiGsvTalkerId talkerId) {
 
 	char dataFieldBuffer[NMEA_PARSER_DATAFIELD_BUFSIZE]; /* Buffer for the data field */
 	size_t bufferIndex = 0; /* Buffer index */
@@ -662,8 +639,7 @@ static EL26ApiNmeaParserRet L26ApiNmeaParseGsvPayload(
 			/* Test for buffer overflow */
 			if (bufferIndex >= NMEA_PARSER_DATAFIELD_BUFSIZE) {
 
-				return EL26ApiNmeaParserRet_InvalidFormat;
-
+				return EL26ApiParserRet_InvalidFormat;
 			}
 
 		} else {
@@ -691,7 +667,7 @@ static EL26ApiNmeaParserRet L26ApiNmeaParseGsvPayload(
 
 				default:
 
-					return EL26ApiNmeaParserRet_InvalidData;
+					return EL26ApiParserRet_InvalidData;
 
 				}
 				break;
@@ -699,7 +675,6 @@ static EL26ApiNmeaParserRet L26ApiNmeaParseGsvPayload(
 			default: /* Ignore all other fields */
 
 				break;
-
 			}
 
 			/* Clear the buffer */
@@ -709,9 +684,7 @@ static EL26ApiNmeaParserRet L26ApiNmeaParseGsvPayload(
 			bufferIndex = 0;
 			/* Increment the number of the data field */
 			dataFieldNumber += 1U;
-
 		}
-
 	}
 
 	/* Set the flag */
@@ -729,12 +702,10 @@ static EL26ApiNmeaParserRet L26ApiNmeaParseGsvPayload(
 
 	default:
 
-		return EL26ApiNmeaParserRet_InvalidData;
-
+		break;
 	}
 
-	return EL26ApiNmeaParserRet_Ok;
-
+	return EL26ApiParserRet_Ok;
 }
 
 /**
@@ -742,20 +713,17 @@ static EL26ApiNmeaParserRet L26ApiNmeaParseGsvPayload(
  * @param[out] dataBufPtr Pointer to the GNSS data structure where the parsed data will be stored
  * @param[in] pPayload Pointer to the sentence payload
  * @param[in] length Length of the payload
- * @retval EL26ApiNmeaParserRet Status
+ * @retval EL26ApiParserRet Status
  */
-static EL26ApiNmeaParserRet L26ApiNmeaParseGllPayload(
-		SL26ApiGnssData *dataBufPtr, const char *pPayload, size_t length) {
+static EL26ApiParserRet L26ApiNmeaParseGllPayload(SL26ApiGnssData *dataBufPtr,
+		const char *pPayload, size_t length) {
 
-	/* Message not used */
+	/* Ignore the message */
 	UNUSED(dataBufPtr);
 	UNUSED(pPayload);
 	UNUSED(length);
 
-	/* Set the flag */
-	dataBufPtr->SentencesReceived |= L26API_NMEA_GLL_RECEIVED;
-	return EL26ApiNmeaParserRet_Ok;
-
+	return EL26ApiParserRet_Ok;
 }
 
 /**
@@ -763,18 +731,31 @@ static EL26ApiNmeaParserRet L26ApiNmeaParseGllPayload(
  * @param[out] dataBufPtr Pointer to the GNSS data structure where the parsed data will be stored
  * @param[in] pPayload Pointer to the sentence payload
  * @param[in] length Length of the payload
- * @retval EL26ApiNmeaParserRet Status
+ * @retval EL26ApiParserRet Status
  */
-static EL26ApiNmeaParserRet L26ApiNmeaParseTxtPayload(
-		SL26ApiGnssData *dataBufPtr, const char *pPayload, size_t length) {
+static EL26ApiParserRet L26ApiNmeaParseTxtPayload(SL26ApiGnssData *dataBufPtr,
+		const char *pPayload, size_t length) {
 
-	/* Message not used */
+	/* Ignore the message */
 	UNUSED(dataBufPtr);
 	UNUSED(pPayload);
 	UNUSED(length);
 
-	/* Set the flag */
-	dataBufPtr->SentencesReceived |= L26API_NMEA_TXT_RECEIVED;
-	return EL26ApiNmeaParserRet_Ok;
+	return EL26ApiParserRet_Ok;
+}
 
+/**
+ * @brief Handle a PMTK sentence
+ * @param[in] pMessage Pointer to the PMTK sentence
+ * @param[in] length Length of the payload
+ * @retval EL26ApiParserRet Status
+ */
+static EL26ApiParserRet L26ApiHandlePmtkSentence(const char *pMessage,
+		size_t length) {
+
+	/* Ignore the message */
+	UNUSED(pMessage);
+	UNUSED(length);
+
+	return EL26ApiParserRet_Ok;
 }
