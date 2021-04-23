@@ -98,7 +98,7 @@ static EWcuRet WcuBtForwardWdtsMessageToCan(void) {
 		if (R3TP_VER0_FRAME_SIZE != bytesRead) {
 
 			WcuLogError("WcuBtForwardWdtsMessageToCan: Invalid number of bytes received");
-			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(BtDroppedMessages);
+			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(BtMessagesDropped);
 			status = EWcuRet_Error;
 		}
 	}
@@ -109,7 +109,7 @@ static EWcuRet WcuBtForwardWdtsMessageToCan(void) {
 		if (R3TP_VER0_VER_BYTE != R3TP_PROTOCOL_VERSION(buffer)) {
 
 			WcuLogError("WcuBtForwardWdtsMessageToCan: Unknown protocol version");
-			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(BtDroppedMessages);
+			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(BtMessagesDropped);
 			status = EWcuRet_Error;
 		}
 	}
@@ -120,7 +120,7 @@ static EWcuRet WcuBtForwardWdtsMessageToCan(void) {
 		if (!R3TP_VALID_END_SEQ(buffer, R3TP_VER0_FRAME_SIZE)) {
 
 			WcuLogError("WcuBtForwardWdtsMessageToCan: Invalid end sequence");
-			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(BtDroppedMessages);
+			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(BtMessagesDropped);
 			status = EWcuRet_Error;
 		}
 	}
@@ -141,7 +141,7 @@ static EWcuRet WcuBtForwardWdtsMessageToCan(void) {
 		if (readCrc != calculatedCrc) {
 
 			WcuLogError("WcuBtForwardWdtsMessageToCan: Invalid CRC");
-			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(BtDroppedMessages);
+			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(BtMessagesDropped);
 			status = EWcuRet_Error;
 		}
 	}
@@ -157,7 +157,7 @@ static EWcuRet WcuBtForwardWdtsMessageToCan(void) {
 		if (CAN_MAX_PAYLOAD_SIZE < canMessage.TxHeader.DLC) {
 
 			WcuLogError("WcuBtForwardWdtsMessageToCan: Invalid DLC");
-			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(BtDroppedMessages);
+			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(BtMessagesDropped);
 			status = EWcuRet_Error;
 		}
 	}

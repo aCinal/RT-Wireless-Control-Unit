@@ -329,7 +329,7 @@ static EWcuRet WcuXbeeHandleR3tpMessage(void) {
 
 		default:
 
-			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(XbeeDroppedMessages);
+			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(XbeeMessagesDropped);
 			WcuLogError("WcuXbeeHandleR3tpMessage: Unknown protocol version");
 			status = EWcuRet_Error;
 			break;

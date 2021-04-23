@@ -15,6 +15,7 @@
 #include "wcu_gnss.h"
 #include "wcu_watchdog.h"
 #include "wcu_diagnostics.h"
+#include "wcu_timers.h"
 #include "cmsis_os.h"
 #include "rt12e_libs_uartringbuffer_tx.h"
 
@@ -22,7 +23,8 @@ extern QueueHandle_t wcuEventQueueHandle;
 
 static void WcuRunDispatcher(void);
 static SWcuEvent WcuEventReceive(void);
-static void WcuEventDispatch(SWcuEvent event);
+static void WcuEventDispatch(const SWcuEvent *event);
+static void WcuEventDispatchTimerEvent(const SWcuEvent *event);
 
 /**
  * @brief  Function implementing the EventDispatcher thread.
@@ -93,7 +95,7 @@ static void WcuRunDispatcher(void) {
 		/* Block on the event queue */
 		SWcuEvent event = WcuEventReceive();
 		/* Dispatch the received event */
-		WcuEventDispatch(event);
+		WcuEventDispatch(&event);
 		WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(EventsDispatched);
 	}
 }
@@ -116,9 +118,9 @@ static SWcuEvent WcuEventReceive(void) {
  * @param event Received event
  * @retval None
  */
-static void WcuEventDispatch(SWcuEvent event) {
+static void WcuEventDispatch(const SWcuEvent *event) {
 
-	switch (event.signal) {
+	switch (event->signal) {
 
 	case EWcuEventType_AdcConversionComplete:
 
@@ -133,14 +135,9 @@ static void WcuEventDispatch(SWcuEvent event) {
 	case EWcuEventType_CanRxMessagePending:
 
 	{
-		uint32_t fifo = *(uint32_t*) event.param;
+		uint32_t fifo = *(uint32_t*) event->param;
 		WcuCanHandlePendingMessage(fifo);
 	}
-		break;
-
-	case EWcuEventType_DiagnosticsTimerExpired:
-
-		WcuDiagnosticsHandleTimerExpired();
 		break;
 
 	case EWcuEventType_GnssRxMessagePending:
@@ -151,7 +148,7 @@ static void WcuEventDispatch(SWcuEvent event) {
 	case EWcuEventType_LogEntryPending:
 
 	{
-		char *logEntry = (char*) event.param;
+		char *logEntry = (char*) event->param;
 		WcuLoggerCommitEntry(logEntry);
 	}
 		break;
@@ -159,18 +156,13 @@ static void WcuEventDispatch(SWcuEvent event) {
 	case EWcuEventType_UartTxMessagePending:
 
 	{
-		SUartTxRb *rb = (SUartTxRb*) event.param;
+		SUartTxRb *rb = (SUartTxRb*) event->param;
 		if (EUartTxRbRet_Again == UartTxRbSend(rb)) {
 
 			/* If the UART is busy, enqueue the event again */
-			WcuEventSend(event.signal, event.param);
+			WcuEventSend(event->signal, event->param);
 		}
 	}
-		break;
-
-	case EWcuEventType_WatchdogTimerExpired:
-
-		WcuWatchdogReload();
 		break;
 
 	case EWcuEventType_XbeeRxMessagePending:
@@ -178,14 +170,42 @@ static void WcuEventDispatch(SWcuEvent event) {
 		WcuXbeeHandlePendingRxMessage();
 		break;
 
-	case EWcuEventType_XbeeStatusTimerExpired:
+	case EWcuEventType_TimerExpired:
 
-		WcuXbeeHandleTimerExpired();
+		WcuEventDispatchTimerEvent(event);
 		break;
 
 	default:
 
 		WcuLogError("WcuEventDispatch: Unknown event received");
 		break;
+	}
+}
+
+/**
+ * @brief Dispatch the received timer event to the relevant handler
+ * @param event Timer event
+ * @retval None
+ */
+static void WcuEventDispatchTimerEvent(const SWcuEvent *event) {
+
+	if (WCU_XBEE_STATUS_TIMER == WCU_EVENT_TIMER_INSTANCE(event->param)) {
+
+		WcuXbeeHandleTimerExpired();
+
+	} else if (WCU_WATCHDOG_RELOAD_TIMER
+			== WCU_EVENT_TIMER_INSTANCE(event->param)) {
+
+		WcuWatchdogReload();
+
+	} else if (WCU_DIAGNOSTICS_SELFCHECK_TIMER
+			== WCU_EVENT_TIMER_INSTANCE(event->param)) {
+
+		WcuDiagnosticsStartSelfCheck();
+
+	} else if (WCU_DIAGNOSTICS_SNAPSHOT_TIMER
+			== WCU_EVENT_TIMER_INSTANCE(event->param)) {
+
+		WcuDiagnosticsLogDatabaseSnapshot();
 	}
 }

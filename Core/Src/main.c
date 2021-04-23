@@ -65,6 +65,7 @@ TIM_HandleTypeDef htim7;
 TIM_HandleTypeDef htim10;
 TIM_HandleTypeDef htim11;
 TIM_HandleTypeDef htim13;
+TIM_HandleTypeDef htim14;
 
 UART_HandleTypeDef huart4;
 UART_HandleTypeDef huart1;
@@ -99,6 +100,7 @@ static void MX_TIM7_Init(void);
 static void MX_TIM10_Init(void);
 static void MX_TIM11_Init(void);
 static void MX_TIM13_Init(void);
+static void MX_TIM14_Init(void);
 void DispatcherEntryPoint(void const *argument);
 
 /* USER CODE BEGIN PFP */
@@ -153,6 +155,7 @@ int main(void) {
 	MX_TIM10_Init();
 	MX_TIM11_Init();
 	MX_TIM13_Init();
+	MX_TIM14_Init();
 	/* USER CODE BEGIN 2 */
 
 	/* USER CODE END 2 */
@@ -564,6 +567,35 @@ static void MX_TIM13_Init(void) {
 }
 
 /**
+ * @brief TIM14 Initialization Function
+ * @param None
+ * @retval None
+ */
+static void MX_TIM14_Init(void) {
+
+	/* USER CODE BEGIN TIM14_Init 0 */
+
+	/* USER CODE END TIM14_Init 0 */
+
+	/* USER CODE BEGIN TIM14_Init 1 */
+
+	/* USER CODE END TIM14_Init 1 */
+	htim14.Instance = TIM14;
+	htim14.Init.Prescaler = 79;
+	htim14.Init.CounterMode = TIM_COUNTERMODE_UP;
+	htim14.Init.Period = 41999;
+	htim14.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+	htim14.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+	if (HAL_TIM_Base_Init(&htim14) != HAL_OK) {
+		Error_Handler();
+	}
+	/* USER CODE BEGIN TIM14_Init 2 */
+
+	/* USER CODE END TIM14_Init 2 */
+
+}
+
+/**
  * @brief UART4 Initialization Function
  * @param None
  * @retval None
@@ -878,17 +910,9 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 	}
 	/* USER CODE BEGIN Callback 1 */
 
-	else if (TIM7 == htim->Instance) {
+	else {
 
-		WcuEventSend(EWcuEventType_XbeeStatusTimerExpired, NULL);
-
-	} else if (TIM11 == htim->Instance) {
-
-		WcuEventSend(EWcuEventType_DiagnosticsTimerExpired, NULL);
-
-	} else if (TIM13 == htim->Instance) {
-
-		WcuEventSend(EWcuEventType_WatchdogTimerExpired, NULL);
+		WcuEventSend(EWcuEventType_TimerExpired, htim);
 	}
 
 	/* USER CODE END Callback 1 */

@@ -18,16 +18,15 @@ typedef struct SWcuDiagnosticsDatabase {
 	uint32_t CanMessagesReceived;
 	uint32_t CanMessagesSent;
 	uint32_t BtMessagesForwarded;
-	uint32_t BtDroppedMessages;
-	uint32_t GnssNmeaParserErrorCount;
-	uint32_t GnssNmeaParserDataReadyCount;
-	uint32_t GnssNmeaParserDataNotReadyCount;
-	uint32_t GnssLargestBurstRead;
+	uint32_t BtMessagesDropped;
+	uint32_t GnssParserErrorCount;
+	uint32_t GnssParserDataReadyCount;
+	uint32_t GnssParserDataNotReadyCount;
 	uint32_t XbeeTelemetryMessagesSent;
 	uint32_t XbeeAcknowledgeMessagesSent;
 	uint32_t XbeeDriverWarningMessagesReceived;
 	uint32_t XbeeNewSubscriptionMessagesReceived;
-	uint32_t XbeeDroppedMessages;
+	uint32_t XbeeMessagesDropped;
 	uint32_t LoggerEntriesQueued;
 	uint32_t LoggerEntriesCommitted;
 	uint32_t WatchdogRefreshCount;
@@ -36,8 +35,6 @@ typedef struct SWcuDiagnosticsDatabase {
 extern SWcuDiagnosticsDatabase g_WcuDiagnosticsDatabase;
 
 #define WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(COUNTER)  (g_WcuDiagnosticsDatabase.COUNTER++)
-#define WCU_DIAGNOSTICS_DATABASE_STORE_IF_GREATER_THAN_CURRENT(FIELD, VALUE) \
-	(g_WcuDiagnosticsDatabase.FIELD = ( (VALUE) > g_WcuDiagnosticsDatabase.FIELD ) ? (VALUE) : g_WcuDiagnosticsDatabase.FIELD )
 
 /**
  * @brief Diagnostic service startup
@@ -46,15 +43,21 @@ extern SWcuDiagnosticsDatabase g_WcuDiagnosticsDatabase;
 void WcuDiagnosticsStartup(void);
 
 /**
- * @brief Handle the timer expired event
+ * @brief Initiate the self-check
  * @retval None
  */
-void WcuDiagnosticsHandleTimerExpired(void);
+void WcuDiagnosticsStartSelfCheck(void);
 
 /**
  * @brief Handle the ADC conversion complete event
  * @retval None
  */
 void WcuDiagnosticsHandleAdcConversionComplete(void);
+
+/**
+ * @brief Log runtime database snapshot
+ * @retval None
+ */
+void WcuDiagnosticsLogDatabaseSnapshot(void);
 
 #endif /* __WCU_DIAGNOSTICS_H_ */

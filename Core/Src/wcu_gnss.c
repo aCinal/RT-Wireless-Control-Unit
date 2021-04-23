@@ -178,8 +178,6 @@ static EWcuRet WcuGnssHandleNmeaMessage(void) {
 		status = EWcuRet_Error;
 	}
 
-	WCU_DIAGNOSTICS_DATABASE_STORE_IF_GREATER_THAN_CURRENT(GnssLargestBurstRead, bytesRead);
-
 	if (EWcuRet_Ok == status) {
 
 		static SL26ApiGnssData parsedData;
@@ -190,7 +188,7 @@ static EWcuRet WcuGnssHandleNmeaMessage(void) {
 
 		case EL26ApiDataStatus_Ready:
 
-			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(GnssNmeaParserDataReadyCount);
+			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(GnssParserDataReadyCount);
 
 			/* Send the data to CAN */
 			WcuGnssSendGpsPos(&parsedData);
@@ -203,14 +201,14 @@ static EWcuRet WcuGnssHandleNmeaMessage(void) {
 
 		case EL26ApiDataStatus_NotReady:
 
-			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(GnssNmeaParserDataNotReadyCount);
+			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(GnssParserDataNotReadyCount);
 
 			/* If the data is not complete, continue listening */
 			break;
 
 		case EL26ApiDataStatus_Error:
 
-			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(GnssNmeaParserErrorCount);
+			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(GnssParserErrorCount);
 
 			WcuLogError("WcuGnssHandleNmeaMessage: Parser failed");
 			status = EWcuRet_Error;

@@ -38,13 +38,11 @@ typedef enum EWcuEventType {
     EWcuEventType_AdcConversionComplete = 0,
     EWcuEventType_BtRxMessagePending,
     EWcuEventType_CanRxMessagePending,
-    EWcuEventType_DiagnosticsTimerExpired,
+	EWcuEventType_TimerExpired,
     EWcuEventType_GnssRxMessagePending,
 	EWcuEventType_LogEntryPending,
 	EWcuEventType_UartTxMessagePending,
-	EWcuEventType_WatchdogTimerExpired,
     EWcuEventType_XbeeRxMessagePending,
-    EWcuEventType_XbeeStatusTimerExpired,
 } EWcuEventType;
 
 /**
