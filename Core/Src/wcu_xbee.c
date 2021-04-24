@@ -399,6 +399,7 @@ static EWcuRet WcuXbeeHandleNewSubscription(uint8_t *r3tpMessage) {
 	/* Assert the payload won't overflow the buffer */
 	if (numOfFrames > R3TP_VER1_MAX_FRAME_NUM) {
 
+		WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(XbeeMessagesDropped);
 		WcuLogError("WcuXbeeHandleNewSubscription: Invalid frame number");
 		status = EWcuRet_Error;
 	}
@@ -409,6 +410,7 @@ static EWcuRet WcuXbeeHandleNewSubscription(uint8_t *r3tpMessage) {
 		if (!R3TP_VALID_END_SEQ(r3tpMessage,
 				R3TP_VER1_MESSAGE_LENGTH(numOfFrames))) {
 
+			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(XbeeMessagesDropped);
 			WcuLogError("WcuXbeeHandleNewSubscription: Invalid end sequence");
 			status = EWcuRet_Error;
 		}
@@ -431,6 +433,7 @@ static EWcuRet WcuXbeeHandleNewSubscription(uint8_t *r3tpMessage) {
 		if (readCrc != calculatedCrc) {
 
 			/* Log the error */
+			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(XbeeMessagesDropped);
 			WcuLogError("WcuXbeeHandleNewSubscription: Invalid CRC");
 			status = EWcuRet_Error;
 		}
@@ -475,6 +478,7 @@ static EWcuRet WcuXbeeHandleDriverWarning(uint8_t *r3tpMessage) {
 	/* Validate the END SEQ */
 	if (!R3TP_VALID_END_SEQ(r3tpMessage, R3TP_VER2_FRAME_SIZE)) {
 
+		WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(XbeeMessagesDropped);
 		WcuLogError("WcuXbeeHandleDriverWarning: Invalid end sequence");
 		status = EWcuRet_Error;
 	}
@@ -495,6 +499,7 @@ static EWcuRet WcuXbeeHandleDriverWarning(uint8_t *r3tpMessage) {
 		/* Validate the CRC */
 		if (readCrc != calculatedCrc) {
 
+			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(XbeeMessagesDropped);
 			WcuLogError("WcuXbeeHandleDriverWarning: Invalid CRC");
 			status = EWcuRet_Error;
 		}
@@ -521,7 +526,7 @@ static EWcuRet WcuXbeeHandleDriverWarning(uint8_t *r3tpMessage) {
 
 		default:
 
-			WcuLogInfo("WcuXbeeHandleDriverWarning: Unrecognized warning byte");
+			WcuLogError("WcuXbeeHandleDriverWarning: Unrecognized warning byte");
 			status = EWcuRet_Error;
 			break;
 		}
@@ -594,11 +599,12 @@ static EWcuRet WcuXbeeStoreNewSubscription(uint32_t *ids, uint32_t numOfFrames) 
 static void WcuXbeeSendData(uint8_t *data, uint32_t len) {
 
 	/* Write the data into the ring buffer */
-	(void) UartTxRbWrite(&g_WcuXbeeTxRingBuffer, data, len);
+	if (EUartTxRbRet_Ok == UartTxRbWrite(&g_WcuXbeeTxRingBuffer, data, len)) {
 
-	/* Tell the dispatcher to initiate transmission */
-	(void) WcuEventSend(EWcuEventType_UartTxMessagePending,
-			&g_WcuXbeeTxRingBuffer);
+		/* Tell the dispatcher to initiate transmission */
+		(void) WcuEventSend(EWcuEventType_UartTxMessagePending,
+				&g_WcuXbeeTxRingBuffer);
+	}
 }
 
 /**

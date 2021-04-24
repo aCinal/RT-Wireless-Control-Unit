@@ -306,12 +306,14 @@ EUartTxRbRet UartTxRbGetFreeSpace(SUartTxRb *rb, size_t *freeSpace) {
 	if (EUartTxRbRet_Ok == status) {
 
 		/* Test if the ring buffer has overflowed */
-		if (rb->Head > rb->Tail) {
+		if (rb->Head > rb->Tail || (rb->Head == rb->Tail && rb->Dirty == false)) {
 
+			/* If the head pointer is farther into the buffer than the tail pointer or if the buffer is empty */
 			*freeSpace = rb->BufferSize - (rb->Head - rb->Tail);
 
 		} else {
 
+			/* If the head pointer is behind the tail pointer (or in the same position, i.e. the buffer is full) */
 			*freeSpace = rb->Tail - rb->Head;
 		}
 	}
