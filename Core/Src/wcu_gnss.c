@@ -33,6 +33,7 @@ static EWcuRet WcuGnssRxRingBufferInit(void);
 static EWcuRet WcuGnssDeviceConfig(void);
 static EWcuRet WcuGnssSendCommand(char* command);
 static EWcuRet WcuGnssHandleNmeaMessage(void);
+static void WcuGnssSendDataToCan(SL26ApiGnssData *data);
 static EWcuRet WcuGnssSendGpsPos(SL26ApiGnssData *data);
 static EWcuRet WcuGnssSendGpsPos2(SL26ApiGnssData *data);
 static EWcuRet WcuGnssSendGpsStatus(SL26ApiGnssData *data);
@@ -191,9 +192,7 @@ static EWcuRet WcuGnssHandleNmeaMessage(void) {
 			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(GnssParserDataReadyCount);
 
 			/* Send the data to CAN */
-			WcuGnssSendGpsPos(&parsedData);
-			WcuGnssSendGpsPos2(&parsedData);
-			WcuGnssSendGpsStatus(&parsedData);
+			WcuGnssSendDataToCan(&parsedData);
 
 			/* Clear the data buffer */
 			(void) memset(&parsedData, 0, sizeof(parsedData));
@@ -221,6 +220,18 @@ static EWcuRet WcuGnssHandleNmeaMessage(void) {
 	}
 
 	return status;
+}
+
+/**
+ * @brief Send parsed GNSS data to the CAN bus
+ * @param data Parsed GNSS data
+ * @retval None
+ */
+static void WcuGnssSendDataToCan(SL26ApiGnssData *data) {
+
+	(void) WcuGnssSendGpsPos(data);
+	(void) WcuGnssSendGpsPos2(data);
+	(void) WcuGnssSendGpsStatus(data);
 }
 
 /**

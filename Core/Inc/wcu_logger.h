@@ -35,6 +35,12 @@
 /* Public functions prototypes -------------------------------------------------------------------------- */
 
 /**
+ * @brief Logger service startup
+ * @retval None
+ */
+void WcuLoggerStartup(void);
+
+/**
  * @brief Log an error message
  * @param severityLevel Severity level
  * @param messagePayloadTbl Error message
@@ -43,10 +49,9 @@
 void WcuLoggerPrint(EWcuLogSeverityLevel severityLevel, const char *messagePayloadTbl);
 
 /**
- * @brief Commit a log entry to the SD card or to the serial port
- * @param log Log entry
+ * @brief Flush the ringbuffer, thereby committing log entries to the SD card or to the serial port
  * @retval None
  */
-void WcuLoggerCommitEntry(char* log);
+void WcuLoggerFlushRingBuffer(void);
 
 #endif /* __WCU_LOGGER_H_ */

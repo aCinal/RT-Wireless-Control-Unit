@@ -13,8 +13,8 @@
 #include <stdint.h>
 
 /* Exported defines -------------------------------------------------------------------------- */
-#define WCU_LOG_PATH                     ("runtime.log")
-#define WCU_TELEMETRY_SUBSCRIPTION_PATH  ("subscription.txt")
+#define WCU_LOG_PATH                     ("RUNTIME.LOG")
+#define WCU_TELEMETRY_SUBSCRIPTION_PATH  ("SUBSCRIPTION.TXT")
 
 /* Exported variables -------------------------------------------------------------------------- */
 extern bool g_WcuSdioReady;

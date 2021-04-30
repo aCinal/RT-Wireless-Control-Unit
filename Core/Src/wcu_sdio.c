@@ -12,7 +12,6 @@
 static FATFS g_Filesystem;
 bool g_WcuSdioReady = false;
 #if !WCU_REDIRECT_LOGS_TO_SERIAL_PORT
-bool g_WcuLoggerReady = false;
 FIL g_WcuLogfileFd;
 #endif /* !WCU_REDIRECT_LOGS_TO_SERIAL_PORT */
 
@@ -27,18 +26,6 @@ void WcuSdioStartup(void) {
 
 		g_WcuSdioReady = true;
 	}
-
-#if !WCU_REDIRECT_LOGS_TO_SERIAL_PORT
-	if (g_WcuSdioReady) {
-
-		/* Open the logfile for writing in append mode */
-		if (EWcuRet_Ok == WcuSdioFileOpen(&g_WcuLogfileFd, WCU_LOG_PATH,
-		FA_WRITE | FA_OPEN_APPEND)) {
-
-			g_WcuLoggerReady = true;
-		}
-	}
-#endif /* !WCU_REDIRECT_LOGS_TO_SERIAL_PORT */
 }
 
 /**
@@ -52,9 +39,17 @@ EWcuRet WcuSdioFileOpen(FIL *fd, const char *path, BYTE mode) {
 
 	EWcuRet status = EWcuRet_Ok;
 
-	if (FR_OK != f_open(fd, path, mode)) {
+	if (!g_WcuSdioReady) {
 
 		status = EWcuRet_Error;
+	}
+
+	if (EWcuRet_Ok == status) {
+
+		if (FR_OK != f_open(fd, path, mode)) {
+
+			status = EWcuRet_Error;
+		}
 	}
 
 	return status;
@@ -69,9 +64,17 @@ EWcuRet WcuSdioFileClose(FIL *fd) {
 
 	EWcuRet status = EWcuRet_Ok;
 
-	if (FR_OK != f_close(fd)) {
+	if (!g_WcuSdioReady) {
 
 		status = EWcuRet_Error;
+	}
+
+	if (EWcuRet_Ok == status) {
+
+		if (FR_OK != f_close(fd)) {
+
+			status = EWcuRet_Error;
+		}
 	}
 
 	return status;
@@ -87,13 +90,20 @@ EWcuRet WcuSdioFileClose(FIL *fd) {
 EWcuRet WcuSdioFileRead(FIL *fd, uint8_t *buffer, uint32_t len) {
 
 	EWcuRet status = EWcuRet_Ok;
-
 	UINT bytesRead = 0;
 
-	if (FR_OK != f_read(fd, buffer, len, &bytesRead)
-			|| (bytesRead != len)) {
+	if (!g_WcuSdioReady) {
 
 		status = EWcuRet_Error;
+	}
+
+	if (EWcuRet_Ok == status) {
+
+		if (FR_OK != f_read(fd, buffer, len, &bytesRead)
+				|| (bytesRead != len)) {
+
+			status = EWcuRet_Error;
+		}
 	}
 
 	return status;
@@ -109,13 +119,20 @@ EWcuRet WcuSdioFileRead(FIL *fd, uint8_t *buffer, uint32_t len) {
 EWcuRet WcuSdioFileWrite(FIL *fd, uint8_t *data, uint32_t len) {
 
 	EWcuRet status = EWcuRet_Ok;
-
 	UINT bytesWritten = 0;
 
-	if (FR_OK != f_write(fd, data, len, &bytesWritten)
-			|| (bytesWritten != len)) {
+	if (!g_WcuSdioReady) {
 
 		status = EWcuRet_Error;
+	}
+
+	if (EWcuRet_Ok == status) {
+
+		if (FR_OK != f_write(fd, data, len, &bytesWritten)
+				|| (bytesWritten != len)) {
+
+			status = EWcuRet_Error;
+		}
 	}
 
 	return status;

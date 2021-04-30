@@ -10,11 +10,11 @@
 #include "wcu_defs.h"
 
 /**
-  * @brief  Function implementing the dispatcherThread thread.
+  * @brief  Function implementing the EventDispatcher thread.
   * @param  argument: Not used
   * @retval None
   */
-void DispatcherThreadEntryPoint(void const * argument);
+void WcuEventDispatcherEntryPoint(void const * argument);
 
 /**
  * @brief Create and send event

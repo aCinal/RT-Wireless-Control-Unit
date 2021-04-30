@@ -27,6 +27,6 @@ void WcuWatchdogStartup(void) {
  */
 void WcuWatchdogReload(void) {
 
-	WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(WatchdogRefreshCount);
 	(void) HAL_IWDG_Refresh(&hiwdg);
+	WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(WatchdogRefreshCount);
 }

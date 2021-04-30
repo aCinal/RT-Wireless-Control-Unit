@@ -19,7 +19,8 @@
 #define CAN_DLC_WCU_DIAG  ( (uint32_t) 4 )
 
 #define DATABASE_SNAPSHOT_LOG  ("ED=%ld,ENS=%ld,CRX=%ld,CTX=%ld,BOK=%ld,BNOK=%ld,GERR=%ld,GDR=%ld,GDNR=%ld,"\
-                                "XTEL=%ld,XACK=%ld,XWAR=%ld,XSUB=%ld,XNOK=%ld,LEQ=%ld,LEC=%ld,WR=%ld")
+                                "XTEL=%ld,XACK=%ld,XWAR=%ld,XSUB=%ld,XNOK=%ld,LE=%ld,WR=%ld")
+#define DATABASE_SNAPSHOT_SW_PRESCALER  ( (uint32_t) 3 )
 
 #define VDD               ( (float32_t) 3.3 )             /* Supply voltage */
 #define V25               ( (float32_t) 0.76 )            /* Temperature sensor's voltage at 25 degrees Celsius */
@@ -32,6 +33,7 @@
 
 extern ADC_HandleTypeDef hadc1;
 extern TIM_HandleTypeDef htim11;
+extern TIM_HandleTypeDef htim14;
 
 static uint16_t g_AdcBuffer;
 
@@ -43,8 +45,9 @@ SWcuDiagnosticsDatabase g_WcuDiagnosticsDatabase;
  */
 void WcuDiagnosticsStartup(void) {
 
-	/* Start the timer */
+	/* Start the timers */
 	(void) HAL_TIM_Base_Start_IT(&htim11);
+	(void) HAL_TIM_Base_Start_IT(&htim14);
 }
 
 /**
@@ -103,30 +106,41 @@ void WcuDiagnosticsHandleAdcConversionComplete(void) {
 void WcuDiagnosticsLogDatabaseSnapshot(void) {
 
 #if (WCU_ENABLE_DEBUG_PRINTS)
-	/* Statically allocate buffer for the snapshot string */
-	char snapshot[sizeof(DATABASE_SNAPSHOT_LOG)
-			+ (10U - 2U) * sizeof(SWcuDiagnosticsDatabase) / sizeof(uint32_t)];
 
-	/* Print database fields to the snapshot string */
-	sprintf(snapshot, DATABASE_SNAPSHOT_LOG,
-			g_WcuDiagnosticsDatabase.EventsDispatched,
-			g_WcuDiagnosticsDatabase.EventsNotSent,
-			g_WcuDiagnosticsDatabase.CanMessagesReceived,
-			g_WcuDiagnosticsDatabase.CanMessagesSent,
-			g_WcuDiagnosticsDatabase.BtMessagesForwarded,
-			g_WcuDiagnosticsDatabase.BtMessagesDropped,
-			g_WcuDiagnosticsDatabase.GnssParserErrorCount,
-			g_WcuDiagnosticsDatabase.GnssParserDataReadyCount,
-			g_WcuDiagnosticsDatabase.GnssParserDataNotReadyCount,
-			g_WcuDiagnosticsDatabase.XbeeTelemetryMessagesSent,
-			g_WcuDiagnosticsDatabase.XbeeAcknowledgeMessagesSent,
-			g_WcuDiagnosticsDatabase.XbeeDriverWarningMessagesReceived,
-			g_WcuDiagnosticsDatabase.XbeeNewSubscriptionMessagesReceived,
-			g_WcuDiagnosticsDatabase.XbeeMessagesDropped,
-			g_WcuDiagnosticsDatabase.LoggerEntriesQueued,
-			g_WcuDiagnosticsDatabase.LoggerEntriesCommitted,
-			g_WcuDiagnosticsDatabase.WatchdogRefreshCount);
+	static uint32_t counter = 0;
 
-	WcuLogDebug(temp);
+	counter += 1U;
+	if (counter == DATABASE_SNAPSHOT_SW_PRESCALER) {
+
+		/* Statically allocate buffer for the snapshot string */
+		char snapshot[sizeof(DATABASE_SNAPSHOT_LOG)
+				+ (10U - 2U) * sizeof(SWcuDiagnosticsDatabase) / sizeof(uint32_t)];
+
+		/* Print database fields to the snapshot string */
+		sprintf(snapshot, DATABASE_SNAPSHOT_LOG,
+				g_WcuDiagnosticsDatabase.EventsDispatched,
+				g_WcuDiagnosticsDatabase.EventsNotSent,
+				g_WcuDiagnosticsDatabase.CanMessagesReceived,
+				g_WcuDiagnosticsDatabase.CanMessagesSent,
+				g_WcuDiagnosticsDatabase.BtMessagesForwarded,
+				g_WcuDiagnosticsDatabase.BtMessagesDropped,
+				g_WcuDiagnosticsDatabase.GnssParserErrorCount,
+				g_WcuDiagnosticsDatabase.GnssParserDataReadyCount,
+				g_WcuDiagnosticsDatabase.GnssParserDataNotReadyCount,
+				g_WcuDiagnosticsDatabase.XbeeTelemetryMessagesSent,
+				g_WcuDiagnosticsDatabase.XbeeAcknowledgeMessagesSent,
+				g_WcuDiagnosticsDatabase.XbeeDriverWarningMessagesReceived,
+				g_WcuDiagnosticsDatabase.XbeeNewSubscriptionMessagesReceived,
+				g_WcuDiagnosticsDatabase.XbeeMessagesDropped,
+				g_WcuDiagnosticsDatabase.LoggerEntries,
+				g_WcuDiagnosticsDatabase.WatchdogRefreshCount);
+
+		/* Print the snapshot */
+		WcuLogDebug(snapshot);
+
+		/* Reset the frequency scaling counter */
+		counter = 0;
+	}
+
 #endif /* (WCU_ENABLE_DEBUG_PRINTS) */
 }

@@ -16,8 +16,8 @@
 #include "rt12e_libs_can.h"
 #include "rt12e_libs_r3tp.h"
 #include "rt12e_libs_generic.h"
-#include "rt12e_libs_uartringbuffer_tx.h"
 #include "rt12e_libs_uartringbuffer_rx.h"
+#include "rt12e_libs_tx_ringbuffer.h"
 #include "stm32f4xx.h"
 #include "stm32f4xx_hal.h"
 #include <stddef.h>
@@ -37,7 +37,7 @@ extern TIM_HandleTypeDef htim7;
 static uint8_t g_GreenWarningDuration = 0;
 static uint8_t g_RedWarningDuration = 0;
 static uint8_t g_SeqNum = 0;
-SUartTxRb g_WcuXbeeTxRingBuffer;
+STxRb g_WcuXbeeTxRingBuffer;
 SUartRxRb g_WcuXbeeRxRingBuffer;
 
 static EWcuRet WcuXbeeTxRingBufferInit(void);
@@ -52,6 +52,7 @@ static EWcuRet WcuXbeeHandleDriverWarning(uint8_t *r3tpMessage);
 static EWcuRet WcuXbeeStoreNewSubscription(uint32_t *ids, uint32_t numOfFrames);
 static void WcuXbeeSendData(uint8_t *data, uint32_t len);
 static void WcuXbeeRxCallback(void);
+static ETxRbRet WcuXbeeTxRingBufferRouter(uint8_t* data, size_t len);
 
 /**
  * @brief XBEE service startup
@@ -163,8 +164,7 @@ static EWcuRet WcuXbeeTxRingBufferInit(void) {
 	static uint8_t ringbuffer[WCU_XBEE_TX_RING_BUFFER_SIZE];
 
 	/* Configure the ring buffer structure */
-	(void) UartTxRbInit(&g_WcuXbeeTxRingBuffer, &huart4, ringbuffer,
-			sizeof(ringbuffer), NULL);
+	TxRbInit(&g_WcuXbeeTxRingBuffer, ringbuffer, sizeof(ringbuffer), WcuXbeeTxRingBufferRouter, NULL);
 
 	return status;
 }
@@ -599,7 +599,7 @@ static EWcuRet WcuXbeeStoreNewSubscription(uint32_t *ids, uint32_t numOfFrames) 
 static void WcuXbeeSendData(uint8_t *data, uint32_t len) {
 
 	/* Write the data into the ring buffer */
-	if (EUartTxRbRet_Ok == UartTxRbWrite(&g_WcuXbeeTxRingBuffer, data, len)) {
+	if (ETxRbRet_Ok == TxRbWrite(&g_WcuXbeeTxRingBuffer, data, len)) {
 
 		/* Tell the dispatcher to initiate transmission */
 		(void) WcuEventSend(EWcuEventType_UartTxMessagePending,
@@ -614,4 +614,23 @@ static void WcuXbeeSendData(uint8_t *data, uint32_t len) {
 static void WcuXbeeRxCallback(void) {
 
 	(void) WcuEventSend(EWcuEventType_XbeeRxMessagePending, NULL);
+}
+
+/**
+ * @brief TX ring buffer router
+ * @param data Data to be committed
+ * @param len Length of the data
+ * @retval ETxRbRet Status
+ */
+static ETxRbRet WcuXbeeTxRingBufferRouter(uint8_t* data, size_t len) {
+
+	ETxRbRet status = ETxRbRet_Ok;
+
+	if (HAL_OK != HAL_UART_Transmit_DMA(&huart4,
+			data, len)) {
+
+		status = ETxRbRet_Error;
+	}
+
+	return status;
 }

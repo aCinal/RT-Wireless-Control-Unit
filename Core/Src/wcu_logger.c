@@ -9,14 +9,11 @@
 #include "wcu_events.h"
 #include "wcu_sdio.h"
 #include "wcu_diagnostics.h"
+#include "rt12e_libs_tx_ringbuffer.h"
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 #include "stm32f4xx_hal.h"
-
-#if WCU_REDIRECT_LOGS_TO_SERIAL_PORT
-#include "rt12e_libs_uartringbuffer_tx.h"
-#endif /* WCU_REDIRECT_LOGS_TO_SERIAL_PORT */
 
 #define LOG_TIMESTAMP_LENGTH         ( (uint32_t) 12 )                                   /* Length of the timestamp in decimal */
 #define LOG_SEVERITY_TAG_LENGTH      ( (uint32_t) 4 )                                    /* Length of the severity level tag */
@@ -26,14 +23,26 @@
 #define LOG_SEVERITY_TAG(log)        ( &( (log)[LOG_TIMESTAMP_LENGTH] ) )                /* Get pointer to the log entry severity tag */
 #define LOG_PAYLOAD(log)             ( &( (log)[LOG_HEADER_LENGTH] ) )                   /* Get pointer to the log entry payload */
 #define LOG_TRAILER(log, payLen)     ( &( (log)[LOG_HEADER_LENGTH + (payLen)] ) )        /* Get pointer to the log entry trailer */
-#if WCU_REDIRECT_LOGS_TO_SERIAL_PORT
 #define WCU_LOGGER_RING_BUFFER_SIZE  (512)                                               /* Logger ring buffer size */
 
-SUartTxRb g_WcuLoggerTxRingBuffer;
-static bool g_LoggerRbInitialized = false;
+#if WCU_REDIRECT_LOGS_TO_SERIAL_PORT
+extern UART_HandleTypeDef huart2;
 #endif /* WCU_REDIRECT_LOGS_TO_SERIAL_PORT */
 
-extern UART_HandleTypeDef huart2;
+STxRb g_WcuLoggerTxRingBuffer;
+
+static EWcuRet WcuLoggerTxRingBufferInit(void);
+static ETxRbRet WcuLoggerTxRingBufferRouter(uint8_t *data, size_t len);
+
+/**
+ * @brief Logger service startup
+ * @retval None
+ */
+void WcuLoggerStartup(void) {
+
+	/* Initialize the ring buffer */
+	(void) WcuLoggerTxRingBufferInit();
+}
 
 /**
  * @brief Log an error message
@@ -85,61 +94,112 @@ void WcuLoggerPrint(EWcuLogSeverityLevel severityLevel,
 		/* Write the message trailer to the memory block */
 		(void) sprintf(LOG_TRAILER(logEntryPtr, payloadLength), "\r\n");
 
-		/* Send the event */
-		if (EWcuRet_Ok
-				== WcuEventSend(EWcuEventType_LogEntryPending, logEntryPtr)) {
+		/* Write the error message to the ring buffer */
+		if (ETxRbRet_Ok
+				== TxRbWrite(&g_WcuLoggerTxRingBuffer, (uint8_t*) logEntryPtr,
+						strlen(logEntryPtr))) {
 
-			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(LoggerEntriesQueued);
-
-		} else {
-
-			/* Cleanup on failure to enqueue the event */
-			WcuMemFree(logEntryPtr);
+			/* If write was successful, send the event to the dispatcher to flush the ring buffer */
+			(void) WcuEventSend(EWcuEventType_LogEntriesPending,
+					&g_WcuLoggerTxRingBuffer);
+			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(LoggerEntries);
 		}
+
+		/* Free the memory */
+		WcuMemFree(logEntryPtr);
 	}
 }
 
 /**
- * @brief Commit a log entry to the SD card or to the serial port
- * @param log Log entry
+ * @brief Flush the ringbuffer, thereby committing log entries to the SD card or to the serial port
  * @retval None
  */
-void WcuLoggerCommitEntry(char *log) {
+void WcuLoggerFlushRingBuffer(void) {
 
-#if WCU_REDIRECT_LOGS_TO_SERIAL_PORT
+	ETxRbRet status = ETxRbRet_Ok;
 
-	if (!g_LoggerRbInitialized) {
+	/* Flush the ring buffer */
+	status = TxRbFlush(&g_WcuLoggerTxRingBuffer);
 
-		static uint8_t ringbuffer[WCU_LOGGER_RING_BUFFER_SIZE];
+	if (ETxRbRet_Busy == status) {
 
-		/* On first commit, initialize the ring buffer */
-		if (EUartTxRbRet_Ok == UartTxRbInit(&g_WcuLoggerTxRingBuffer, &huart2, ringbuffer, sizeof(ringbuffer), NULL)) {
-
-			g_LoggerRbInitialized = true;
-		}
+		/* If the router is busy, enqueue the event again */
+		(void) WcuEventSend(EWcuEventType_LogEntriesPending,
+				&g_WcuLoggerTxRingBuffer);
 	}
 
-	/* Write the error message to the ring buffer */
-	(void) UartTxRbWrite(&g_WcuLoggerTxRingBuffer, (uint8_t*)log, strlen(log));
+#if !WCU_REDIRECT_LOGS_TO_SERIAL_PORT
 
-	/* Tell the dispatcher to initiate transmission */
-	(void) WcuEventSend(EWcuEventType_UartTxMessagePending, &g_WcuLoggerTxRingBuffer);
+	if (ETxRbRet_Ok == status) {
 
-	/* Free the allocated memory */
-	WcuMemFree(log);
-
-#else /* !WCU_REDIRECT_LOGS_TO_SERIAL_PORT */
-
-	if (g_WcuLoggerReady) {
-
-		WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(LoggerEntriesCommitted);
-
-		/* Write the error message to the file */
-		(void) WcuSdioFileWrite(&g_WcuLogfileFd, (uint8_t*)log, strlen(log));
-
-		/* Free the allocated memory */
-		WcuMemFree(log);
+		/* When committing logs to an SD card, the transfer is blocking so call the callback directly here instead of in IRQ */
+		(void) TxRbCallback(&g_WcuLoggerTxRingBuffer);
 	}
 
 #endif /* !WCU_REDIRECT_LOGS_TO_SERIAL_PORT */
+}
+
+/**
+ * @brief Initialize the logger ring buffer
+ * @retval EWcuRet Status
+ */
+static EWcuRet WcuLoggerTxRingBufferInit(void) {
+
+	EWcuRet status = EWcuRet_Ok;
+
+	static uint8_t ringbuffer[WCU_LOGGER_RING_BUFFER_SIZE];
+
+	/* Initialize the ring buffer */
+	if (ETxRbRet_Ok
+			!= TxRbInit(&g_WcuLoggerTxRingBuffer, ringbuffer,
+					sizeof(ringbuffer), WcuLoggerTxRingBufferRouter, NULL)) {
+
+		status = EWcuRet_Error;
+	}
+
+	return status;
+}
+
+/**
+ * @brief TX ring buffer router
+ * @param data Data to be committed
+ * @param len Length of the data
+ * @retval ETxRbRet Status
+ */
+static ETxRbRet WcuLoggerTxRingBufferRouter(uint8_t *data, size_t len) {
+
+	ETxRbRet status = ETxRbRet_Ok;
+
+#if WCU_REDIRECT_LOGS_TO_SERIAL_PORT
+
+	if (HAL_OK != HAL_UART_Transmit_DMA(&huart2, data, len)) {
+
+		status = ETxRbRet_Error;
+	}
+
+#else /* !WCU_REDIRECT_LOGS_TO_SERIAL_PORT */
+
+	/* Open the logfile for writing in append mode */
+	if (EWcuRet_Ok != WcuSdioFileOpen(&g_WcuLogfileFd, WCU_LOG_PATH,
+	FA_WRITE | FA_OPEN_APPEND)) {
+
+		status = ETxRbRet_Error;
+	}
+
+	if (ETxRbRet_Ok == status) {
+
+		/* Write the error message to the file */
+		if (EWcuRet_Ok
+				!= WcuSdioFileWrite(&g_WcuLogfileFd, (uint8_t*) data, len)) {
+
+			status = ETxRbRet_Error;
+		}
+	}
+
+	/* Close the file on cleanup */
+	(void) WcuSdioFileClose(&g_WcuLogfileFd);
+
+#endif /* !WCU_REDIRECT_LOGS_TO_SERIAL_PORT */
+
+	return status;
 }

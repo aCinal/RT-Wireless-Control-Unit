@@ -27,8 +27,7 @@ typedef struct SWcuDiagnosticsDatabase {
 	uint32_t XbeeDriverWarningMessagesReceived;
 	uint32_t XbeeNewSubscriptionMessagesReceived;
 	uint32_t XbeeMessagesDropped;
-	uint32_t LoggerEntriesQueued;
-	uint32_t LoggerEntriesCommitted;
+	uint32_t LoggerEntries;
 	uint32_t WatchdogRefreshCount;
 } SWcuDiagnosticsDatabase;
 

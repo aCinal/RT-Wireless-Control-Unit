@@ -17,7 +17,7 @@
 #include "wcu_diagnostics.h"
 #include "wcu_timers.h"
 #include "cmsis_os.h"
-#include "rt12e_libs_uartringbuffer_tx.h"
+#include "rt12e_libs_tx_ringbuffer.h"
 
 extern QueueHandle_t wcuEventQueueHandle;
 
@@ -31,11 +31,12 @@ static void WcuEventDispatchTimerEvent(const SWcuEvent *event);
  * @param  argument: Not used
  * @retval None
  */
-void DispatcherEntryPoint(void const *argument) {
+void WcuEventDispatcherEntryPoint(void const *argument) {
 
 	(void) argument;
 
 	/* Run startups */
+	WcuLoggerStartup();
 	WcuSdioStartup();
 	WcuCanStartup();
 	WcuXbeeStartup();
@@ -145,19 +146,16 @@ static void WcuEventDispatch(const SWcuEvent *event) {
 		WcuGnssHandlePendingMessage();
 		break;
 
-	case EWcuEventType_LogEntryPending:
+	case EWcuEventType_LogEntriesPending:
 
-	{
-		char *logEntry = (char*) event->param;
-		WcuLoggerCommitEntry(logEntry);
-	}
+		WcuLoggerFlushRingBuffer();
 		break;
 
 	case EWcuEventType_UartTxMessagePending:
 
 	{
-		SUartTxRb *rb = (SUartTxRb*) event->param;
-		if (EUartTxRbRet_Again == UartTxRbSend(rb)) {
+		STxRb *rb = (STxRb*) event->param;
+		if (ETxRbRet_Busy == TxRbFlush(rb)) {
 
 			/* If the UART is busy, enqueue the event again */
 			WcuEventSend(event->signal, event->param);

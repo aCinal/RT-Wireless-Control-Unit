@@ -40,7 +40,7 @@ typedef enum EWcuEventType {
     EWcuEventType_CanRxMessagePending,
 	EWcuEventType_TimerExpired,
     EWcuEventType_GnssRxMessagePending,
-	EWcuEventType_LogEntryPending,
+	EWcuEventType_LogEntriesPending,
 	EWcuEventType_UartTxMessagePending,
     EWcuEventType_XbeeRxMessagePending,
 } EWcuEventType;
