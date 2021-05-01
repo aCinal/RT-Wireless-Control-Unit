@@ -33,13 +33,12 @@ static EWcuRet WcuGnssRxRingBufferInit(void);
 static EWcuRet WcuGnssDeviceConfig(void);
 static EWcuRet WcuGnssSendCommand(char* command);
 static EWcuRet WcuGnssHandleNmeaMessage(void);
-static void WcuGnssSendDataToCan(SL26ApiGnssData *data);
-static EWcuRet WcuGnssSendGpsPos(SL26ApiGnssData *data);
-static EWcuRet WcuGnssSendGpsPos2(SL26ApiGnssData *data);
-static EWcuRet WcuGnssSendGpsStatus(SL26ApiGnssData *data);
+static void WcuGnssSendDataToCan(SL26GnssData *data);
+static EWcuRet WcuGnssSendGpsPos(SL26GnssData *data);
+static EWcuRet WcuGnssSendGpsPos2(SL26GnssData *data);
+static EWcuRet WcuGnssSendGpsStatus(SL26GnssData *data);
 static void WcuGnssRxCallback(void);
-static int32_t WcuGnssNormalizeCoordinate(float64_t coordinate,
-		uint32_t direction);
+static int32_t WcuGnssNormalizeCoordinate(float64_t coordinate);
 static uint16_t WcuGnssNormalizeSpeed(float32_t speed);
 static uint16_t WcuGnssNormalizeDirection(float32_t direction);
 static uint16_t WcuGnssNormalizeAltitude(float32_t altitude);
@@ -149,7 +148,7 @@ static EWcuRet WcuGnssSendCommand(char* command) {
 	EWcuRet status = EWcuRet_Ok;
 
 	/* Print the checksum to the command string */
-	L26ApiAddNmeaChecksum(command);
+	L26AddNmeaChecksum(command);
 
 	/* Only allow blocking (polling) call during startup */
 	if (HAL_OK
@@ -181,13 +180,13 @@ static EWcuRet WcuGnssHandleNmeaMessage(void) {
 
 	if (EWcuRet_Ok == status) {
 
-		static SL26ApiGnssData parsedData;
+		static SL26GnssData parsedData;
 
 		/* Try parsing the message */
-		switch (L26ApiParseMessage(&parsedData, (char*) buffer,
+		switch (L26ParseBufferedMessages(&parsedData, (char*) buffer,
 				bytesRead)) {
 
-		case EL26ApiDataStatus_Ready:
+		case EL26DataStatus_Ready:
 
 			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(GnssParserDataReadyCount);
 
@@ -198,14 +197,14 @@ static EWcuRet WcuGnssHandleNmeaMessage(void) {
 			(void) memset(&parsedData, 0, sizeof(parsedData));
 			break;
 
-		case EL26ApiDataStatus_NotReady:
+		case EL26DataStatus_NotReady:
 
 			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(GnssParserDataNotReadyCount);
 
 			/* If the data is not complete, continue listening */
 			break;
 
-		case EL26ApiDataStatus_Error:
+		case EL26DataStatus_Error:
 
 			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(GnssParserErrorCount);
 
@@ -227,7 +226,7 @@ static EWcuRet WcuGnssHandleNmeaMessage(void) {
  * @param data Parsed GNSS data
  * @retval None
  */
-static void WcuGnssSendDataToCan(SL26ApiGnssData *data) {
+static void WcuGnssSendDataToCan(SL26GnssData *data) {
 
 	(void) WcuGnssSendGpsPos(data);
 	(void) WcuGnssSendGpsPos2(data);
@@ -239,7 +238,7 @@ static void WcuGnssSendDataToCan(SL26ApiGnssData *data) {
  * @param data Parsed GNSS data
  * @retval EWcuRet Status
  */
-static EWcuRet WcuGnssSendGpsPos(SL26ApiGnssData *data) {
+static EWcuRet WcuGnssSendGpsPos(SL26GnssData *data) {
 
 	SCanMessage canMessage;
 	/* Configure the CAN Tx header */
@@ -250,16 +249,14 @@ static EWcuRet WcuGnssSendGpsPos(SL26ApiGnssData *data) {
 	canMessage.TxHeader.TransmitGlobalTime = DISABLE;
 
 	/* Write the longitude to the frame payload */
-	int32_t longitude = WcuGnssNormalizeCoordinate(data->Longitude,
-			data->LonDir);
+	int32_t longitude = WcuGnssNormalizeCoordinate(data->Longitude);
 	canMessage.PayloadTbl[0] = _getbyte(longitude, 3);
 	canMessage.PayloadTbl[1] = _getbyte(longitude, 2);
 	canMessage.PayloadTbl[2] = _getbyte(longitude, 1);
 	canMessage.PayloadTbl[3] = _getbyte(longitude, 0);
 
 	/* Write the latitude to the frame payload */
-	int32_t latitude = WcuGnssNormalizeCoordinate(data->Latitude,
-			data->LatDir);
+	int32_t latitude = WcuGnssNormalizeCoordinate(data->Latitude);
 	canMessage.PayloadTbl[4] = _getbyte(latitude, 3);
 	canMessage.PayloadTbl[5] = _getbyte(latitude, 2);
 	canMessage.PayloadTbl[6] = _getbyte(latitude, 1);
@@ -274,7 +271,7 @@ static EWcuRet WcuGnssSendGpsPos(SL26ApiGnssData *data) {
  * @param data Parsed GNSS data
  * @retval EWcuRet Status
  */
-static EWcuRet WcuGnssSendGpsPos2(SL26ApiGnssData *data) {
+static EWcuRet WcuGnssSendGpsPos2(SL26GnssData *data) {
 
 	SCanMessage canMessage;
 	/* Configure the CAN Tx header */
@@ -308,7 +305,7 @@ static EWcuRet WcuGnssSendGpsPos2(SL26ApiGnssData *data) {
  * @param data Parsed GNSS data
  * @retval EWcuRet Status
  */
-static EWcuRet WcuGnssSendGpsStatus(SL26ApiGnssData *data) {
+static EWcuRet WcuGnssSendGpsStatus(SL26GnssData *data) {
 
 	SCanMessage canMessage;
 	/* Configure the CAN Tx header */
@@ -357,32 +354,12 @@ static void WcuGnssRxCallback(void) {
 
 /**
  * @brief Normalize the coordinate (longitude/latitude) as degrees multiplied by 1,000,000
- * @param coordinate Coordinate in format 'dddmm.mmmm' (degree and minutes)
- * @param direction Direction flag (GNSS_LATITUDE_NORTH, GNSS_LATITUDE_SOUTH, GNSS_LATITUDE_EAST, GNSS_LATITUDE_WEST)
+ * @param coordinate Coordinate in degrees
  * @retval int32_t Coordinate normalized as degrees multiplied by 1,000,000
  */
-static int32_t WcuGnssNormalizeCoordinate(float64_t coordinate,
-		uint32_t direction) {
+static int32_t WcuGnssNormalizeCoordinate(float64_t coordinate) {
 
-	/* Separate degrees from the minutes */
-	float64_t degrees = floor(coordinate / 100.0);
-	/* Get minutes */
-	float64_t minutes = coordinate - (degrees * 100.0);
-	/* Add minutes as decimal fraction to the degrees */
-	float64_t floatResult = degrees + (minutes / 60.0);
-
-	/* Make the result negative if the direction is SOUTH or WEST */
-	if ((ELatDir_LatitudeSouth == direction)
-			|| (ELonDir_LongitudeWest == direction)) {
-
-		floatResult *= -1.0;
-
-	}
-
-	/* Round the result and multiply by 1000000.0 to get a 32-bit unsigned integer */
-	int32_t intResult = llround(floatResult * 1000000.0);
-
-	return intResult;
+	return llround(coordinate * 1000000.0);
 }
 
 /**
