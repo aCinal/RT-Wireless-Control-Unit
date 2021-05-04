@@ -63,6 +63,7 @@ typedef enum EL26DataStatus {
 #define L26_NMEA_GSA_RECEIVED    ( (uint8_t) 0x08U )  /* --GSA NMEA sentence received flag */
 #define L26_NMEA_GLGSV_RECEIVED  ( (uint8_t) 0x10U )  /* GLGSV NMEA sentence received flag */
 #define L26_NMEA_GPGSV_RECEIVED  ( (uint8_t) 0x20U )  /* GPGSV NMEA sentence received flag */
+#define L26_NMEA_GPGLL_RECEIVED  ( (uint8_t) 0x40U )  /* GPGLL NMEA sentence received flag */
 
 /*---------------------------------------------- Function prototypes ----------------------------------------------*/
 

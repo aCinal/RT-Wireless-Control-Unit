@@ -91,6 +91,8 @@ EWcuRet WcuEventSend(EWcuEventType signal, void *param) {
  */
 static void WcuRunDispatcher(void) {
 
+	WcuLogInfo("Entering the event loop");
+
 	for (;;) {
 
 		/* Block on the event queue */

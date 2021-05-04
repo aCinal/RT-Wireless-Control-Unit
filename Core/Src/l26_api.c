@@ -72,6 +72,9 @@ static EL26ParserRet L26NmeaParseGlgsvTokens(SL26GnssData* data,
 	const char* token, uint32_t tokenIndex);
 static EL26ParserRet L26NmeaParseGpgsvTokens(SL26GnssData* data,
 	const char* token, uint32_t tokenIndex);
+static EL26ParserRet L26NmeaParseGllTokens(SL26GnssData* data,
+	const char* token, uint32_t tokenIndex);
+
 
 static float64_t dddmm_mmmm_to_degrees(float64_t dddmm_mmmm);
 
@@ -122,8 +125,7 @@ EL26DataStatus L26ParseBufferedMessages(SL26GnssData* data,
 			/* Increment the length counter */
 			sentenceLength += 1UL;
 
-		}
-		else {
+		} else {
 
 			/* If no start character has been found thus far, search for it */
 			if ('$' == buffer[i]) {
@@ -226,6 +228,7 @@ static EL26ParserRet L26ParseSentence(SL26GnssData* data,
 	}
 
 
+
 	TL26TokenParser tokenParser = NULL;
 	TL26SentencesReceived flagToSetOnParsingSuccess = 0;
 
@@ -264,6 +267,12 @@ static EL26ParserRet L26ParseSentence(SL26GnssData* data,
 
 		tokenParser = L26NmeaParseGpgsvTokens;
 		flagToSetOnParsingSuccess = L26_NMEA_GPGSV_RECEIVED;
+	}
+
+	if (IS_NMEA_GLL_SENTENCE(sentence)) {
+
+		tokenParser = L26NmeaParseGllTokens;
+		flagToSetOnParsingSuccess = L26_NMEA_GPGLL_RECEIVED;
 	}
 
 	/* If relevant data field parser was found (i.e. the sentence was recognized and is supported), parse the payload */
@@ -330,9 +339,10 @@ static EL26ParserRet L26ParseNmeaPayload(SL26GnssData* data, char* payload, TL26
 	uint32_t i;
 	char* in;
 	char* tok;
+	char *ctx;
 
 	/* Tokenize the sentence and parse each token */
-	for (i = 0, in = payload; NULL != (tok = strtok(in, ",")); i += 1UL) {
+	for (i = 0, in = payload; NULL != (tok = strtok_r(in, ",", &ctx)); i += 1UL) {
 
 		/* Parse the data field */
 		status = tokenParser(data, tok, i);
@@ -359,6 +369,13 @@ static EL26ParserRet L26ParseNmeaPayload(SL26GnssData* data, char* payload, TL26
 	return status;
 }
 
+/**
+ * @brief Parse a single token of an NMEA --RMC sentence
+ * @param data Pointer to the GNSS data structure where the parsed data will be stored
+ * @param token A null-terminated token string
+ * @param tokenIndex Index of the token in the sentence
+ * @retval EL26ParserRet Status
+ */
 static EL26ParserRet L26NmeaParseRmcTokens(SL26GnssData* data,
 	const char* token, uint32_t tokenIndex) {
 
@@ -452,6 +469,13 @@ static EL26ParserRet L26NmeaParseRmcTokens(SL26GnssData* data,
 	return status;
 }
 
+/**
+ * @brief Parse a single token of an NMEA --VTG sentence
+ * @param data Pointer to the GNSS data structure where the parsed data will be stored
+ * @param token A null-terminated token string
+ * @param tokenIndex Index of the token in the sentence
+ * @retval EL26ParserRet Status
+ */
 static EL26ParserRet L26NmeaParseVtgTokens(SL26GnssData* data,
 	const char* token, uint32_t tokenIndex) {
 
@@ -468,7 +492,7 @@ static EL26ParserRet L26NmeaParseVtgTokens(SL26GnssData* data,
 
 		/* Note that speed is actually the sixth (zero-based) token in the VTG payload,
 		 * but the Quectel L26 device does not output course over ground (magnetic), instead
-		 * outputting two commas (token delimiters) next to each other. strtok ignores an empty
+		 * outputting two commas (token delimiters) next to each other. strtok_r ignores an empty
 		 * token thus making speed over groudn in km/h the fifth token. */
 		data->Speed = strtof(token, NULL);
 		break;
@@ -481,6 +505,13 @@ static EL26ParserRet L26NmeaParseVtgTokens(SL26GnssData* data,
 	return status;
 }
 
+/**
+ * @brief Parse a single token of an NMEA --GGA sentence
+ * @param data Pointer to the GNSS data structure where the parsed data will be stored
+ * @param token A null-terminated token string
+ * @param tokenIndex Index of the token in the sentence
+ * @retval EL26ParserRet Status
+ */
 static EL26ParserRet L26NmeaParseGgaTokens(SL26GnssData* data,
 	const char* token, uint32_t tokenIndex) {
 
@@ -507,6 +538,13 @@ static EL26ParserRet L26NmeaParseGgaTokens(SL26GnssData* data,
 	return status;
 }
 
+/**
+ * @brief Parse a single token of an NMEA --GSA sentence
+ * @param data Pointer to the GNSS data structure where the parsed data will be stored
+ * @param token A null-terminated token string
+ * @param tokenIndex Index of the token in the sentence
+ * @retval EL26ParserRet Status
+ */
 static EL26ParserRet L26NmeaParseGsaTokens(SL26GnssData* data,
 	const char* token, uint32_t tokenIndex) {
 
@@ -547,6 +585,13 @@ static EL26ParserRet L26NmeaParseGsaTokens(SL26GnssData* data,
 	return status;
 }
 
+/**
+ * @brief Parse a single token of an NMEA GLGSV sentence
+ * @param data Pointer to the GNSS data structure where the parsed data will be stored
+ * @param token A null-terminated token string
+ * @param tokenIndex Index of the token in the sentence
+ * @retval EL26ParserRet Status
+ */
 static EL26ParserRet L26NmeaParseGlgsvTokens(SL26GnssData* data,
 	const char* token, uint32_t tokenIndex) {
 
@@ -566,6 +611,13 @@ static EL26ParserRet L26NmeaParseGlgsvTokens(SL26GnssData* data,
 	return status;
 }
 
+/**
+ * @brief Parse a single token of an NMEA GPGSV sentence
+ * @param data Pointer to the GNSS data structure where the parsed data will be stored
+ * @param token A null-terminated token string
+ * @param tokenIndex Index of the token in the sentence
+ * @retval EL26ParserRet Status
+ */
 static EL26ParserRet L26NmeaParseGpgsvTokens(SL26GnssData* data,
 	const char* token, uint32_t tokenIndex) {
 
@@ -583,6 +635,20 @@ static EL26ParserRet L26NmeaParseGpgsvTokens(SL26GnssData* data,
 	}
 
 	return status;
+}
+
+/**
+ * @brief Parse a single token of an NMEA GPGLL sentence
+ * @param data Pointer to the GNSS data structure where the parsed data will be stored
+ * @param token A null-terminated token string
+ * @param tokenIndex Index of the token in the sentence
+ * @retval EL26ParserRet Status
+ */
+static EL26ParserRet L26NmeaParseGllTokens(SL26GnssData* data,
+	const char* token, uint32_t tokenIndex) {
+
+	/* Ignore all fields */
+	return EL26ParserRet_Ok;
 }
 
 /**
