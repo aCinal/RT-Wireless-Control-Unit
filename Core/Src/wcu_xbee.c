@@ -46,13 +46,13 @@ static EWcuRet WcuXbeeDeviceConfig(void);
 static EWcuRet WcuXbeeSendDiagnostics(void);
 static void WcuXbeeWarningsTick(void);
 static EWcuRet WcuXbeeHandleR3tpMessage(void);
-static EWcuRet WcuXbeeSendAcknowledge(uint8_t msgId);
+static EWcuRet WcuXbeeSendAcknowledge(uint8_t msgId, uint8_t arg0, uint8_t arg1);
 static EWcuRet WcuXbeeHandleNewSubscription(uint8_t *r3tpMessage);
 static EWcuRet WcuXbeeHandleDriverWarning(uint8_t *r3tpMessage);
 static EWcuRet WcuXbeeStoreNewSubscription(uint32_t *ids, uint32_t numOfFrames);
 static void WcuXbeeSendData(uint8_t *data, uint32_t len);
 static void WcuXbeeRxCallback(void);
-static ETxRbRet WcuXbeeTxRingBufferRouter(uint8_t* data, size_t len);
+static ETxRbRet WcuXbeeTxRingBufferRouter(uint8_t *data, size_t len);
 
 /**
  * @brief XBEE service startup
@@ -164,7 +164,8 @@ static EWcuRet WcuXbeeTxRingBufferInit(void) {
 	static uint8_t ringbuffer[WCU_XBEE_TX_RING_BUFFER_SIZE];
 
 	/* Configure the ring buffer structure */
-	TxRbInit(&g_WcuXbeeTxRingBuffer, ringbuffer, sizeof(ringbuffer), WcuXbeeTxRingBufferRouter, NULL);
+	TxRbInit(&g_WcuXbeeTxRingBuffer, ringbuffer, sizeof(ringbuffer),
+			WcuXbeeTxRingBufferRouter, NULL);
 
 	return status;
 }
@@ -313,9 +314,10 @@ static EWcuRet WcuXbeeHandleR3tpMessage(void) {
 
 		case R3TP_VER1_VER_BYTE:
 
-			if(EWcuRet_Ok == WcuXbeeHandleNewSubscription(buffer)) {
+			if (EWcuRet_Ok == WcuXbeeHandleNewSubscription(buffer)) {
 
-				WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(XbeeNewSubscriptionMessagesReceived);
+				WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(
+						XbeeNewSubscriptionMessagesReceived);
 			}
 			break;
 
@@ -323,7 +325,8 @@ static EWcuRet WcuXbeeHandleR3tpMessage(void) {
 
 			if (EWcuRet_Ok == WcuXbeeHandleDriverWarning(buffer)) {
 
-				WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(XbeeDriverWarningMessagesReceived);
+				WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(
+						XbeeDriverWarningMessagesReceived);
 			}
 			break;
 
@@ -342,9 +345,11 @@ static EWcuRet WcuXbeeHandleR3tpMessage(void) {
 /**
  * @brief Send the R3TP acknowledge frame
  * @param msgId ID of the message being acknowledged (R3TP VER byte)
+ * @param arg0 Value of the user parameter field of the ACK message (0 if not used)
+ * @param arg1 Value of the user parameter field of the ACK message (0 if not used)
  * @retval EWcuRet Status
  */
-static EWcuRet WcuXbeeSendAcknowledge(uint8_t msgId) {
+static EWcuRet WcuXbeeSendAcknowledge(uint8_t msgId, uint8_t arg0, uint8_t arg1) {
 
 	EWcuRet status = EWcuRet_Ok;
 
@@ -367,6 +372,10 @@ static EWcuRet WcuXbeeSendAcknowledge(uint8_t msgId) {
 	/* Set the END SEQ field */
 	buffer[R3TP_VER3_FRAME_SIZE - 2U] = R3TP_END_SEQ_LOW_BYTE;
 	buffer[R3TP_VER3_FRAME_SIZE - 1U] = R3TP_END_SEQ_HIGH_BYTE;
+
+	/* Transmit user arguments if provided */
+	buffer[5] = arg0;
+	buffer[6] = arg1;
 
 	/* Calculate the CRC */
 	uint16_t calculatedCrc = WcuGetR3tpCrc(buffer, R3TP_VER3_FRAME_SIZE);
@@ -460,7 +469,7 @@ static EWcuRet WcuXbeeHandleNewSubscription(uint8_t *r3tpMessage) {
 		status = WcuXbeeStoreNewSubscription(subscription, numOfFrames);
 
 		/* Send the acknowledge message */
-		(void) WcuXbeeSendAcknowledge(R3TP_VER1_VER_BYTE);
+		(void) WcuXbeeSendAcknowledge(R3TP_VER1_VER_BYTE, 0, 0);
 	}
 
 	return status;
@@ -526,7 +535,8 @@ static EWcuRet WcuXbeeHandleDriverWarning(uint8_t *r3tpMessage) {
 
 		default:
 
-			WcuLogError("WcuXbeeHandleDriverWarning: Unrecognized warning byte");
+			WcuLogError(
+					"WcuXbeeHandleDriverWarning: Unrecognized warning byte");
 			status = EWcuRet_Error;
 			break;
 		}
@@ -535,7 +545,7 @@ static EWcuRet WcuXbeeHandleDriverWarning(uint8_t *r3tpMessage) {
 	if (EWcuRet_Ok == status) {
 
 		/* Send the acknowledge message */
-		status = WcuXbeeSendAcknowledge(R3TP_VER2_VER_BYTE);
+		status = WcuXbeeSendAcknowledge(R3TP_VER2_VER_BYTE, r3tpMessage[4], r3tpMessage[5]);
 	}
 
 	return status;
@@ -622,12 +632,11 @@ static void WcuXbeeRxCallback(void) {
  * @param len Length of the data
  * @retval ETxRbRet Status
  */
-static ETxRbRet WcuXbeeTxRingBufferRouter(uint8_t* data, size_t len) {
+static ETxRbRet WcuXbeeTxRingBufferRouter(uint8_t *data, size_t len) {
 
 	ETxRbRet status = ETxRbRet_Ok;
 
-	if (HAL_OK != HAL_UART_Transmit_DMA(&huart4,
-			data, len)) {
+	if (HAL_OK != HAL_UART_Transmit_DMA(&huart4, data, len)) {
 
 		status = ETxRbRet_Error;
 	}

@@ -17,7 +17,7 @@
 #include "rt12e_libs_r3tp.h"
 #include "stm32f4xx_hal.h"
 
-#define WCU_BT_RING_BUFFER_SIZE    ( (uint32_t) 128 )  /* UART ring buffer size */
+#define WCU_BT_RING_BUFFER_SIZE    ( (uint32_t) 256 )  /* UART ring buffer size */
 
 extern UART_HandleTypeDef huart1;
 SUartRxRb g_WcuBtRxRingBuffer;
