@@ -38,6 +38,9 @@
 /** @brief Return the protocol version of the message pointed to by base */
 #define R3TP_PROTOCOL_VERSION(base)      ( (uint8_t)(base)[0] )
 
+/** @brief Return the sequence number of the message pointed to by base */
+#define R3TP_SEQ_NUM(base)               ( (uint8_t)(base)[1] )
+
 /** @brief Return the address at which the payload of an R3TP version 1 frame begins in reference to the base */
 #define R3TP_VER1_PAYLOAD(base)          ( (uint8_t*)&( ( (uint8_t*)(base) )[R3TP_VER1_HEADER_SIZE] ) )
 

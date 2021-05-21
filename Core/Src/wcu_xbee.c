@@ -46,7 +46,7 @@ static EWcuRet WcuXbeeDeviceConfig(void);
 static EWcuRet WcuXbeeSendDiagnostics(void);
 static void WcuXbeeWarningsTick(void);
 static EWcuRet WcuXbeeHandleR3tpMessage(void);
-static EWcuRet WcuXbeeSendAcknowledge(uint8_t msgId, uint8_t arg0, uint8_t arg1);
+static EWcuRet WcuXbeeSendAcknowledge(uint8_t msgId, uint8_t seqNum);
 static EWcuRet WcuXbeeHandleNewSubscription(uint8_t *r3tpMessage);
 static EWcuRet WcuXbeeHandleDriverWarning(uint8_t *r3tpMessage);
 static EWcuRet WcuXbeeStoreNewSubscription(uint32_t *ids, uint32_t numOfFrames);
@@ -345,11 +345,10 @@ static EWcuRet WcuXbeeHandleR3tpMessage(void) {
 /**
  * @brief Send the R3TP acknowledge frame
  * @param msgId ID of the message being acknowledged (R3TP VER byte)
- * @param arg0 Value of the user parameter field of the ACK message (0 if not used)
- * @param arg1 Value of the user parameter field of the ACK message (0 if not used)
+ * @param seqNum Sequence number of the message being acknowledged
  * @retval EWcuRet Status
  */
-static EWcuRet WcuXbeeSendAcknowledge(uint8_t msgId, uint8_t arg0, uint8_t arg1) {
+static EWcuRet WcuXbeeSendAcknowledge(uint8_t msgId, uint8_t seqNum) {
 
 	EWcuRet status = EWcuRet_Ok;
 
@@ -368,14 +367,12 @@ static EWcuRet WcuXbeeSendAcknowledge(uint8_t msgId, uint8_t arg0, uint8_t arg1)
 
 	/* Set the MSG ID field */
 	buffer[4] = msgId;
+	/* Set the SEQ NUM of the message being acknowledged field */
+	buffer[5] = seqNum;
 
 	/* Set the END SEQ field */
 	buffer[R3TP_VER3_FRAME_SIZE - 2U] = R3TP_END_SEQ_LOW_BYTE;
 	buffer[R3TP_VER3_FRAME_SIZE - 1U] = R3TP_END_SEQ_HIGH_BYTE;
-
-	/* Transmit user arguments if provided */
-	buffer[5] = arg0;
-	buffer[6] = arg1;
 
 	/* Calculate the CRC */
 	uint16_t calculatedCrc = WcuGetR3tpCrc(buffer, R3TP_VER3_FRAME_SIZE);
@@ -469,7 +466,7 @@ static EWcuRet WcuXbeeHandleNewSubscription(uint8_t *r3tpMessage) {
 		status = WcuXbeeStoreNewSubscription(subscription, numOfFrames);
 
 		/* Send the acknowledge message */
-		(void) WcuXbeeSendAcknowledge(R3TP_VER1_VER_BYTE, 0, 0);
+		(void) WcuXbeeSendAcknowledge(R3TP_VER1_VER_BYTE, R3TP_SEQ_NUM(r3tpMessage));
 	}
 
 	return status;
@@ -545,7 +542,7 @@ static EWcuRet WcuXbeeHandleDriverWarning(uint8_t *r3tpMessage) {
 	if (EWcuRet_Ok == status) {
 
 		/* Send the acknowledge message */
-		status = WcuXbeeSendAcknowledge(R3TP_VER2_VER_BYTE, r3tpMessage[4], r3tpMessage[5]);
+		status = WcuXbeeSendAcknowledge(R3TP_VER2_VER_BYTE, R3TP_SEQ_NUM(r3tpMessage));
 	}
 
 	return status;
