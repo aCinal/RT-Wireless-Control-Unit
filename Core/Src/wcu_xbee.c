@@ -462,8 +462,11 @@ static EWcuRet WcuXbeeHandleNewSubscription(uint8_t *r3tpMessage) {
 		/* Set the new subscription */
 		WcuCanSetNewSubscription(subscription, numOfFrames);
 
-		/* Commit the new subscription to disk */
-		status = WcuXbeeStoreNewSubscription(subscription, numOfFrames);
+		if (g_WcuSdioReady) {
+
+			/* Commit the new subscription to disk */
+			status = WcuXbeeStoreNewSubscription(subscription, numOfFrames);
+		}
 
 		/* Send the acknowledge message */
 		(void) WcuXbeeSendAcknowledge(R3TP_VER1_VER_BYTE, R3TP_SEQ_NUM(r3tpMessage));

@@ -18,6 +18,12 @@
 extern CAN_HandleTypeDef hcan1;
 
 static EWcuRet WcuCanLoadSubscription(void);
+static void WcuCanSetDefaultSubscription(void);
+
+/* Default telemetry subscription */
+#define WCU_DEFAULT_TELEMETRY_SUBSCRIPTION  { 0x400, 0x401, 0x402, 0x403, \
+											  0x404, 0x405, 0x406, 0x407, \
+											  0x408, 0x640, 0x648, 0x649 }
 
 /**
  * @brief CAN service startup
@@ -28,7 +34,16 @@ void WcuCanStartup(void) {
 	if (g_WcuSdioReady) {
 
 		/* Try fetching the subscription from the SD card */
-		(void) WcuCanLoadSubscription();
+		if (EWcuRet_Ok != WcuCanLoadSubscription()) {
+
+			WcuLogError(
+					"WcuCanStartup: Failed to load telemetry subscription. Setting default filter config...");
+			WcuCanSetDefaultSubscription();
+		}
+
+	} else {
+
+		WcuCanSetDefaultSubscription();
 	}
 
 	/* Start the CAN peripheral */
@@ -153,8 +168,24 @@ static EWcuRet WcuCanLoadSubscription(void) {
 		}
 	}
 
+	if (EWcuRet_Ok == status) {
+
+		WcuCanSetNewSubscription(subscription, numOfFrames);
+	}
+
 	/* Cleanup */
 	(void) WcuSdioFileClose(&subscriptionFd);
 
 	return status;
+}
+
+/**
+ * @brief Set default telemetry subscription
+ * @retval None
+ */
+void WcuCanSetDefaultSubscription(void) {
+
+	uint32_t defaultSubscription[] = WCU_DEFAULT_TELEMETRY_SUBSCRIPTION;
+	WcuCanSetNewSubscription(defaultSubscription,
+			sizeof(defaultSubscription) / sizeof(uint32_t));
 }
