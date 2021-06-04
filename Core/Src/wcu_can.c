@@ -6,6 +6,7 @@
 
 #include <wcu_sdio.h>
 #include "wcu_can.h"
+#include "wcu_events.h"
 #include "wcu_logger.h"
 #include "wcu_sdio.h"
 #include "wcu_xbee.h"
@@ -16,14 +17,15 @@
 #include "main.h"
 
 extern CAN_HandleTypeDef hcan1;
+extern osMessageQId canMessagesQueueHandle;
 
 static EWcuRet WcuCanLoadSubscription(void);
 static void WcuCanSetDefaultSubscription(void);
 
 /* Default telemetry subscription */
 #define WCU_DEFAULT_TELEMETRY_SUBSCRIPTION  { 0x400, 0x401, 0x402, 0x403, \
-											  0x404, 0x405, 0x406, 0x407, \
-											  0x408, 0x640, 0x648, 0x649 }
+                                              0x404, 0x405, 0x406, 0x407, \
+                                              0x408, 0x640, 0x648, 0x649 }
 
 /**
  * @brief CAN service startup
@@ -51,17 +53,40 @@ void WcuCanStartup(void) {
 }
 
 /**
- * @brief Handle pending CAN message
- * @param fifo CAN FIFO identifier
+ * @brief Forward pending CAN message to a software queue
+ * @param hwFifo Hardware queue identifier
  * @retval None
  */
-void WcuCanHandlePendingMessage(uint32_t fifo) {
+void WcuCanForwardMessageFromIsrToSoftwareQueue(uint32_t hwFifo) {
 
 	SCanMessage message;
-	/* Receive the message */
 	if (HAL_OK
-			== HAL_CAN_GetRxMessage(&hcan1, fifo, &message.RxHeader,
+			== HAL_CAN_GetRxMessage(&hcan1, hwFifo, &message.RxHeader,
 					message.PayloadTbl)) {
+
+		if (pdPASS == xQueueSendFromISR(canMessagesQueueHandle, &message, NULL)) {
+
+			WcuEventSend(EWcuEventType_CanRxMessagePending, NULL);
+
+		} else {
+
+			/* A data race may occur here as this incrementing is done from outside the dispatchers' context, but since
+			 * this is the only producer, we ignore it */
+			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(CanMessagesDropped);
+		}
+	}
+}
+
+/**
+ * @brief Handle pending CAN message
+ * @retval None
+ */
+void WcuCanHandlePendingMessage(void) {
+
+	SCanMessage message;
+
+	/* Receive the message */
+	if (pdPASS == xQueueReceive(canMessagesQueueHandle, &message, 0)) {
 
 		/* Turn on the LED */
 		SET_PIN(CAN_LED);

@@ -13,10 +13,6 @@
 #define CAN_FILTERBANKS_COUNT  ( (uint32_t) 28 )  /* Number of CAN filter banks */
 #define CAN_MAX_PAYLOAD_SIZE   ( (uint32_t) 8 )   /* Maximum CAN payload size in bytes */
 
-/* Conditional compilation flag: if set only a single FIFO (CAN_RX_FIFO0) will be used for CAN Rx */
-#define CAN_SINGLE_FIFO
-#undef CAN_SINGLE_FIFO                            /* Unset the flag */
-
 /* Exported typedef ------------------------------------------------------------*/
 /**
  * @brief CAN message structure

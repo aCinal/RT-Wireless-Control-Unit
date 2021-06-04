@@ -91,7 +91,7 @@ EWcuRet WcuEventSend(EWcuEventType signal, void *param) {
  */
 static void WcuRunDispatcher(void) {
 
-	WcuLogInfo("Entering the event loop");
+	WcuLogInfo("Entering the event loop...");
 
 	for (;;) {
 
@@ -137,10 +137,7 @@ static void WcuEventDispatch(const SWcuEvent *event) {
 
 	case EWcuEventType_CanRxMessagePending:
 
-	{
-		uint32_t fifo = *(uint32_t*) event->param;
-		WcuCanHandlePendingMessage(fifo);
-	}
+		WcuCanHandlePendingMessage();
 		break;
 
 	case EWcuEventType_GnssRxMessagePending:

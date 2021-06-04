@@ -17,11 +17,17 @@
 void WcuCanStartup(void);
 
 /**
- * @brief Handle pending CAN message
- * @param fifo CAN FIFO identifier
+ * @brief Forward pending CAN message to a software queue
+ * @param hwFifo Hardware queue identifier
  * @retval None
  */
-void WcuCanHandlePendingMessage(uint32_t fifo);
+void WcuCanForwardMessageFromIsrToSoftwareQueue(uint32_t hwFifo);
+
+/**
+ * @brief Handle pending CAN message
+ * @retval None
+ */
+void WcuCanHandlePendingMessage(void);
 
 /**
  * @brief Send the message to the CAN bus

@@ -128,7 +128,6 @@ ES2lpApiRet S2lpApi_DisableInterrupt(TWord events) {
 
 		/* Swap bytes to little endian */
 		irqMask = SWAP_ENDIAN_32(irqMask);
-
 	}
 
 	if (ES2lpApiRet_Ok == status) {
@@ -143,9 +142,7 @@ ES2lpApiRet S2lpApi_DisableInterrupt(TWord events) {
 				NULL)) {
 
 			status = ES2lpApiRet_Error;
-
 		}
-
 	}
 
 	return status;
@@ -167,7 +164,6 @@ ES2lpApiRet S2lpApi_FetchInterruptStatus(TWord* irqStatusPtr) {
 	if (NULL == irqStatusPtr) {
 
 		status = ES2lpApiRet_InvalidParams;
-
 	}
 
 	if (ES2lpApiRet_Ok == status) {
@@ -179,19 +175,16 @@ ES2lpApiRet S2lpApi_FetchInterruptStatus(TWord* irqStatusPtr) {
 						NULL)) {
 
 			status = ES2lpApiRet_Error;
-
 		}
 
 		/* Swap bytes to little endian */
 		irqStatus = SWAP_ENDIAN_32(irqStatus);
-
 	}
 
 	if (ES2lpApiRet_Ok == status) {
 
 		/* Test the interrupt status bit and clear it */
 		*irqStatusPtr = irqStatus;
-
 	}
 
 	return status;
@@ -249,9 +242,7 @@ ES2lpApiRet S2lpApi_ConfigGpio(ES2lpApiGpioPin gpio, ES2lpApiGpioSignal sig) {
 		if (ES2lpLldRet_Ok != S2lpLld_WriteReg(addr, &reg, 1, NULL)) {
 
 			status = ES2lpApiRet_Error;
-
 		}
-
 	}
 
 	return status;
@@ -272,7 +263,6 @@ ES2lpApiRet S2lpApi_SelectModulationType(ES2lpApiModulationType type) {
 	if (ES2lpLldRet_Ok != S2lpLld_ReadReg(S2LP_MOD2_ADDR, &mod2, 1, NULL)) {
 
 		status = ES2lpApiRet_Error;
-
 	}
 
 	if (ES2lpApiRet_Ok == status) {
@@ -281,7 +271,6 @@ ES2lpApiRet S2lpApi_SelectModulationType(ES2lpApiModulationType type) {
 		mod2 &= ~0xF0;
 		/* Set the MOD_TYPE field */
 		mod2 |= (TByte) type;
-
 	}
 
 	if (ES2lpApiRet_Ok == status) {
@@ -290,9 +279,7 @@ ES2lpApiRet S2lpApi_SelectModulationType(ES2lpApiModulationType type) {
 		if (ES2lpLldRet_Ok != S2lpLld_WriteReg(S2LP_MOD2_ADDR, &mod2, 1, NULL)) {
 
 			status = ES2lpApiRet_Error;
-
 		}
-
 	}
 
 	return status;
@@ -314,7 +301,6 @@ ES2lpApiRet S2lpApi_SetPacketLength(THalfWord length) {
 	if (ES2lpLldRet_Ok != S2lpLld_ReadReg(S2LP_PCKTCTRL2_ADDR, &pcktCtrl2, 1, NULL)) {
 
 		status = ES2lpApiRet_Error;
-
 	}
 
 	if (ES2lpApiRet_Ok == status) {
@@ -326,9 +312,7 @@ ES2lpApiRet S2lpApi_SetPacketLength(THalfWord length) {
 				!= S2lpLld_WriteReg(S2LP_PCKTCTRL2_ADDR, &pcktCtrl2, 1, NULL)) {
 
 			status = ES2lpApiRet_Error;
-
 		}
-
 	}
 
 	if (ES2lpApiRet_Ok == status) {
@@ -342,13 +326,10 @@ ES2lpApiRet S2lpApi_SetPacketLength(THalfWord length) {
 				!= S2lpLld_WriteReg(S2LP_PCKTLEN1_ADDR, pcktLen, sizeof(pcktLen), NULL)) {
 
 			status = ES2lpApiRet_Error;
-
 		}
-
 	}
 
 	return status;
-
 }
 
 /**
@@ -365,7 +346,6 @@ ES2lpApiRet S2lpApi_EnableManchester(bool enable) {
 	if (ES2lpLldRet_Ok != S2lpLld_ReadReg(S2LP_PCKTCTRL2_ADDR, &pcktCtrl2, 1, NULL)) {
 
 		status = ES2lpApiRet_Error;
-
 	}
 
 	if (ES2lpApiRet_Ok == status) {
@@ -377,13 +357,10 @@ ES2lpApiRet S2lpApi_EnableManchester(bool enable) {
 				!= S2lpLld_WriteReg(S2LP_PCKTCTRL2_ADDR, &pcktCtrl2, 1, NULL)) {
 
 			status = ES2lpApiRet_Error;
-
 		}
-
 	}
 
 	return status;
-
 }
 
 /**
@@ -406,11 +383,9 @@ ES2lpApiRet S2lpApi_SetSyncWord(TWord sync) {
 			!= S2lpLld_WriteReg(S2LP_SYNC3_ADDR, (TByte*) &sync, 4, NULL)) {
 
 		status = ES2lpApiRet_Error;
-
 	}
 
 	return status;
-
 }
 
 /**
@@ -428,7 +403,6 @@ ES2lpApiRet S2lpApi_SetDataRate(THalfWord datarate_m, TByte datarate_e) {
 	if (0 != (datarate_e & 0xF0)) {
 
 		return ES2lpApiRet_InvalidParams;
-
 	}
 
 	/* Fetch registers MOD4, MOD3 and MOD2 */
@@ -436,7 +410,6 @@ ES2lpApiRet S2lpApi_SetDataRate(THalfWord datarate_m, TByte datarate_e) {
 			!= S2lpLld_ReadReg(S2LP_MOD4_ADDR, mod4_2, sizeof(mod4_2), NULL)) {
 
 		status = ES2lpApiRet_Error;
-
 	}
 
 	if (ES2lpApiRet_Ok == status) {
@@ -450,7 +423,6 @@ ES2lpApiRet S2lpApi_SetDataRate(THalfWord datarate_m, TByte datarate_e) {
 		mod4_2[2] &= ~0x0F;
 		/* Set the DATARATE_E field */
 		mod4_2[2] |= datarate_e;
-
 	}
 
 	if (ES2lpApiRet_Ok == status) {
@@ -460,13 +432,10 @@ ES2lpApiRet S2lpApi_SetDataRate(THalfWord datarate_m, TByte datarate_e) {
 				!= S2lpLld_WriteReg(S2LP_MOD4_ADDR, mod4_2, sizeof(mod4_2), NULL)) {
 
 			status = ES2lpApiRet_Error;
-
 		}
-
 	}
 
 	return status;
-
 }
 
 /**
@@ -485,7 +454,6 @@ ES2lpApiRet S2lpApi_SetFrequencyDeviation(TByte fdev_m, TByte fdev_e) {
 	if (0 != (fdev_e & 0xF0)) {
 
 		return ES2lpApiRet_InvalidParams;
-
 	}
 
 	/* Fetch registers MOD1 and MOD0 */
@@ -493,7 +461,6 @@ ES2lpApiRet S2lpApi_SetFrequencyDeviation(TByte fdev_m, TByte fdev_e) {
 			!= S2lpLld_ReadReg(S2LP_MOD1_ADDR, mod1_0, sizeof(mod1_0), NULL)) {
 
 		status = ES2lpApiRet_Error;
-
 	}
 
 	if (ES2lpApiRet_Ok == status) {
@@ -505,7 +472,6 @@ ES2lpApiRet S2lpApi_SetFrequencyDeviation(TByte fdev_m, TByte fdev_e) {
 
 		/* Write fdev_m to register MOD0 */
 		mod1_0[1] = fdev_m;
-
 	}
 
 	if (ES2lpApiRet_Ok == status) {
@@ -515,13 +481,10 @@ ES2lpApiRet S2lpApi_SetFrequencyDeviation(TByte fdev_m, TByte fdev_e) {
 				!= S2lpLld_WriteReg(S2LP_MOD1_ADDR, mod1_0, sizeof(mod1_0), NULL)) {
 
 			status = ES2lpApiRet_Error;
-
 		}
-
 	}
 
 	return status;
-
 }
 
 /**
@@ -540,7 +503,6 @@ ES2lpApiRet S2lpApi_SetChannelFilterBandwidth(TByte chflt_m, TByte chflt_e) {
 	if (0 != (chflt_m & 0xF0) || 0 != (chflt_e & 0xF0)) {
 
 		return ES2lpApiRet_InvalidParams;
-
 	}
 
 	/* Fetch register CHFLT */
@@ -548,14 +510,12 @@ ES2lpApiRet S2lpApi_SetChannelFilterBandwidth(TByte chflt_m, TByte chflt_e) {
 			!= S2lpLld_ReadReg(S2LP_CHFLT_ADDR, &chflt, 1, NULL)) {
 
 		status = ES2lpApiRet_Error;
-
 	}
 
 	if (ES2lpApiRet_Ok == status) {
 
 		/* Write the chflt_m and chflt_e values to the CHFLT register */
 		chflt = (chflt_m << 4) | chflt_e;
-
 	}
 
 	if (ES2lpApiRet_Ok == status) {
@@ -565,9 +525,7 @@ ES2lpApiRet S2lpApi_SetChannelFilterBandwidth(TByte chflt_m, TByte chflt_e) {
 				!= S2lpLld_WriteReg(S2LP_CHFLT_ADDR, &chflt, 1, NULL)) {
 
 			status = ES2lpApiRet_Error;
-
 		}
-
 	}
 
 	return status;
@@ -586,11 +544,9 @@ ES2lpApiRet S2lpApi_ReadRssi(TByte *rssiPtr) {
 			!= S2lpLld_ReadReg(S2LP_RSSI_LEVEL_ADDR, rssiPtr, 1, NULL)) {
 
 		status = ES2lpApiRet_Error;
-
 	}
 
 	return status;
-
 }
 
 /**
@@ -607,7 +563,6 @@ ES2lpApiRet S2lpApi_ReadRxPayload(TByte *bufPtr, TSize numOfBytes) {
 	if ((NULL == bufPtr) || (0 == numOfBytes)) {
 
 		status = ES2lpApiRet_InvalidParams;
-
 	}
 
 	if (ES2lpApiRet_Ok == status) {
@@ -617,11 +572,8 @@ ES2lpApiRet S2lpApi_ReadRxPayload(TByte *bufPtr, TSize numOfBytes) {
 				!= S2lpLld_ReadReg(S2LP_FIFO_ADDR, bufPtr, numOfBytes, NULL)) {
 
 			status = ES2lpApiRet_Error;
-
 		}
-
 	}
 
 	return status;
-
 }

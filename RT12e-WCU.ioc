@@ -1,6 +1,6 @@
 #MicroXplorer Configuration settings - do not modify
 Dma.ADC1.4.FIFOMode=DMA_FIFOMODE_DISABLE
-FREERTOS.Queues01=wcuEventQueue,128,SWcuEvent,0,Dynamic,NULL,NULL;garbageQueue,16,void*,0,Dynamic,NULL,NULL
+FREERTOS.Queues01=wcuEventQueue,128,SWcuEvent,0,Dynamic,NULL,NULL;garbageQueue,16,void*,0,Dynamic,NULL,NULL;canMessagesQueue,64,SCanMessage,0,Dynamic,NULL,NULL
 NVIC.CAN1_RX1_IRQn=true\:5\:0\:false\:false\:true\:true\:true\:true
 PB13.GPIOParameters=GPIO_Label
 CAN1.NART=DISABLE
@@ -33,7 +33,6 @@ Dma.USART2_TX.6.Direction=DMA_MEMORY_TO_PERIPH
 Dma.SDIO_TX.2.MemDataAlignment=DMA_MDATAALIGN_WORD
 USART3.BaudRate=9600
 VP_FATFS_VS_SDIO.Signal=FATFS_VS_SDIO
-NVIC.CAN1_TX_IRQn=true\:5\:0\:false\:false\:true\:true\:true\:true
 SPI1.Direction=SPI_DIRECTION_2LINES
 RCC.APB2TimFreq_Value=168000000
 Dma.SDIO_RX.1.FIFOMode=DMA_FIFOMODE_ENABLE
@@ -305,7 +304,6 @@ TIM7.Period=39999
 Mcu.Pin7=PA4
 Mcu.Pin8=PA5
 Mcu.Pin9=PA6
-NVIC.CAN1_SCE_IRQn=true\:5\:0\:false\:false\:true\:true\:true\:true
 FREERTOS.IPParameters=Tasks01,Queues01,FootprintOK,configGENERATE_RUN_TIME_STATS,configUSE_STATS_FORMATTING_FUNCTIONS,configMINIMAL_STACK_SIZE,configTOTAL_HEAP_SIZE,configCHECK_FOR_STACK_OVERFLOW,configUSE_NEWLIB_REENTRANT
 RCC.AHBFreq_Value=168000000
 Dma.USART1_RX.0.Priority=DMA_PRIORITY_LOW

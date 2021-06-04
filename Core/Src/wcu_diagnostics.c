@@ -18,7 +18,7 @@
 #define CAN_ID_WCU_DIAG   ( (uint32_t) 0x733 )            /* CAN ID: _733_WCU_DIAG */
 #define CAN_DLC_WCU_DIAG  ( (uint32_t) 4 )
 
-#define DATABASE_SNAPSHOT_LOG  ("ED=%ld,ENS=%ld,CRX=%ld,CTX=%ld,BOK=%ld,BNOK=%ld,GERR=%ld,GDR=%ld,GDNR=%ld,"\
+#define DATABASE_SNAPSHOT_LOG  ("ED=%ld,ENS=%ld,CRX=%ld,CDP=%ld,CTX=%ld,BOK=%ld,BNOK=%ld,GERR=%ld,GDR=%ld,GDNR=%ld,"\
                                 "XTEL=%ld,XACK=%ld,XWAR=%ld,XSUB=%ld,XNOK=%ld,LE=%ld,WR=%ld")
 #define DATABASE_SNAPSHOT_SW_PRESCALER  ( (uint32_t) 3 )
 
@@ -121,6 +121,7 @@ void WcuDiagnosticsLogDatabaseSnapshot(void) {
 				g_WcuDiagnosticsDatabase.EventsDispatched,
 				g_WcuDiagnosticsDatabase.EventsNotSent,
 				g_WcuDiagnosticsDatabase.CanMessagesReceived,
+				g_WcuDiagnosticsDatabase.CanMessagesDropped,
 				g_WcuDiagnosticsDatabase.CanMessagesSent,
 				g_WcuDiagnosticsDatabase.BtMessagesForwarded,
 				g_WcuDiagnosticsDatabase.BtMessagesDropped,

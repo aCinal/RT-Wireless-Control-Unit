@@ -37,21 +37,12 @@ void SetCanFilterList(CAN_HandleTypeDef *hcan, uint32_t idsTbl[], uint32_t count
 
 			filterConfig.FilterBank = i;
 			HAL_CAN_ConfigFilter(hcan, &filterConfig);
-
 		}
 
-		/* Set the new filter */
+		/* Set the new filter config */
 		filterConfig.FilterActivation = CAN_FILTER_ENABLE;
+		filterConfig.FilterBank = 0;
 		for (uint32_t i = 0; i < count; i += 1UL) {
-
-#if !defined (CAN_SINGLE_FIFO)
-			if((count / 2UL) == i) {
-
-				/* Switch to the second FIFO */
-				filterConfig.FilterFIFOAssignment = CAN_FILTER_FIFO1;
-
-			}
-#endif /* !defined (CAN_SINGLE_FIFO) */
 
 			switch (i % 4UL) {
 
@@ -97,13 +88,9 @@ void SetCanFilterList(CAN_HandleTypeDef *hcan, uint32_t idsTbl[], uint32_t count
 				filterConfig.FilterIdLow = 0x00000000;
 				filterConfig.FilterMaskIdHigh = 0x00000000;
 				filterConfig.FilterMaskIdLow = 0x00000000;
-
 			}
-
 		}
-
 	}
-
 }
 
 /**
@@ -122,9 +109,7 @@ void SetCanFilterBlockAll(CAN_HandleTypeDef *hcan) {
 
 		filterConfig.FilterBank = i;
 		HAL_CAN_ConfigFilter(hcan, &filterConfig);
-
 	}
-
 }
 
 /**
@@ -151,5 +136,4 @@ void SetCanFilterBlockNone(CAN_HandleTypeDef *hcan) {
 	filterConfig.FilterActivation = CAN_FILTER_ENABLE;
 	/* Configure the filter */
 	HAL_CAN_ConfigFilter(hcan, &filterConfig);
-
 }

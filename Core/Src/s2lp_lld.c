@@ -39,7 +39,6 @@ ES2lpLldRet S2lpLld_Reset(void) {
 	DELAY(2);
 
 	return status;
-
 }
 
 /**
@@ -66,7 +65,6 @@ ES2lpLldRet S2lpLld_WriteReg(TByte address, TByte *bufPtr, TSize numOfBytes,
 					2, S2LP_SPI_TIMEOUT)) {
 
 		status = ES2lpLldRet_Error;
-
 	}
 
 	if (ES2lpLldRet_Ok == status) {
@@ -76,9 +74,7 @@ ES2lpLldRet S2lpLld_WriteReg(TByte address, TByte *bufPtr, TSize numOfBytes,
 			/* Save the status bits in the provided buffer in the correct order */
 			*s2lpStatusBitsBufPtr = (s2lpStatusBits[0] << 8U)
 					| s2lpStatusBits[1];
-
 		}
-
 	}
 
 	if (ES2lpLldRet_Ok == status) {
@@ -88,16 +84,13 @@ ES2lpLldRet S2lpLld_WriteReg(TByte address, TByte *bufPtr, TSize numOfBytes,
 		S2LP_SPI_TIMEOUT)) {
 
 			status = ES2lpLldRet_Error;
-
 		}
-
 	}
 
 	/* Drive chip-select pin high */
 	SET_PIN(S2LP_CSn);
 
 	return status;
-
 }
 
 /**
@@ -124,7 +117,6 @@ ES2lpLldRet S2lpLld_ReadReg(TByte address, TByte *bufPtr, TSize numOfBytes,
 					2, S2LP_SPI_TIMEOUT)) {
 
 		status = ES2lpLldRet_Error;
-
 	}
 
 	if (ES2lpLldRet_Ok == status) {
@@ -134,9 +126,7 @@ ES2lpLldRet S2lpLld_ReadReg(TByte address, TByte *bufPtr, TSize numOfBytes,
 			/* Save the status bits in the provided buffer in the correct order */
 			*s2lpStatusBitsBufPtr = (s2lpStatusBits[0] << 8U)
 					| s2lpStatusBits[1];
-
 		}
-
 	}
 
 	if (ES2lpLldRet_Ok == status) {
@@ -146,16 +136,13 @@ ES2lpLldRet S2lpLld_ReadReg(TByte address, TByte *bufPtr, TSize numOfBytes,
 		S2LP_SPI_TIMEOUT)) {
 
 			status = ES2lpLldRet_Error;
-
 		}
-
 	}
 
 	/* Drive chip-select pin high */
 	SET_PIN(S2LP_CSn);
 
 	return status;
-
 }
 
 /**
@@ -180,7 +167,6 @@ ES2lpLldRet S2lpLld_SendCommand(TByte command, THalfWord *s2lpStatusBitsBufPtr) 
 					S2LP_SPI_TIMEOUT)) {
 
 		status = ES2lpLldRet_Error;
-
 	}
 
 	if (ES2lpLldRet_Ok == status) {
@@ -190,14 +176,11 @@ ES2lpLldRet S2lpLld_SendCommand(TByte command, THalfWord *s2lpStatusBitsBufPtr) 
 			/* Save the status bits in the provided buffer in the correct order */
 			*s2lpStatusBitsBufPtr = (s2lpStatusBits[0] << 8U)
 					| s2lpStatusBits[1];
-
 		}
-
 	}
 
 	/* Drive chip-select pin high */
 	SET_PIN(S2LP_CSn);
 
 	return status;
-
 }
