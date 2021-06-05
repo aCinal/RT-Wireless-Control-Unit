@@ -23,8 +23,6 @@ typedef struct SWcuDiagnosticsDatabase {
 	uint32_t GnssParserErrorCount;
 	uint32_t GnssParserDataReadyCount;
 	uint32_t GnssParserDataNotReadyCount;
-	uint32_t XbeeTelemetryMessagesSent;
-	uint32_t XbeeAcknowledgeMessagesSent;
 	uint32_t XbeeDriverWarningMessagesReceived;
 	uint32_t XbeeNewSubscriptionMessagesReceived;
 	uint32_t XbeeMessagesDropped;

@@ -36,14 +36,14 @@ void WcuEventDispatcherEntryPoint(void const *argument) {
 	(void) argument;
 
 	/* Run startups */
+	WcuWatchdogStartup();
 	WcuLoggerStartup();
 	WcuSdioStartup();
-	WcuCanStartup();
 	WcuXbeeStartup();
 	WcuBtStartup();
 	WcuGnssStartup();
-	WcuWatchdogStartup();
 	WcuDiagnosticsStartup();
+	WcuCanStartup();
 
 	/* Run the dispatcher */
 	WcuRunDispatcher();

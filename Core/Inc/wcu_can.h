@@ -21,7 +21,7 @@ void WcuCanStartup(void);
  * @param hwFifo Hardware queue identifier
  * @retval None
  */
-void WcuCanForwardMessageFromIsrToSoftwareQueue(uint32_t hwFifo);
+void WcuCanForwardMessageFromIsrToSwQueue(uint32_t hwFifo);
 
 /**
  * @brief Handle pending CAN message

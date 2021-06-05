@@ -63,7 +63,6 @@ DMA_HandleTypeDef hdma_sdio_tx;
 SPI_HandleTypeDef hspi1;
 
 TIM_HandleTypeDef htim7;
-TIM_HandleTypeDef htim10;
 TIM_HandleTypeDef htim11;
 TIM_HandleTypeDef htim13;
 TIM_HandleTypeDef htim14;
@@ -102,7 +101,6 @@ static void MX_USART2_UART_Init(void);
 static void MX_USART3_UART_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_TIM7_Init(void);
-static void MX_TIM10_Init(void);
 static void MX_TIM11_Init(void);
 static void MX_TIM13_Init(void);
 static void MX_TIM14_Init(void);
@@ -158,7 +156,6 @@ int main(void) {
 	MX_FATFS_Init();
 	MX_ADC1_Init();
 	MX_TIM7_Init();
-	MX_TIM10_Init();
 	MX_TIM11_Init();
 	MX_TIM13_Init();
 	MX_TIM14_Init();
@@ -499,35 +496,6 @@ static void MX_TIM7_Init(void) {
 }
 
 /**
- * @brief TIM10 Initialization Function
- * @param None
- * @retval None
- */
-static void MX_TIM10_Init(void) {
-
-	/* USER CODE BEGIN TIM10_Init 0 */
-
-	/* USER CODE END TIM10_Init 0 */
-
-	/* USER CODE BEGIN TIM10_Init 1 */
-
-	/* USER CODE END TIM10_Init 1 */
-	htim10.Instance = TIM10;
-	htim10.Init.Prescaler = 3199;
-	htim10.Init.CounterMode = TIM_COUNTERMODE_UP;
-	htim10.Init.Period = 9999;
-	htim10.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-	htim10.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-	if (HAL_TIM_Base_Init(&htim10) != HAL_OK) {
-		Error_Handler();
-	}
-	/* USER CODE BEGIN TIM10_Init 2 */
-
-	/* USER CODE END TIM10_Init 2 */
-
-}
-
-/**
  * @brief TIM11 Initialization Function
  * @param None
  * @retval None
@@ -542,7 +510,7 @@ static void MX_TIM11_Init(void) {
 
 	/* USER CODE END TIM11_Init 1 */
 	htim11.Instance = TIM11;
-	htim11.Init.Prescaler = 4199;
+	htim11.Init.Prescaler = 419;
 	htim11.Init.CounterMode = TIM_COUNTERMODE_UP;
 	htim11.Init.Period = 39999;
 	htim11.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
@@ -571,7 +539,7 @@ static void MX_TIM13_Init(void) {
 
 	/* USER CODE END TIM13_Init 1 */
 	htim13.Instance = TIM13;
-	htim13.Init.Prescaler = 419;
+	htim13.Init.Prescaler = 4199;
 	htim13.Init.CounterMode = TIM_COUNTERMODE_UP;
 	htim13.Init.Period = 39999;
 	htim13.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
@@ -879,7 +847,21 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
 
 	if (CAN1 == hcan->Instance) {
 
-		WcuCanForwardMessageFromIsrToSoftwareQueue(CAN_RX_FIFO0);
+		WcuCanForwardMessageFromIsrToSwQueue(CAN_RX_FIFO0);
+	}
+}
+
+/**
+ * @brief  Rx FIFO 1 message pending callback.
+ * @param  hcan pointer to a CAN_HandleTypeDef structure that contains
+ *         the configuration information for the specified CAN.
+ * @retval None
+ */
+void HAL_CAN_RxFifo1MsgPendingCallback(CAN_HandleTypeDef *hcan) {
+
+	if (CAN1 == hcan->Instance) {
+
+		WcuCanForwardMessageFromIsrToSwQueue(CAN_RX_FIFO1);
 	}
 }
 

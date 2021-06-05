@@ -48,6 +48,9 @@ void WcuCanStartup(void) {
 		WcuCanSetDefaultSubscription();
 	}
 
+	/* Enable interrupts on message pending in RX FIFOs */
+	(void) HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING | CAN_IT_RX_FIFO1_MSG_PENDING);
+
 	/* Start the CAN peripheral */
 	(void) HAL_CAN_Start(&hcan1);
 }
@@ -57,7 +60,7 @@ void WcuCanStartup(void) {
  * @param hwFifo Hardware queue identifier
  * @retval None
  */
-void WcuCanForwardMessageFromIsrToSoftwareQueue(uint32_t hwFifo) {
+void WcuCanForwardMessageFromIsrToSwQueue(uint32_t hwFifo) {
 
 	SCanMessage message;
 	if (HAL_OK

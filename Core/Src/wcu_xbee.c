@@ -148,8 +148,6 @@ EWcuRet WcuXbeeSendTelemetryData(SCanMessage *canMessage) {
 	/* Transmit the frame */
 	WcuXbeeSendData(buffer, R3TP_VER0_FRAME_SIZE);
 
-	WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(XbeeTelemetryMessagesSent);
-
 	return status;
 }
 
@@ -384,8 +382,6 @@ static EWcuRet WcuXbeeSendAcknowledge(uint8_t msgId, uint8_t seqNum) {
 	/* Transmit the frame */
 	WcuXbeeSendData(buffer, R3TP_VER3_FRAME_SIZE);
 
-	WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(XbeeAcknowledgeMessagesSent);
-
 	return status;
 }
 
@@ -592,6 +588,11 @@ static EWcuRet WcuXbeeStoreNewSubscription(uint32_t *ids, uint32_t numOfFrames) 
 			WcuLogError("WcuXbeeStoreNewSubscription: Write failed");
 			status = EWcuRet_Error;
 		}
+	}
+
+	if (EWcuRet_Ok == status) {
+
+		WcuLogInfo("WcuXbeeStoreNewSubscription: New subscription stored on disk");
 	}
 
 	/* Cleanup */

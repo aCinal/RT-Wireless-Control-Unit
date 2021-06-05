@@ -19,7 +19,7 @@
 #define CAN_DLC_WCU_DIAG  ( (uint32_t) 4 )
 
 #define DATABASE_SNAPSHOT_LOG  ("ED=%ld,ENS=%ld,CRX=%ld,CDP=%ld,CTX=%ld,BOK=%ld,BNOK=%ld,GERR=%ld,GDR=%ld,GDNR=%ld,"\
-                                "XTEL=%ld,XACK=%ld,XWAR=%ld,XSUB=%ld,XNOK=%ld,LE=%ld,WR=%ld")
+                                "XWAR=%ld,XSUB=%ld,XNOK=%ld,LE=%ld,WR=%ld")
 #define DATABASE_SNAPSHOT_SW_PRESCALER  ( (uint32_t) 3 )
 
 #define VDD               ( (float32_t) 3.3 )             /* Supply voltage */
@@ -32,7 +32,7 @@
 #define SensedVoltageToDegreesCelsius(volt)  ( (float32_t) ( ( ( (float32_t)(volt) - V25 ) / AVG_SLOPE ) + 25.0F ) )
 
 extern ADC_HandleTypeDef hadc1;
-extern TIM_HandleTypeDef htim11;
+extern TIM_HandleTypeDef htim13;
 extern TIM_HandleTypeDef htim14;
 
 static uint16_t g_AdcBuffer;
@@ -46,7 +46,7 @@ SWcuDiagnosticsDatabase g_WcuDiagnosticsDatabase;
 void WcuDiagnosticsStartup(void) {
 
 	/* Start the timers */
-	(void) HAL_TIM_Base_Start_IT(&htim11);
+	(void) HAL_TIM_Base_Start_IT(&htim13);
 	(void) HAL_TIM_Base_Start_IT(&htim14);
 }
 
@@ -128,8 +128,6 @@ void WcuDiagnosticsLogDatabaseSnapshot(void) {
 				g_WcuDiagnosticsDatabase.GnssParserErrorCount,
 				g_WcuDiagnosticsDatabase.GnssParserDataReadyCount,
 				g_WcuDiagnosticsDatabase.GnssParserDataNotReadyCount,
-				g_WcuDiagnosticsDatabase.XbeeTelemetryMessagesSent,
-				g_WcuDiagnosticsDatabase.XbeeAcknowledgeMessagesSent,
 				g_WcuDiagnosticsDatabase.XbeeDriverWarningMessagesReceived,
 				g_WcuDiagnosticsDatabase.XbeeNewSubscriptionMessagesReceived,
 				g_WcuDiagnosticsDatabase.XbeeMessagesDropped,

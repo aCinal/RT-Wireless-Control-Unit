@@ -9,7 +9,7 @@
 #include "stm32f4xx_hal.h"
 
 extern IWDG_HandleTypeDef hiwdg;
-extern TIM_HandleTypeDef htim13;
+extern TIM_HandleTypeDef htim11;
 
 /**
  * @brief Watchdog service startup
@@ -18,7 +18,7 @@ extern TIM_HandleTypeDef htim13;
 void WcuWatchdogStartup(void) {
 
 	/* Start the timer */
-	(void) HAL_TIM_Base_Start_IT(&htim13);
+	(void) HAL_TIM_Base_Start_IT(&htim11);
 }
 
 /**
