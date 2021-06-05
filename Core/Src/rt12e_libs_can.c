@@ -13,7 +13,8 @@
  * @param idsTbl Pointer to an array of 32-bit CAN IDs to filter for
  * @param count Length of the idsTbl array
  */
-void SetCanFilterList(CAN_HandleTypeDef *hcan, uint32_t idsTbl[], uint32_t count) {
+void SetCanFilterList(CAN_HandleTypeDef *hcan, uint32_t idsTbl[],
+		uint32_t count) {
 
 	/* Assert valid idsTbl array length */
 	if (count <= CAN_FILTERBANKS_COUNT * 4UL) {
@@ -26,6 +27,8 @@ void SetCanFilterList(CAN_HandleTypeDef *hcan, uint32_t idsTbl[], uint32_t count
 		filterConfig.FilterMode = CAN_FILTERMODE_IDLIST;
 		/* Set the filter scale as 16 bit, since only the standard 11-bit CAN IDs are used - this allows four IDs per bank */
 		filterConfig.FilterScale = CAN_FILTERSCALE_16BIT;
+		/* Assign all filter banks to the master CAN instance */
+		filterConfig.SlaveStartFilterBank = 27;
 
 		/* Clear the previous filter config */
 		filterConfig.FilterIdHigh = 0x00000000U;
@@ -33,6 +36,7 @@ void SetCanFilterList(CAN_HandleTypeDef *hcan, uint32_t idsTbl[], uint32_t count
 		filterConfig.FilterMaskIdHigh = 0x00000000U;
 		filterConfig.FilterMaskIdLow = 0x00000000U;
 		filterConfig.FilterActivation = CAN_FILTER_DISABLE;
+
 		for (uint32_t i = 0; i < CAN_FILTERBANKS_COUNT; i += 1UL) {
 
 			filterConfig.FilterBank = i;
@@ -48,14 +52,14 @@ void SetCanFilterList(CAN_HandleTypeDef *hcan, uint32_t idsTbl[], uint32_t count
 
 			case 0:
 
-				filterConfig.FilterIdHigh =
-						AlignCanIdWithFilterFieldMapping(idsTbl[i]);
+				filterConfig.FilterIdHigh = AlignCanIdWithFilterFieldMapping(
+						idsTbl[i]);
 				break;
 
 			case 1:
 
-				filterConfig.FilterIdLow =
-						AlignCanIdWithFilterFieldMapping(idsTbl[i]);
+				filterConfig.FilterIdLow = AlignCanIdWithFilterFieldMapping(
+						idsTbl[i]);
 				break;
 
 			case 2:
@@ -66,14 +70,13 @@ void SetCanFilterList(CAN_HandleTypeDef *hcan, uint32_t idsTbl[], uint32_t count
 
 			case 3:
 
-				filterConfig.FilterMaskIdLow =
-						AlignCanIdWithFilterFieldMapping(idsTbl[i]);
+				filterConfig.FilterMaskIdLow = AlignCanIdWithFilterFieldMapping(
+						idsTbl[i]);
 				break;
 
 			default:
 
 				break;
-
 			}
 
 			/* If the filter bank is fully configured or there are no more IDs, call HAL_CAN_ConfigFilter */
@@ -88,6 +91,14 @@ void SetCanFilterList(CAN_HandleTypeDef *hcan, uint32_t idsTbl[], uint32_t count
 				filterConfig.FilterIdLow = 0x00000000;
 				filterConfig.FilterMaskIdHigh = 0x00000000;
 				filterConfig.FilterMaskIdLow = 0x00000000;
+
+#if CAN_DUAL_FIFO
+				/* Halfway through the subscription switch to the other FIFO */
+				if (i > count / 2) {
+
+					filterConfig.FilterFIFOAssignment = CAN_FILTER_FIFO1;
+				}
+#endif /* CAN_DUAL_FIFO */
 			}
 		}
 	}
@@ -105,7 +116,7 @@ void SetCanFilterBlockAll(CAN_HandleTypeDef *hcan) {
 	filterConfig.FilterActivation = CAN_FILTER_DISABLE;
 
 	/* Disable all CAN filters */
-	for(uint32_t i = 0; i < CAN_FILTERBANKS_COUNT; i += 1UL) {
+	for (uint32_t i = 0; i < CAN_FILTERBANKS_COUNT; i += 1UL) {
 
 		filterConfig.FilterBank = i;
 		HAL_CAN_ConfigFilter(hcan, &filterConfig);
