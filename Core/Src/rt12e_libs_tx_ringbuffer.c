@@ -343,7 +343,13 @@ static void TxRbFreeBuffer(void *buffer) {
 	if (xPortIsInsideInterrupt()) {
 
 		/* If in IRQ, defer handling of the freeing to the garbage-collector task */
-		(void) xQueueSendFromISR(garbageQueueHandle, &buffer, NULL);
+		if (pdPASS != xQueueSendFromISR(garbageQueueHandle, &buffer, NULL)) {
+
+			for(;;) {
+
+				/* We must never get here as this implies a memory leak */
+			}
+		}
 
 	} else {
 
