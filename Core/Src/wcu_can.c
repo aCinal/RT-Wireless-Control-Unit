@@ -15,6 +15,7 @@
 #include "rt12e_libs_r3tp.h"
 #include "stm32f4xx_hal.h"
 #include "main.h"
+#include <stdio.h>
 
 extern CAN_HandleTypeDef hcan1;
 extern osMessageQId canMessagesQueueHandle;
@@ -78,6 +79,27 @@ void WcuCanForwardMessageFromIsrToSwQueue(uint32_t hwFifo) {
 			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(CanMessagesDropped);
 		}
 	}
+}
+
+/**
+ * @brief Handle CAN error
+ * @retval None
+ */
+void WcuCanHandleBusError(void) {
+
+	/* Get the error flags */
+	uint32_t errflags = HAL_CAN_GetError(&hcan1);
+
+	/* Log the error */
+	char log[128];
+	sprintf(log, "WcuCanHandleBusError: error code 0x%lX", errflags);
+	WcuLogError(log);
+
+	/* Increment the statistics counter */
+	WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(CanErrors);
+
+	/* Reset the error flags */
+	(void) HAL_CAN_ResetError(&hcan1);
 }
 
 /**

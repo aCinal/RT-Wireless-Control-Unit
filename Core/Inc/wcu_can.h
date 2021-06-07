@@ -24,6 +24,12 @@ void WcuCanStartup(void);
 void WcuCanForwardMessageFromIsrToSwQueue(uint32_t hwFifo);
 
 /**
+ * @brief Handle CAN error
+ * @retval None
+ */
+void WcuCanHandleBusError(void);
+
+/**
  * @brief Handle pending CAN message
  * @retval None
  */

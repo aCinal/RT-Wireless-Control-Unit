@@ -135,6 +135,11 @@ static void WcuEventDispatch(const SWcuEvent *event) {
 		WcuBtHandlePendingMessage();
 		break;
 
+	case EWcuEventType_CanError:
+
+		WcuCanHandleBusError();
+		break;
+
 	case EWcuEventType_CanRxMessagePending:
 
 		WcuCanHandlePendingMessage();
@@ -148,6 +153,11 @@ static void WcuEventDispatch(const SWcuEvent *event) {
 	case EWcuEventType_LogEntriesPending:
 
 		WcuLoggerFlushRingBuffer();
+		break;
+
+	case EWcuEventType_TimerExpired:
+
+		WcuEventDispatchTimerEvent(event);
 		break;
 
 	case EWcuEventType_UartTxMessagePending:
@@ -165,11 +175,6 @@ static void WcuEventDispatch(const SWcuEvent *event) {
 	case EWcuEventType_XbeeRxMessagePending:
 
 		WcuXbeeHandlePendingRxMessage();
-		break;
-
-	case EWcuEventType_TimerExpired:
-
-		WcuEventDispatchTimerEvent(event);
 		break;
 
 	default:

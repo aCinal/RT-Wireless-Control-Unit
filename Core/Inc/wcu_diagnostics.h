@@ -15,6 +15,7 @@
 typedef struct SWcuDiagnosticsDatabase {
 	uint32_t EventsDispatched;
 	uint32_t EventsNotSent;
+	uint32_t CanErrors;
 	uint32_t CanMessagesReceived;
 	uint32_t CanMessagesDropped;
 	uint32_t CanMessagesSent;

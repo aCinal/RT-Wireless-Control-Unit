@@ -13,7 +13,7 @@
 #define CAN_FILTERBANKS_COUNT  ( (uint32_t) 28 )  /* Number of CAN filter banks */
 #define CAN_MAX_PAYLOAD_SIZE   ( (uint32_t) 8 )   /* Maximum CAN payload size in bytes */
 
-#define CAN_DUAL_FIFO 1                           /* Compilation flag to enable/disable use of both hardware FIFOs */
+#define CAN_DUAL_FIFO 1                           /* Compilation flag to enable/disable use of both hardware FIFOs instead of just one */
 
 /* Exported typedef ------------------------------------------------------------*/
 /**

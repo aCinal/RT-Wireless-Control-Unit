@@ -37,10 +37,11 @@ typedef enum EWcuLogSeverityLevel {
 typedef enum EWcuEventType {
     EWcuEventType_AdcConversionComplete = 0,
     EWcuEventType_BtRxMessagePending,
+	EWcuEventType_CanError,
     EWcuEventType_CanRxMessagePending,
-	EWcuEventType_TimerExpired,
     EWcuEventType_GnssRxMessagePending,
 	EWcuEventType_LogEntriesPending,
+	EWcuEventType_TimerExpired,
 	EWcuEventType_UartTxMessagePending,
     EWcuEventType_XbeeRxMessagePending,
 } EWcuEventType;

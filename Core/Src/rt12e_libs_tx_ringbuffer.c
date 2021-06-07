@@ -39,7 +39,8 @@ static void TxRbFreeBuffer(void *buffer);
  * @param callback User-defined callback on transfer completion
  * @retval ETxRbRet Status
  */
-ETxRbRet TxRbInit(STxRb *rb, uint8_t *buffer, size_t len, TTxRbRouter router, TTxRbUserCallback callback) {
+ETxRbRet TxRbInit(STxRb *rb, uint8_t *buffer, size_t len, TTxRbRouter router,
+		TTxRbUserCallback callback) {
 
 	/* Assert valid parameters */
 	ETxRbRet status = ETxRbRet_Ok;
@@ -82,7 +83,7 @@ ETxRbRet TxRbWrite(STxRb *rb, uint8_t *data, size_t len) {
 	ETxRbRet status = ETxRbRet_Ok;
 
 	/* Assert valid parameters */
-	if(!TX_RB_VALID(rb)|| (NULL == data) || (0 == len)
+	if (!TX_RB_VALID(rb) || (NULL == data) || (0 == len)
 			|| (len > rb->Length)) {
 
 		status = ETxRbRet_InvalidParams;
@@ -299,12 +300,11 @@ static ETxRbRet TxRbCommitFromLinearBuffer(STxRb *rb) {
 	if (ETxRbRet_Ok == status) {
 
 		/* Copy the upper part of the ring buffer into the linear buffer */
-		memcpy(rb->LinearBuffer, TX_RB_TAIL(rb),
-				rb->Length - rb->Tail);
+		memcpy(rb->LinearBuffer, TX_RB_TAIL(rb), rb->Length - rb->Tail);
 
 		/* Copy the lower part of the ring buffer into the linear buffer */
-		memcpy(&(rb->LinearBuffer[rb->Length - rb->Tail]),
-				rb->Buffer, rb->Head);
+		memcpy(&(rb->LinearBuffer[rb->Length - rb->Tail]), rb->Buffer,
+				rb->Head);
 
 		/* Commit the data from the allocated buffer */
 		status = rb->Router(rb->LinearBuffer, len);
@@ -345,7 +345,7 @@ static void TxRbFreeBuffer(void *buffer) {
 		/* If in IRQ, defer handling of the freeing to the garbage-collector task */
 		if (pdPASS != xQueueSendFromISR(garbageQueueHandle, &buffer, NULL)) {
 
-			for(;;) {
+			for (;;) {
 
 				/* We must never get here as this implies a memory leak */
 			}
