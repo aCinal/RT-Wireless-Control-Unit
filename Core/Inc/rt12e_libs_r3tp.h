@@ -14,7 +14,7 @@
 /* VER 1 defines - new telemetry subscription */
 #define R3TP_VER1_VER_BYTE        ( (uint8_t) 0x01 )          /* VER 1 protocol version byte */
 #define R3TP_VER1_HEADER_SIZE     ( (uint32_t) 8U )           /* R3TP header size */
-#define R3TP_VER1_MAX_FRAME_NUM   ( (uint32_t) 28 )           /* Maximum number of frames in a subscription */
+#define R3TP_VER1_MAX_FRAME_NUM   ( (uint32_t) 4 * 28 )       /* Maximum number of frames in a subscription */
 /* R3TP version 1 max frame size in bytes */
 #define R3TP_VER1_MAX_FRAME_SIZE  ( (uint32_t) (12U + 4U * R3TP_VER1_MAX_FRAME_NUM) )
 

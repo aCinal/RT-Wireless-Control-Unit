@@ -18,8 +18,8 @@
 #define CAN_ID_WCU_DIAG   ( (uint32_t) 0x733 )            /* CAN ID: _733_WCU_DIAG */
 #define CAN_DLC_WCU_DIAG  ( (uint32_t) 4 )
 
-#define DATABASE_SNAPSHOT_LOG  ("ED=%ld,ENS=%ld,CER=%ld,CRX=%ld,CDP=%ld,CTX=%ld,BOK=%ld,BNOK=%ld,GERR=%ld,GDR=%ld,GDNR=%ld,"\
-                                "XWAR=%ld,XSUB=%ld,XNOK=%ld,LE=%ld,WR=%ld")
+#define DATABASE_SNAPSHOT_LOG  ("EVD=%ld,ENS=%ld,CRX=%ld,CSV=%ld,CTX=%ld,CER=%ld,BOK=%ld,BNK=%ld,GRD=%ld,GER=%ld," \
+                                "XTX=%ld,XSV=%ld,XWA=%ld,XSU=%ld,XNK=%ld,LEQ=%ld,LCM=%ld,WRC=%ld")
 #define DATABASE_SNAPSHOT_SW_PRESCALER  ( (uint32_t) 3 )
 
 #define VDD               ( (float32_t) 3.3 )             /* Supply voltage */
@@ -120,19 +120,21 @@ void WcuDiagnosticsLogDatabaseSnapshot(void) {
 		sprintf(snapshot, DATABASE_SNAPSHOT_LOG,
 				g_WcuDiagnosticsDatabase.EventsDispatched,
 				g_WcuDiagnosticsDatabase.EventsNotSent,
-				g_WcuDiagnosticsDatabase.CanErrors,
 				g_WcuDiagnosticsDatabase.CanMessagesReceived,
-				g_WcuDiagnosticsDatabase.CanMessagesDropped,
+				g_WcuDiagnosticsDatabase.CanQueueStarvations,
 				g_WcuDiagnosticsDatabase.CanMessagesSent,
+				g_WcuDiagnosticsDatabase.CanErrors,
 				g_WcuDiagnosticsDatabase.BtMessagesForwarded,
-				g_WcuDiagnosticsDatabase.BtMessagesDropped,
-				g_WcuDiagnosticsDatabase.GnssParserErrorCount,
-				g_WcuDiagnosticsDatabase.GnssParserDataReadyCount,
-				g_WcuDiagnosticsDatabase.GnssParserDataNotReadyCount,
+				g_WcuDiagnosticsDatabase.BtInvalidMessagesReceived,
+				g_WcuDiagnosticsDatabase.GnssParserFramesCompleted,
+				g_WcuDiagnosticsDatabase.GnssParserErrors,
+				g_WcuDiagnosticsDatabase.XbeeMessagesSent,
+				g_WcuDiagnosticsDatabase.XbeeTransmitRingbufferStarvations,
 				g_WcuDiagnosticsDatabase.XbeeDriverWarningMessagesReceived,
 				g_WcuDiagnosticsDatabase.XbeeNewSubscriptionMessagesReceived,
-				g_WcuDiagnosticsDatabase.XbeeMessagesDropped,
-				g_WcuDiagnosticsDatabase.LoggerEntries,
+				g_WcuDiagnosticsDatabase.XbeeInvalidMessagesReceived,
+				g_WcuDiagnosticsDatabase.LoggerEntriesQueued,
+				g_WcuDiagnosticsDatabase.LoggerCommits,
 				g_WcuDiagnosticsDatabase.WatchdogRefreshCount);
 
 		/* Print the snapshot */

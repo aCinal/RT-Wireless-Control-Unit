@@ -24,7 +24,7 @@
 #include <string.h>
 #include "main.h"
 
-#define WCU_XBEE_TX_RING_BUFFER_SIZE   ( (uint32_t) (10 * R3TP_VER0_FRAME_SIZE) )  /* UART TX ring buffer size */
+#define WCU_XBEE_TX_RING_BUFFER_SIZE   ( (uint32_t) (64 * R3TP_VER0_FRAME_SIZE) )  /* UART TX ring buffer size */
 #define WCU_XBEE_RX_RING_BUFFER_SIZE   ( (uint32_t) (2 * R3TP_MAX_FRAME_SIZE) )    /* UART RX ring buffer size */
 #define WCU_CAN_ID_TELEMETRY_DIAG      ( (uint32_t) 0x733 )                        /* CAN ID: _733_TELEMETRY_DIAG */
 #define WCU_TELEMETRY_STATE_BIT        ( (uint8_t) 0x80 )                          /* Telemetry_State bit of the TELEMETRY_DIAG CAN frame */
@@ -53,6 +53,7 @@ static EWcuRet WcuXbeeStoreNewSubscription(uint32_t *ids, uint32_t numOfFrames);
 static void WcuXbeeSendData(uint8_t *data, uint32_t len);
 static void WcuXbeeRxCallback(void);
 static ETxRbRet WcuXbeeTxRingBufferRouter(uint8_t *data, size_t len);
+static void WcuXbeeTxRingBufferCallback(void);
 
 /**
  * @brief XBEE service startup
@@ -163,7 +164,7 @@ static EWcuRet WcuXbeeTxRingBufferInit(void) {
 
 	/* Configure the ring buffer structure */
 	TxRbInit(&g_WcuXbeeTxRingBuffer, ringbuffer, sizeof(ringbuffer),
-			WcuXbeeTxRingBufferRouter, NULL);
+			WcuXbeeTxRingBufferRouter, WcuXbeeTxRingBufferCallback);
 
 	return status;
 }
@@ -330,7 +331,7 @@ static EWcuRet WcuXbeeHandleR3tpMessage(void) {
 
 		default:
 
-			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(XbeeMessagesDropped);
+			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(XbeeInvalidMessagesReceived);
 			WcuLogError("WcuXbeeHandleR3tpMessage: Unknown protocol version");
 			status = EWcuRet_Error;
 			break;
@@ -401,7 +402,7 @@ static EWcuRet WcuXbeeHandleNewSubscription(uint8_t *r3tpMessage) {
 	/* Assert the payload won't overflow the buffer */
 	if (numOfFrames > R3TP_VER1_MAX_FRAME_NUM) {
 
-		WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(XbeeMessagesDropped);
+		WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(XbeeInvalidMessagesReceived);
 		WcuLogError("WcuXbeeHandleNewSubscription: Invalid frame number");
 		status = EWcuRet_Error;
 	}
@@ -412,7 +413,7 @@ static EWcuRet WcuXbeeHandleNewSubscription(uint8_t *r3tpMessage) {
 		if (!R3TP_VALID_END_SEQ(r3tpMessage,
 				R3TP_VER1_MESSAGE_LENGTH(numOfFrames))) {
 
-			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(XbeeMessagesDropped);
+			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(XbeeInvalidMessagesReceived);
 			WcuLogError("WcuXbeeHandleNewSubscription: Invalid end sequence");
 			status = EWcuRet_Error;
 		}
@@ -435,7 +436,7 @@ static EWcuRet WcuXbeeHandleNewSubscription(uint8_t *r3tpMessage) {
 		if (readCrc != calculatedCrc) {
 
 			/* Log the error */
-			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(XbeeMessagesDropped);
+			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(XbeeInvalidMessagesReceived);
 			WcuLogError("WcuXbeeHandleNewSubscription: Invalid CRC");
 			status = EWcuRet_Error;
 		}
@@ -452,7 +453,6 @@ static EWcuRet WcuXbeeHandleNewSubscription(uint8_t *r3tpMessage) {
 			subscription[i] = _reinterpret32bits(payload[3UL + 4UL * i],
 					payload[2UL + 4UL * i], payload[1UL + 4UL * i],
 					payload[4UL * i]);
-
 		}
 
 		/* Set the new subscription */
@@ -483,7 +483,7 @@ static EWcuRet WcuXbeeHandleDriverWarning(uint8_t *r3tpMessage) {
 	/* Validate the END SEQ */
 	if (!R3TP_VALID_END_SEQ(r3tpMessage, R3TP_VER2_FRAME_SIZE)) {
 
-		WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(XbeeMessagesDropped);
+		WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(XbeeInvalidMessagesReceived);
 		WcuLogError("WcuXbeeHandleDriverWarning: Invalid end sequence");
 		status = EWcuRet_Error;
 	}
@@ -504,7 +504,7 @@ static EWcuRet WcuXbeeHandleDriverWarning(uint8_t *r3tpMessage) {
 		/* Validate the CRC */
 		if (readCrc != calculatedCrc) {
 
-			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(XbeeMessagesDropped);
+			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(XbeeInvalidMessagesReceived);
 			WcuLogError("WcuXbeeHandleDriverWarning: Invalid CRC");
 			status = EWcuRet_Error;
 		}
@@ -615,6 +615,11 @@ static void WcuXbeeSendData(uint8_t *data, uint32_t len) {
 		/* Tell the dispatcher to initiate transmission */
 		(void) WcuEventSend(EWcuEventType_UartTxMessagePending,
 				&g_WcuXbeeTxRingBuffer);
+
+	} else {
+
+		/* Increment the starvation counter */
+		WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(XbeeTransmitRingbufferStarvations);
 	}
 }
 
@@ -643,4 +648,14 @@ static ETxRbRet WcuXbeeTxRingBufferRouter(uint8_t *data, size_t len) {
 	}
 
 	return status;
+}
+
+/**
+ * @brief TX ring buffer callback
+ * @retval None
+ */
+static void WcuXbeeTxRingBufferCallback(void) {
+
+	/* Increment the statistics counter */
+	WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(XbeeMessagesSent);
 }

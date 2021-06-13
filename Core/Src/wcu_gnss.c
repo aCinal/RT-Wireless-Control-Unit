@@ -188,7 +188,7 @@ static EWcuRet WcuGnssHandleNmeaMessage(void) {
 
 		case EL26DataStatus_Ready:
 
-			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(GnssParserDataReadyCount);
+			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(GnssParserFramesCompleted);
 
 			/* Send the data to CAN */
 			WcuGnssSendDataToCan(&parsedData);
@@ -199,14 +199,12 @@ static EWcuRet WcuGnssHandleNmeaMessage(void) {
 
 		case EL26DataStatus_NotReady:
 
-			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(GnssParserDataNotReadyCount);
-
 			/* If the data is not complete, continue listening */
 			break;
 
 		case EL26DataStatus_Error:
 
-			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(GnssParserErrorCount);
+			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(GnssParserErrors);
 
 			WcuLogError("WcuGnssHandleNmeaMessage: Parser failed");
 			status = EWcuRet_Error;

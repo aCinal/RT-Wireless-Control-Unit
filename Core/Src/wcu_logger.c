@@ -102,7 +102,7 @@ void WcuLoggerPrint(EWcuLogSeverityLevel severityLevel,
 			/* If write was successful, send the event to the dispatcher to flush the ring buffer */
 			(void) WcuEventSend(EWcuEventType_LogEntriesPending,
 					&g_WcuLoggerTxRingBuffer);
-			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(LoggerEntries);
+			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(LoggerEntriesQueued);
 		}
 
 		/* Free the memory */
@@ -202,4 +202,14 @@ static ETxRbRet WcuLoggerTxRingBufferRouter(uint8_t *data, size_t len) {
 #endif /* !WCU_REDIRECT_LOGS_TO_SERIAL_PORT */
 
 	return status;
+}
+
+/**
+ * @brief TX ring buffer callback
+ * @retval None
+ */
+void WcuLoggerTxRingBufferCallback(void) {
+
+	/* Increment statistics counter */
+	WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(LoggerCommits);
 }

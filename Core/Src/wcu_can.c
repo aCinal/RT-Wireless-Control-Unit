@@ -49,8 +49,11 @@ void WcuCanStartup(void) {
 		WcuCanSetDefaultSubscription();
 	}
 
-	/* Enable interrupts on message pending in RX FIFOs */
-	(void) HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING | CAN_IT_RX_FIFO1_MSG_PENDING);
+	/* Enable interrupts on message pending in RX FIFOs and on error */
+	(void) HAL_CAN_ActivateNotification(&hcan1,
+			CAN_IT_RX_FIFO0_MSG_PENDING | CAN_IT_RX_FIFO1_MSG_PENDING
+					| CAN_IT_ERROR | CAN_IT_ERROR_WARNING | CAN_IT_ERROR_PASSIVE
+					| CAN_IT_BUSOFF | CAN_IT_LAST_ERROR_CODE);
 
 	/* Start the CAN peripheral */
 	(void) HAL_CAN_Start(&hcan1);
@@ -76,7 +79,7 @@ void WcuCanForwardMessageFromIsrToSwQueue(uint32_t hwFifo) {
 
 			/* A data race may occur here as this incrementing is done from outside the dispatchers' context, but since
 			 * this is the only producer, we ignore it */
-			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(CanMessagesDropped);
+			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(CanQueueStarvations);
 		}
 	}
 }

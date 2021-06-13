@@ -356,7 +356,7 @@ static EL26ParserRet L26ParseNmeaPayload(SL26GnssData* data, char* payload, TL26
 
 	if (EL26ParserRet_Ok == status) {
 
-		/* On success, set the appropriate */
+		/* On success, set the appropriate flag */
 		data->SentencesReceived |= flagToSetOnSuccess;
 	}
 

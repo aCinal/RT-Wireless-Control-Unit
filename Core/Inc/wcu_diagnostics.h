@@ -13,22 +13,32 @@
  * @brief WCU runtime database for debugging
  */
 typedef struct SWcuDiagnosticsDatabase {
+
 	uint32_t EventsDispatched;
 	uint32_t EventsNotSent;
-	uint32_t CanErrors;
+
 	uint32_t CanMessagesReceived;
-	uint32_t CanMessagesDropped;
+	uint32_t CanQueueStarvations;
 	uint32_t CanMessagesSent;
+	uint32_t CanErrors;
+
 	uint32_t BtMessagesForwarded;
-	uint32_t BtMessagesDropped;
-	uint32_t GnssParserErrorCount;
-	uint32_t GnssParserDataReadyCount;
-	uint32_t GnssParserDataNotReadyCount;
+	uint32_t BtInvalidMessagesReceived;
+
+	uint32_t GnssParserFramesCompleted;
+	uint32_t GnssParserErrors;
+
+	uint32_t XbeeMessagesSent;
+	uint32_t XbeeTransmitRingbufferStarvations;
 	uint32_t XbeeDriverWarningMessagesReceived;
 	uint32_t XbeeNewSubscriptionMessagesReceived;
-	uint32_t XbeeMessagesDropped;
-	uint32_t LoggerEntries;
+	uint32_t XbeeInvalidMessagesReceived;
+
+	uint32_t LoggerEntriesQueued;
+	uint32_t LoggerCommits;
+
 	uint32_t WatchdogRefreshCount;
+
 } SWcuDiagnosticsDatabase;
 
 extern SWcuDiagnosticsDatabase g_WcuDiagnosticsDatabase;
