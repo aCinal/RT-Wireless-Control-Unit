@@ -14,7 +14,6 @@
 #include "rt12e_libs_can.h"
 #include "rt12e_libs_r3tp.h"
 #include "stm32f4xx_hal.h"
-#include "main.h"
 #include <stdio.h>
 
 extern CAN_HandleTypeDef hcan1;
@@ -116,16 +115,11 @@ void WcuCanHandlePendingMessage(void) {
 	/* Receive the message */
 	if (pdPASS == xQueueReceive(canMessagesQueueHandle, &message, 0)) {
 
-		/* Turn on the LED */
-		SET_PIN(CAN_LED);
-
+		/* Increment the statistics counter */
 		WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(CanMessagesReceived);
 
 		/* Send the telemetry data via XBEE-Pro */
 		(void) WcuXbeeSendTelemetryData(&message);
-
-		/* Turn off the LED */
-		RESET_PIN(CAN_LED);
 	}
 }
 

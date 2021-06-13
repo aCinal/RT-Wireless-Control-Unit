@@ -8,6 +8,7 @@
 #include "wcu_defs.h"
 #include "wcu_logger.h"
 #include "fatfs.h"
+#include "main.h"
 
 static FATFS g_Filesystem;
 bool g_WcuSdioReady = false;
@@ -21,7 +22,10 @@ void WcuSdioStartup(void) {
 	/* Mount the FAT filesystem */
 	if (FR_OK == f_mount(&g_Filesystem, SDPath, 1)) {
 
+		/* Set the global flag */
 		g_WcuSdioReady = true;
+		/* Turn on the LED */
+		SET_PIN(LED);
 	}
 }
 

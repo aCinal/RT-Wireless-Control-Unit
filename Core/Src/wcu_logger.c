@@ -91,7 +91,7 @@ void WcuLoggerPrint(EWcuLogSeverityLevel severityLevel,
 
 			default:
 
-				(void) sprintf(LOG_SEVERITY_TAG(logEntryPtr), "--- ");
+				(void) sprintf(LOG_SEVERITY_TAG(logEntryPtr), "??? ");
 				break;
 			}
 
