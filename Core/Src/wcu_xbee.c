@@ -26,7 +26,7 @@
 
 #define WCU_XBEE_TX_RING_BUFFER_SIZE   ( (uint32_t) (64 * R3TP_VER0_FRAME_SIZE) )  /* UART TX ring buffer size */
 #define WCU_XBEE_RX_RING_BUFFER_SIZE   ( (uint32_t) (2 * R3TP_MAX_FRAME_SIZE) )    /* UART RX ring buffer size */
-#define WCU_CAN_ID_TELEMETRY_DIAG      ( (uint32_t) 0x733 )                        /* CAN ID: _733_TELEMETRY_DIAG */
+#define WCU_CAN_ID_TELEMETRY_DIAG      ( (uint32_t) 0x712 )                        /* CAN ID: _712_TELEMETRY_DIAG */
 #define WCU_TELEMETRY_STATE_BIT        ( (uint8_t) 0x80 )                          /* Telemetry_State bit of the TELEMETRY_DIAG CAN frame */
 #define WCU_TELEMETRY_WARNING_BIT      ( (uint8_t) 0x40 )                          /* Telemetry_Warning bit of the TELEMETRY_DIAG CAN frame */
 #define WCU_TELEMETRY_PIT_BIT          ( (uint8_t) 0x20 )                          /* Telemetry_Pit bit of the TELEMETRY_DIAG CAN frame */

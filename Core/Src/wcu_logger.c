@@ -53,60 +53,73 @@ void WcuLoggerStartup(void) {
 void WcuLoggerPrint(EWcuLogSeverityLevel severityLevel,
 		const char *messagePayloadTbl) {
 
-	size_t payloadLength = strlen(messagePayloadTbl);
-	size_t messageSize = LOG_HEADER_LENGTH + payloadLength + LOG_TRAILER_LENGTH;
-	/* Allocate the memory for the error message */
-	char *logEntryPtr = WcuMemAlloc(messageSize * sizeof(char));
+#if !WCU_REDIRECT_LOGS_TO_SERIAL_PORT
+	/* If the SDIO service is not up, return as quickly as possible */
+	if (g_WcuSdioReady)
+#endif /* !WCU_REDIRECT_LOGS_TO_SERIAL_PORT */
+	{
+		size_t payloadLength = strlen(messagePayloadTbl);
+		size_t messageSize = LOG_HEADER_LENGTH + payloadLength
+				+ LOG_TRAILER_LENGTH;
+		/* Allocate the memory for the error message */
+		char *logEntryPtr = WcuMemAlloc(messageSize * sizeof(char));
 
-	/* Assert successful memory allocation */
-	if (logEntryPtr != NULL) {
+		/* Assert successful memory allocation */
+		if (logEntryPtr != NULL) {
 
-		/* Write the timestamp to the memory block */
-		(void) sprintf(LOG_TIMESTAMP(logEntryPtr), "<%010lu>",
-				WcuGetUptimeInMs());
+			/* Write the timestamp to the memory block */
+			(void) sprintf(LOG_TIMESTAMP(logEntryPtr), "<%010lu>",
+					WcuGetUptimeInMs());
 
-		/* Write the severity tag to the memory block */
-		switch (severityLevel) {
+			/* Write the severity tag to the memory block */
+			switch (severityLevel) {
 
-		case EWcuLogSeverityLevel_Info:
+			case EWcuLogSeverityLevel_Info:
 
-			(void) sprintf(LOG_SEVERITY_TAG(logEntryPtr), "INF ");
-			break;
+				(void) sprintf(LOG_SEVERITY_TAG(logEntryPtr), "INF ");
+				break;
 
-		case EWcuLogSeverityLevel_Error:
+			case EWcuLogSeverityLevel_Error:
 
-			(void) sprintf(LOG_SEVERITY_TAG(logEntryPtr), "ERR ");
-			break;
+				(void) sprintf(LOG_SEVERITY_TAG(logEntryPtr), "ERR ");
+				break;
 
-		case EWcuLogSeverityLevel_Debug:
+			case EWcuLogSeverityLevel_Debug:
 
-			(void) sprintf(LOG_SEVERITY_TAG(logEntryPtr), "DBG ");
-			break;
+				(void) sprintf(LOG_SEVERITY_TAG(logEntryPtr), "DBG ");
+				break;
 
-		default:
+			default:
 
-			(void) sprintf(LOG_SEVERITY_TAG(logEntryPtr), "--- ");
-			break;
+				(void) sprintf(LOG_SEVERITY_TAG(logEntryPtr), "--- ");
+				break;
+			}
+
+			/* Write the message payload to the memory block */
+			(void) sprintf(LOG_PAYLOAD(logEntryPtr), (messagePayloadTbl));
+			/* Write the message trailer to the memory block */
+			(void) sprintf(LOG_TRAILER(logEntryPtr, payloadLength), "\r\n");
+
+			/* Write the error message to the ring buffer */
+			if (ETxRbRet_Ok
+					== TxRbWrite(&g_WcuLoggerTxRingBuffer,
+							(uint8_t*) logEntryPtr, strlen(logEntryPtr))) {
+
+				/* If write was successful, send the event to the dispatcher to flush the ring buffer */
+				(void) WcuEventSend(EWcuEventType_LogEntriesPending,
+						&g_WcuLoggerTxRingBuffer);
+				WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(LoggerEntriesQueued);
+
+			} else {
+
+				/* Increment ringbuffer starvation counter */
+				WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(
+						LoggerRingbufferStarvations);
+			}
+
+			/* Free the memory */
+			WcuMemFree(logEntryPtr);
 		}
-
-		/* Write the message payload to the memory block */
-		(void) sprintf(LOG_PAYLOAD(logEntryPtr), (messagePayloadTbl));
-		/* Write the message trailer to the memory block */
-		(void) sprintf(LOG_TRAILER(logEntryPtr, payloadLength), "\r\n");
-
-		/* Write the error message to the ring buffer */
-		if (ETxRbRet_Ok
-				== TxRbWrite(&g_WcuLoggerTxRingBuffer, (uint8_t*) logEntryPtr,
-						strlen(logEntryPtr))) {
-
-			/* If write was successful, send the event to the dispatcher to flush the ring buffer */
-			(void) WcuEventSend(EWcuEventType_LogEntriesPending,
-					&g_WcuLoggerTxRingBuffer);
-			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(LoggerEntriesQueued);
-		}
-
-		/* Free the memory */
-		WcuMemFree(logEntryPtr);
 	}
 }
 
@@ -179,8 +192,9 @@ static ETxRbRet WcuLoggerTxRingBufferRouter(uint8_t *data, size_t len) {
 
 #else /* !WCU_REDIRECT_LOGS_TO_SERIAL_PORT */
 
+	FIL fd;
 	/* Open the logfile for writing in append mode */
-	if (EWcuRet_Ok != WcuSdioFileOpen(&g_WcuLogfileFd, WCU_LOG_PATH,
+	if (EWcuRet_Ok != WcuSdioFileOpen(&fd, WCU_LOG_PATH,
 	FA_WRITE | FA_OPEN_APPEND)) {
 
 		status = ETxRbRet_Error;
@@ -189,15 +203,14 @@ static ETxRbRet WcuLoggerTxRingBufferRouter(uint8_t *data, size_t len) {
 	if (ETxRbRet_Ok == status) {
 
 		/* Write the error message to the file */
-		if (EWcuRet_Ok
-				!= WcuSdioFileWrite(&g_WcuLogfileFd, (uint8_t*) data, len)) {
+		if (EWcuRet_Ok != WcuSdioFileWrite(&fd, (uint8_t*) data, len)) {
 
 			status = ETxRbRet_Error;
 		}
 	}
 
 	/* Close the file on cleanup */
-	(void) WcuSdioFileClose(&g_WcuLogfileFd);
+	(void) WcuSdioFileClose(&fd);
 
 #endif /* !WCU_REDIRECT_LOGS_TO_SERIAL_PORT */
 

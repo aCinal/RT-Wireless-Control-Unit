@@ -15,10 +15,10 @@
 typedef struct SWcuDiagnosticsDatabase {
 
 	uint32_t EventsDispatched;
-	uint32_t EventsNotSent;
+	uint32_t EventQueueStarvations;
 
 	uint32_t CanMessagesReceived;
-	uint32_t CanQueueStarvations;
+	uint32_t CanReceiveQueueStarvations;
 	uint32_t CanMessagesSent;
 	uint32_t CanErrors;
 
@@ -35,6 +35,7 @@ typedef struct SWcuDiagnosticsDatabase {
 	uint32_t XbeeInvalidMessagesReceived;
 
 	uint32_t LoggerEntriesQueued;
+	uint32_t LoggerRingbufferStarvations;
 	uint32_t LoggerCommits;
 
 	uint32_t WatchdogRefreshCount;

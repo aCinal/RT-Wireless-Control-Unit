@@ -11,9 +11,6 @@
 
 static FATFS g_Filesystem;
 bool g_WcuSdioReady = false;
-#if !WCU_REDIRECT_LOGS_TO_SERIAL_PORT
-FIL g_WcuLogfileFd;
-#endif /* !WCU_REDIRECT_LOGS_TO_SERIAL_PORT */
 
 /**
  * @brief SDIO service

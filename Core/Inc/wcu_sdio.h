@@ -18,8 +18,6 @@
 
 /* Exported variables -------------------------------------------------------------------------- */
 extern bool g_WcuSdioReady;
-extern bool g_WcuLoggerReady;
-extern FIL g_WcuLogfileFd;
 
 /* Public functions prototypes -------------------------------------------------------------------------- */
 /**

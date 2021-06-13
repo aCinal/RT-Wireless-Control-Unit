@@ -79,7 +79,7 @@ void WcuCanForwardMessageFromIsrToSwQueue(uint32_t hwFifo) {
 
 			/* A data race may occur here as this incrementing is done from outside the dispatchers' context, but since
 			 * this is the only producer, we ignore it */
-			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(CanQueueStarvations);
+			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(CanReceiveQueueStarvations);
 		}
 	}
 }

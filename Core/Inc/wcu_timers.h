@@ -14,6 +14,6 @@
 #define WCU_DIAGNOSTICS_SELFCHECK_TIMER   (TIM13)
 #define WCU_DIAGNOSTICS_SNAPSHOT_TIMER    (TIM14)
 
-#define WCU_EVENT_TIMER_INSTANCE(TIMPTR)  ( (TIM_HandleTypeDef*) TIMPTR )->Instance
+#define WCU_EVENT_TIMER_INSTANCE(EVENTPARAM)  ( ( (TIM_HandleTypeDef*) (EVENTPARAM) )->Instance )
 
 #endif /* __WCU_TIMERS_H_ */

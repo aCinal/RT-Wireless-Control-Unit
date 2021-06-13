@@ -69,7 +69,7 @@ EWcuRet WcuEventSend(EWcuEventType signal, void *param) {
 
 		if (pdPASS != xQueueSendFromISR(wcuEventQueueHandle, &event, NULL)) {
 
-			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(EventsNotSent);
+			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(EventQueueStarvations);
 			status = EWcuRet_Error;
 		}
 
@@ -77,7 +77,7 @@ EWcuRet WcuEventSend(EWcuEventType signal, void *param) {
 
 		if (pdPASS != xQueueSend(wcuEventQueueHandle, &event, 0)) {
 
-			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(EventsNotSent);
+			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(EventQueueStarvations);
 			status = EWcuRet_Error;
 		}
 	}
