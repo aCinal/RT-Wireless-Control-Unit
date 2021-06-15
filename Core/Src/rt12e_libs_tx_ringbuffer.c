@@ -10,8 +10,6 @@
 #include <string.h>
 
 #define TX_RB_VALID(RB)       ( (NULL != (RB)) && (NULL != (RB)->Buffer) && (0 != (RB)->Length) && (NULL != (RB)->Router) )
-#define TX_RB_HEAD(RB)        ( &( (RB)->Buffer[(RB)->Head] ) )
-#define TX_RB_TAIL(RB)        ( &( (RB)->Buffer[(RB)->Tail] ) )
 #define TX_RB_OVERFLOWED(RB)  ( (RB)->Dirty && ( (RB)->Head <= (RB)->LockedTail ) )
 
 #define TX_RB_FREERTOS_IN_USE 1
@@ -107,7 +105,7 @@ ETxRbRet TxRbWrite(STxRb *rb, uint8_t *data, size_t len) {
 
 			/* Fill the upper part of the ring buffer */
 			size_t lenUpper = rb->Length - rb->Head;
-			memcpy(TX_RB_HEAD(rb), data, lenUpper);
+			memcpy(&rb->Buffer[rb->Head], data, lenUpper);
 
 			/* Fill the lower part of the ring buffer */
 			size_t lenLower = len - lenUpper;
@@ -116,7 +114,7 @@ ETxRbRet TxRbWrite(STxRb *rb, uint8_t *data, size_t len) {
 		} else {
 
 			/* Copy the data into the buffer */
-			memcpy(TX_RB_HEAD(rb), data, len);
+			memcpy(&rb->Buffer[rb->Head], data, len);
 		}
 
 		/* Update the head */
@@ -173,15 +171,6 @@ ETxRbRet TxRbFlush(STxRb *rb) {
 			/* On overflow allocate a linear buffer and commit the data from there without locking the tail */
 			status = TxRbCommitFromLinearBuffer(rb);
 		}
-
-		/* Regardless of commit status invalidate the buffer to avoid entering a corrupted state */
-		rb->Tail = rb->Head;
-		rb->Dirty = false;
-	}
-
-	if (ETxRbRet_Ok == status) {
-
-		rb->TransferInProgress = true;
 	}
 
 	return status;
@@ -272,9 +261,22 @@ static ETxRbRet TxRbCommitDirectlyFromRingbuffer(STxRb *rb) {
 
 	/* Lock the tail */
 	rb->LockedTail = rb->Tail;
+	/* Pre-invalidate the buffer */
+	rb->Tail = rb->Head;
+	rb->Dirty = false;
+	/* Pre-set transfer in progress flag */
+	rb->TransferInProgress = true;
 
 	/* Route the data */
-	status = rb->Router(TX_RB_TAIL(rb), rb->Head - rb->Tail);
+	status = rb->Router(&(rb->Buffer[rb->LockedTail]), rb->Head - rb->LockedTail);
+
+	if (ETxRbRet_Ok != status) {
+
+		/* Restore previous state on routing failure */
+		rb->Tail = rb->LockedTail;
+		rb->Dirty = true;
+		rb->TransferInProgress = false;
+	}
 
 	return status;
 }
@@ -299,15 +301,35 @@ static ETxRbRet TxRbCommitFromLinearBuffer(STxRb *rb) {
 
 	if (ETxRbRet_Ok == status) {
 
+		/* Save old tail to restore it on routing failure */
+		size_t oldTail = rb->Tail;
+		/* Pre-invalidate the buffer */
+		rb->Tail = rb->Head;
+		rb->Dirty = false;
+		/* Pre-set transfer in progress flag */
+		rb->TransferInProgress = true;
+
 		/* Copy the upper part of the ring buffer into the linear buffer */
-		memcpy(rb->LinearBuffer, TX_RB_TAIL(rb), rb->Length - rb->Tail);
+		memcpy(rb->LinearBuffer, &rb->Buffer[oldTail], rb->Length - oldTail);
 
 		/* Copy the lower part of the ring buffer into the linear buffer */
-		memcpy(&(rb->LinearBuffer[rb->Length - rb->Tail]), rb->Buffer,
+		memcpy(&(rb->LinearBuffer[rb->Length - oldTail]), rb->Buffer,
 				rb->Head);
 
 		/* Commit the data from the allocated buffer */
 		status = rb->Router(rb->LinearBuffer, len);
+
+		/* Assert transfer initiated successfully */
+		if (ETxRbRet_Ok != status) {
+
+			/* Restore previous state on routing failure */
+			rb->Tail = oldTail;
+			rb->Dirty = true;
+			rb->TransferInProgress = false;
+			/* Cleanup */
+			TxRbFreeBuffer(rb->LinearBuffer);
+			rb->LinearBuffer = NULL;
+		}
 
 		/* No need to lock the tail - data in the ring buffer can be invalidated or overwritten freely */
 	}
