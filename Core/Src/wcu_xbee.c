@@ -40,16 +40,16 @@ static uint8_t g_SeqNum = 0;
 STxRb g_WcuXbeeTxRingBuffer;
 SUartRxRb g_WcuXbeeRxRingBuffer;
 
-static EWcuRet WcuXbeeTxRingBufferInit(void);
-static EWcuRet WcuXbeeRxRingBufferInit(void);
-static EWcuRet WcuXbeeDeviceConfig(void);
-static EWcuRet WcuXbeeSendDiagnostics(void);
-static void WcuXbeeWarningsTick(void);
-static EWcuRet WcuXbeeHandleR3tpMessage(void);
+static inline EWcuRet WcuXbeeTxRingBufferInit(void);
+static inline EWcuRet WcuXbeeRxRingBufferInit(void);
+static inline EWcuRet WcuXbeeDeviceConfig(void);
+static inline EWcuRet WcuXbeeSendDiagnostics(void);
+static inline void WcuXbeeWarningsTick(void);
+static inline EWcuRet WcuXbeeHandleR3tpMessage(void);
 static EWcuRet WcuXbeeSendAcknowledge(uint8_t msgId, uint8_t seqNum);
-static EWcuRet WcuXbeeHandleNewSubscription(uint8_t *r3tpMessage);
-static EWcuRet WcuXbeeHandleDriverWarning(uint8_t *r3tpMessage);
-static EWcuRet WcuXbeeStoreNewSubscription(uint32_t *ids, uint32_t numOfFrames);
+static inline EWcuRet WcuXbeeHandleNewSubscription(uint8_t *r3tpMessage);
+static inline EWcuRet WcuXbeeHandleDriverWarning(uint8_t *r3tpMessage);
+static inline EWcuRet WcuXbeeStoreNewSubscription(uint32_t *ids, uint32_t numOfFrames);
 static void WcuXbeeSendData(uint8_t *data, uint32_t len);
 static void WcuXbeeRxCallback(void);
 static ETxRbRet WcuXbeeTxRingBufferRouter(uint8_t *data, size_t len);
@@ -156,7 +156,7 @@ EWcuRet WcuXbeeSendTelemetryData(SCanMessage *canMessage) {
  * @brief Initialize the XBEE TX ring buffer
  * @retval EWcuRet Status
  */
-static EWcuRet WcuXbeeTxRingBufferInit(void) {
+static inline EWcuRet WcuXbeeTxRingBufferInit(void) {
 
 	EWcuRet status = EWcuRet_Ok;
 
@@ -173,7 +173,7 @@ static EWcuRet WcuXbeeTxRingBufferInit(void) {
  * @brief Initialize the XBEE RX ring buffer
  * @retval EWcuRet Status
  */
-static EWcuRet WcuXbeeRxRingBufferInit(void) {
+static inline EWcuRet WcuXbeeRxRingBufferInit(void) {
 
 	EWcuRet status = EWcuRet_Ok;
 
@@ -196,7 +196,7 @@ static EWcuRet WcuXbeeRxRingBufferInit(void) {
  * @brief Configure the XBee-Pro device
  * @retval EWcuRet Status
  */
-static EWcuRet WcuXbeeDeviceConfig(void) {
+static inline EWcuRet WcuXbeeDeviceConfig(void) {
 
 	EWcuRet status = EWcuRet_Ok;
 
@@ -216,7 +216,7 @@ static EWcuRet WcuXbeeDeviceConfig(void) {
  * @brief Send XBEE diagnostics CAN frame
  * @retval EWcuRet Status
  */
-static EWcuRet WcuXbeeSendDiagnostics(void) {
+static inline EWcuRet WcuXbeeSendDiagnostics(void) {
 
 	EWcuRet status = EWcuRet_Ok;
 	SCanMessage canMessage;
@@ -264,7 +264,7 @@ static EWcuRet WcuXbeeSendDiagnostics(void) {
  * @brief Decrement the warnings counters
  * @retval None
  */
-static void WcuXbeeWarningsTick(void) {
+static inline void WcuXbeeWarningsTick(void) {
 
 	/* Test if the green warning is active */
 	if (0U < g_GreenWarningDuration) {
@@ -291,7 +291,7 @@ static void WcuXbeeWarningsTick(void) {
 	}
 }
 
-static EWcuRet WcuXbeeHandleR3tpMessage(void) {
+static inline EWcuRet WcuXbeeHandleR3tpMessage(void) {
 
 	EWcuRet status = EWcuRet_Ok;
 
@@ -391,7 +391,7 @@ static EWcuRet WcuXbeeSendAcknowledge(uint8_t msgId, uint8_t seqNum) {
  * @param r3tpMessage R3TP VER1 message
  * @retval EWcuRet Status
  */
-static EWcuRet WcuXbeeHandleNewSubscription(uint8_t *r3tpMessage) {
+static inline EWcuRet WcuXbeeHandleNewSubscription(uint8_t *r3tpMessage) {
 
 	EWcuRet status = EWcuRet_Ok;
 
@@ -476,7 +476,7 @@ static EWcuRet WcuXbeeHandleNewSubscription(uint8_t *r3tpMessage) {
  * @param r3tpMessage R3TP VER2 message
  * @retval EWcuRet Status
  */
-static EWcuRet WcuXbeeHandleDriverWarning(uint8_t *r3tpMessage) {
+static inline EWcuRet WcuXbeeHandleDriverWarning(uint8_t *r3tpMessage) {
 
 	EWcuRet status = EWcuRet_Ok;
 
@@ -551,7 +551,7 @@ static EWcuRet WcuXbeeHandleDriverWarning(uint8_t *r3tpMessage) {
  * @brief Commit the new telemetry subscription to the SD card
  * @retval EWcuRet Status
  */
-static EWcuRet WcuXbeeStoreNewSubscription(uint32_t *ids, uint32_t numOfFrames) {
+static inline EWcuRet WcuXbeeStoreNewSubscription(uint32_t *ids, uint32_t numOfFrames) {
 
 	EWcuRet status = EWcuRet_Ok;
 

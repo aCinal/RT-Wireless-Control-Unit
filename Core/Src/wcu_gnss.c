@@ -30,19 +30,19 @@ extern UART_HandleTypeDef huart3;
 SUartRxRb g_WcuGnssRxRingBuffer;
 
 static EWcuRet WcuGnssRxRingBufferInit(void);
-static EWcuRet WcuGnssDeviceConfig(void);
+static inline EWcuRet WcuGnssDeviceConfig(void);
 static EWcuRet WcuGnssSendCommand(char* command);
-static EWcuRet WcuGnssHandleNmeaMessage(void);
-static void WcuGnssSendDataToCan(SL26GnssData *data);
-static EWcuRet WcuGnssSendGpsPos(SL26GnssData *data);
-static EWcuRet WcuGnssSendGpsPos2(SL26GnssData *data);
-static EWcuRet WcuGnssSendGpsStatus(SL26GnssData *data);
+static inline EWcuRet WcuGnssHandleNmeaMessage(void);
+static inline void WcuGnssSendDataToCan(SL26GnssData *data);
+static inline EWcuRet WcuGnssSendGpsPos(SL26GnssData *data);
+static inline EWcuRet WcuGnssSendGpsPos2(SL26GnssData *data);
+static inline EWcuRet WcuGnssSendGpsStatus(SL26GnssData *data);
 static void WcuGnssRxCallback(void);
-static int32_t WcuGnssNormalizeCoordinate(float64_t coordinate);
-static uint16_t WcuGnssNormalizeSpeed(float32_t speed);
-static uint16_t WcuGnssNormalizeDirection(float32_t direction);
-static uint16_t WcuGnssNormalizeAltitude(float32_t altitude);
-static uint32_t WcuGnssNormalizeTime(float64_t time);
+static inline int32_t WcuGnssNormalizeCoordinate(float64_t coordinate);
+static inline uint16_t WcuGnssNormalizeSpeed(float32_t speed);
+static inline uint16_t WcuGnssNormalizeDirection(float32_t direction);
+static inline uint16_t WcuGnssNormalizeAltitude(float32_t altitude);
+static inline uint32_t WcuGnssNormalizeTime(float64_t time);
 
 /**
  * @brief GNSS service startup
@@ -99,7 +99,7 @@ static EWcuRet WcuGnssRxRingBufferInit(void) {
  * @brief Configure the Quectel L26 device
  * @retval EWcuRet Status
  */
-static EWcuRet WcuGnssDeviceConfig(void) {
+static inline EWcuRet WcuGnssDeviceConfig(void) {
 
 	EWcuRet status = EWcuRet_Ok;
 
@@ -165,7 +165,7 @@ static EWcuRet WcuGnssSendCommand(char* command) {
  * @brief Handle the pending NMEA message
  * @retval EWcuRet Status
  */
-static EWcuRet WcuGnssHandleNmeaMessage(void) {
+static inline EWcuRet WcuGnssHandleNmeaMessage(void) {
 
 	EWcuRet status = EWcuRet_Ok;
 
@@ -224,7 +224,7 @@ static EWcuRet WcuGnssHandleNmeaMessage(void) {
  * @param data Parsed GNSS data
  * @retval None
  */
-static void WcuGnssSendDataToCan(SL26GnssData *data) {
+static inline void WcuGnssSendDataToCan(SL26GnssData *data) {
 
 	(void) WcuGnssSendGpsPos(data);
 	(void) WcuGnssSendGpsPos2(data);
@@ -236,7 +236,7 @@ static void WcuGnssSendDataToCan(SL26GnssData *data) {
  * @param data Parsed GNSS data
  * @retval EWcuRet Status
  */
-static EWcuRet WcuGnssSendGpsPos(SL26GnssData *data) {
+static inline EWcuRet WcuGnssSendGpsPos(SL26GnssData *data) {
 
 	SCanMessage canMessage;
 	/* Configure the CAN Tx header */
@@ -269,7 +269,7 @@ static EWcuRet WcuGnssSendGpsPos(SL26GnssData *data) {
  * @param data Parsed GNSS data
  * @retval EWcuRet Status
  */
-static EWcuRet WcuGnssSendGpsPos2(SL26GnssData *data) {
+static inline EWcuRet WcuGnssSendGpsPos2(SL26GnssData *data) {
 
 	SCanMessage canMessage;
 	/* Configure the CAN Tx header */
@@ -303,7 +303,7 @@ static EWcuRet WcuGnssSendGpsPos2(SL26GnssData *data) {
  * @param data Parsed GNSS data
  * @retval EWcuRet Status
  */
-static EWcuRet WcuGnssSendGpsStatus(SL26GnssData *data) {
+static inline EWcuRet WcuGnssSendGpsStatus(SL26GnssData *data) {
 
 	SCanMessage canMessage;
 	/* Configure the CAN Tx header */
@@ -355,7 +355,7 @@ static void WcuGnssRxCallback(void) {
  * @param coordinate Coordinate in degrees
  * @retval int32_t Coordinate normalized as degrees multiplied by 1,000,000
  */
-static int32_t WcuGnssNormalizeCoordinate(float64_t coordinate) {
+static inline int32_t WcuGnssNormalizeCoordinate(float64_t coordinate) {
 
 	return llround(coordinate * 1000000.0);
 }
@@ -365,7 +365,7 @@ static int32_t WcuGnssNormalizeCoordinate(float64_t coordinate) {
  * @param speed Speed over ground in kilometers per hour
  * @retval uint16_t Speed normalized as kilometers per hour multiplied by 10
  */
-static uint16_t WcuGnssNormalizeSpeed(float32_t speed) {
+static inline uint16_t WcuGnssNormalizeSpeed(float32_t speed) {
 
 	return lround(speed * 10.0);
 }
@@ -375,7 +375,7 @@ static uint16_t WcuGnssNormalizeSpeed(float32_t speed) {
  * @param direction Direction in degrees
  * @retval uint16_t Direction normalized as degrees multiplied by 10
  */
-static uint16_t WcuGnssNormalizeDirection(float32_t direction) {
+static inline uint16_t WcuGnssNormalizeDirection(float32_t direction) {
 
 	return lround(direction * 10.0);
 }
@@ -385,7 +385,7 @@ static uint16_t WcuGnssNormalizeDirection(float32_t direction) {
  * @param altitude Altitude in meters
  * @retval uint16_t Altitude normalized as meters multiplied by 10
  */
-static uint16_t WcuGnssNormalizeAltitude(float32_t altitude) {
+static inline uint16_t WcuGnssNormalizeAltitude(float32_t altitude) {
 
 	return lround(altitude * 10.0);
 }
@@ -395,7 +395,7 @@ static uint16_t WcuGnssNormalizeAltitude(float32_t altitude) {
  * @param time Time in format hhmmss.sss
  * @retval uint32_t Time normalized to the format hhmmsssss
  */
-static uint32_t WcuGnssNormalizeTime(float64_t time) {
+static inline uint32_t WcuGnssNormalizeTime(float64_t time) {
 
 	return llround(time * 1000.0);
 }

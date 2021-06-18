@@ -8,17 +8,17 @@
 
 #include <stddef.h>
 #include <string.h>
+#include <cmsis_gcc.h>
 
 #define TX_RB_VALID(RB)       ( (NULL != (RB)) && (NULL != (RB)->Buffer) && (0 != (RB)->Length) && (NULL != (RB)->Router) )
 #define TX_RB_OVERFLOWED(RB)  ( (RB)->Dirty && ( (RB)->Head <= (RB)->LockedTail ) )
+#define _assert(x)            if (!(x)) { __disable_irq(); for (;;); }
 
 #define TX_RB_FREERTOS_IN_USE 1
 
 #if TX_RB_FREERTOS_IN_USE
 #include <cmsis_os.h>
-
 extern QueueHandle_t garbageQueueHandle;
-
 #else /* !TX_RB_FREERTOS_IN_USE */
 #include <stdlib.h>
 #endif /* !TX_RB_FREERTOS_IN_USE */
@@ -364,14 +364,8 @@ static void TxRbFreeBuffer(void *buffer) {
 
 	if (xPortIsInsideInterrupt()) {
 
-		/* If in IRQ, defer handling of the freeing to the garbage-collector task */
-		if (pdPASS != xQueueSendFromISR(garbageQueueHandle, &buffer, NULL)) {
-
-			for (;;) {
-
-				/* We must never get here as this implies a memory leak */
-			}
-		}
+		/* If in IRQ, defer handling of the freeing to the garbage-collector task and assert no memory leak */
+		_assert(pdPASS == xQueueSendFromISR(garbageQueueHandle, &buffer, NULL));
 
 	} else {
 

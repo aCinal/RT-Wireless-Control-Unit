@@ -21,10 +21,10 @@
 
 extern QueueHandle_t wcuEventQueueHandle;
 
-static void WcuRunDispatcher(void);
-static SWcuEvent WcuEventReceive(void);
-static void WcuEventDispatch(const SWcuEvent *event);
-static void WcuEventDispatchTimerEvent(const SWcuEvent *event);
+static inline void WcuRunDispatcher(void);
+static inline SWcuEvent WcuEventReceive(void);
+static inline void WcuEventDispatch(const SWcuEvent *event);
+static inline void WcuEventDispatchTimerEvent(const SWcuEvent *event);
 
 /**
  * @brief  Function implementing the EventDispatcher thread.
@@ -89,7 +89,7 @@ EWcuRet WcuEventSend(EWcuEventType signal, void *param) {
  * @brief Event dispatcher implementation (this function must never return)
  * @retval None
  */
-static void WcuRunDispatcher(void) {
+static inline void WcuRunDispatcher(void) {
 
 	WcuLogInfo("Entering the event loop...");
 
@@ -107,7 +107,7 @@ static void WcuRunDispatcher(void) {
  * @brief Block on the event queue for the incoming event
  * @retval SWcuEvent Received event
  */
-static SWcuEvent WcuEventReceive(void) {
+static inline SWcuEvent WcuEventReceive(void) {
 
 	SWcuEvent event;
 	/* Block on the event queue indefinitely */
@@ -121,7 +121,7 @@ static SWcuEvent WcuEventReceive(void) {
  * @param event Received event
  * @retval None
  */
-static void WcuEventDispatch(const SWcuEvent *event) {
+static inline void WcuEventDispatch(const SWcuEvent *event) {
 
 	switch (event->signal) {
 
@@ -189,7 +189,7 @@ static void WcuEventDispatch(const SWcuEvent *event) {
  * @param event Timer event
  * @retval None
  */
-static void WcuEventDispatchTimerEvent(const SWcuEvent *event) {
+static inline void WcuEventDispatchTimerEvent(const SWcuEvent *event) {
 
 	if (WCU_XBEE_STATUS_TIMER == WCU_EVENT_TIMER_INSTANCE(event->param)) {
 

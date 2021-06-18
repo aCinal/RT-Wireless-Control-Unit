@@ -22,8 +22,8 @@
 extern UART_HandleTypeDef huart1;
 SUartRxRb g_WcuBtRxRingBuffer;
 
-static EWcuRet WcuBtRingBufferInit(void);
-static EWcuRet WcuBtForwardWdtsMessageToCan(void);
+static inline EWcuRet WcuBtRingBufferInit(void);
+static inline EWcuRet WcuBtForwardWdtsMessageToCan(void);
 static void WcuBtRxCallback(void);
 
 /**
@@ -56,7 +56,7 @@ void WcuBtHandlePendingMessage(void) {
  * @brief Initialize the BT ring buffer
  * @retval EWcuRet Status
  */
-static EWcuRet WcuBtRingBufferInit(void) {
+static inline EWcuRet WcuBtRingBufferInit(void) {
 
 	EWcuRet status = EWcuRet_Ok;
 
@@ -78,7 +78,7 @@ static EWcuRet WcuBtRingBufferInit(void) {
  * @brief Forward the WDTS message to the CAN bus
  * @retval EWcuRet Status
  */
-static EWcuRet WcuBtForwardWdtsMessageToCan(void) {
+static inline EWcuRet WcuBtForwardWdtsMessageToCan(void) {
 
 	EWcuRet status = EWcuRet_Ok;
 	SCanMessage canMessage;
