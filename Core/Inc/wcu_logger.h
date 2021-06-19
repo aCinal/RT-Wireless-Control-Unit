@@ -15,6 +15,16 @@
 #define WCU_ENABLE_DEBUG_PRINTS           0
 #define WCU_REDIRECT_LOGS_TO_SERIAL_PORT  0
 
+/* Exported typedefs -------------------------------------------------------------------------- */
+/**
+ * @brief Log entry severity level
+ */
+typedef enum EWcuLogSeverityLevel {
+	EWcuLogSeverityLevel_Info = 0,
+	EWcuLogSeverityLevel_Error,
+	EWcuLogSeverityLevel_Debug
+} EWcuLogSeverityLevel;
+
 /* Exported macros -------------------------------------------------------------------------- */
 #if (WCU_ENABLE_INFO_PRINTS)
 #define WcuLogInfo(msg)      ( WcuLoggerPrint(EWcuLogSeverityLevel_Info, (msg) ) )
@@ -52,6 +62,6 @@ void WcuLoggerPrint(EWcuLogSeverityLevel severityLevel, const char *messagePaylo
  * @brief Flush the ringbuffer, thereby committing log entries to the SD card or to the serial port
  * @retval None
  */
-void WcuLoggerFlushRingBuffer(void);
+void WcuLoggerFlushRingbuffer(void);
 
 #endif /* __WCU_LOGGER_H_ */

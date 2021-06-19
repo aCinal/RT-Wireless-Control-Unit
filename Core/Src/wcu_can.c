@@ -72,7 +72,7 @@ void WcuCanForwardMessageFromIsrToSwQueue(uint32_t hwFifo) {
 
 		if (pdPASS == xQueueSendFromISR(canMessagesQueueHandle, &message, NULL)) {
 
-			WcuEventSend(EWcuEventType_CanRxMessagePending, NULL);
+			WcuEventSend(EWcuEventType_CanRxMessagePending, NULL, 0);
 
 		} else {
 

@@ -12,21 +12,11 @@
 extern CRC_HandleTypeDef hcrc;
 
 /**
- * @brief Put the current thread to sleep
- * @param millisec Sleep time in milliseconds
- * @retval None
- */
-void WcuSleep(uint32_t millisec) {
-
-	vTaskDelay(pdMS_TO_TICKS(millisec));
-}
-
-/**
  * @brief Allocate memory on the heap
  * @param size Memory block size
  * @retval void* Pointer to the allocated block size or NULL on failure
  */
-void *WcuMemAlloc(size_t size) {
+void* WcuMemAlloc(size_t size) {
 
 	return pvPortMalloc(size);
 }

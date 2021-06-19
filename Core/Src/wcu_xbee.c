@@ -20,7 +20,6 @@
 #include "rt12e_libs_tx_ringbuffer.h"
 #include "stm32f4xx.h"
 #include "stm32f4xx_hal.h"
-#include <stddef.h>
 #include <string.h>
 #include "main.h"
 
@@ -37,11 +36,11 @@ extern TIM_HandleTypeDef htim7;
 static uint8_t g_GreenWarningDuration = 0;
 static uint8_t g_RedWarningDuration = 0;
 static uint8_t g_SeqNum = 0;
-STxRb g_WcuXbeeTxRingBuffer;
-SUartRxRb g_WcuXbeeRxRingBuffer;
+STxRb g_WcuXbeeTxRingbuffer;
+SUartRxRb g_WcuXbeeRxRingbuffer;
 
-static inline EWcuRet WcuXbeeTxRingBufferInit(void);
-static inline EWcuRet WcuXbeeRxRingBufferInit(void);
+static inline EWcuRet WcuXbeeTxRingbufferInit(void);
+static inline EWcuRet WcuXbeeRxRingbufferInit(void);
 static inline EWcuRet WcuXbeeDeviceConfig(void);
 static inline EWcuRet WcuXbeeSendDiagnostics(void);
 static inline void WcuXbeeWarningsTick(void);
@@ -49,11 +48,13 @@ static inline EWcuRet WcuXbeeHandleR3tpMessage(void);
 static EWcuRet WcuXbeeSendAcknowledge(uint8_t msgId, uint8_t seqNum);
 static inline EWcuRet WcuXbeeHandleNewSubscription(uint8_t *r3tpMessage);
 static inline EWcuRet WcuXbeeHandleDriverWarning(uint8_t *r3tpMessage);
-static inline EWcuRet WcuXbeeStoreNewSubscription(uint32_t *ids, uint32_t numOfFrames);
-static void WcuXbeeSendData(uint8_t *data, uint32_t len);
+static inline EWcuRet WcuXbeeStoreNewSubscription(uint32_t *ids,
+		uint32_t numOfFrames);
+static inline EWcuRet WcuXbeeSendData(uint8_t *data, uint32_t len);
+static inline size_t WcuXbeeGetRingbufferFreeSpace(void);
 static void WcuXbeeRxCallback(void);
-static ETxRbRet WcuXbeeTxRingBufferRouter(uint8_t *data, size_t len);
-static void WcuXbeeTxRingBufferCallback(void);
+static ETxRbRet WcuXbeeTxRingbufferRouter(uint8_t *data, size_t len);
+static void WcuXbeeTxRingbufferCallback(void);
 
 /**
  * @brief XBEE service startup
@@ -62,13 +63,13 @@ static void WcuXbeeTxRingBufferCallback(void);
 void WcuXbeeStartup(void) {
 
 	/* Initialize the ring buffers */
-	if (EWcuRet_Ok != WcuXbeeTxRingBufferInit()) {
+	if (EWcuRet_Ok != WcuXbeeTxRingbufferInit()) {
 
 		WcuLogError(
 				"WcuXbeeStartup: XBEE TX ring buffer initialization failed");
 	}
 
-	if (EWcuRet_Ok != WcuXbeeRxRingBufferInit()) {
+	if (EWcuRet_Ok != WcuXbeeRxRingbufferInit()) {
 
 		WcuLogError(
 				"WcuXbeeStartup: XBEE RX ring buffer initialization failed");
@@ -79,6 +80,17 @@ void WcuXbeeStartup(void) {
 
 	/* Device config */
 	(void) WcuXbeeDeviceConfig();
+}
+
+/**
+ * @brief Handle sending/resending an acknowledge message
+ * @param msgId ID of the message being acknowledged (R3TP VER byte)
+ * @param seqNum Sequence number of the message being acknowledged
+ * @retval None
+ */
+void WcuXbeeHandlePendingAcknowledge(uint8_t msgId, uint8_t seqNum) {
+
+	(void) WcuXbeeSendAcknowledge(msgId, seqNum);
 }
 
 /**
@@ -109,45 +121,57 @@ EWcuRet WcuXbeeSendTelemetryData(SCanMessage *canMessage) {
 
 	EWcuRet status = EWcuRet_Ok;
 
-	uint8_t buffer[R3TP_VER0_FRAME_SIZE];
+	/* If not enough free space in the buffer, return as quickly as possible */
+	if (WcuXbeeGetRingbufferFreeSpace() < R3TP_VER0_FRAME_SIZE) {
 
-	/* Clear the buffer */
-	memset(buffer, 0, sizeof(buffer));
-
-	buffer[0] = R3TP_VER0_VER_BYTE;
-	/* Set the SEQ NUM field */
-	buffer[1] = g_SeqNum;
-	/* Increment the sequence number */
-	g_SeqNum = (g_SeqNum < 255U) ? g_SeqNum + 1U : 0;
-
-	/* Set CAN ID field - note that the CAN ID is transmitted as little endian */
-	buffer[4] = _getbyte(canMessage->RxHeader.StdId, 0);
-	buffer[5] = _getbyte(canMessage->RxHeader.StdId, 1);
-	buffer[6] = _getbyte(canMessage->RxHeader.StdId, 2);
-	buffer[7] = _getbyte(canMessage->RxHeader.StdId, 3);
-
-	/* Set the DLC field */
-	buffer[8] = (uint8_t) canMessage->RxHeader.DLC;
-
-	/* Set the DATA field */
-	for (uint8_t i = 0; i < canMessage->RxHeader.DLC; i += 1U) {
-
-		buffer[9U + i] = canMessage->PayloadTbl[i];
+		/* Increment the starvation counter */
+		WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(
+				XbeeTransmitRingbufferStarvations);
+		status = EWcuRet_Error;
 	}
 
-	/* Set the END SEQ field */
-	buffer[R3TP_VER0_FRAME_SIZE - 2U] = R3TP_END_SEQ_LOW_BYTE;
-	buffer[R3TP_VER0_FRAME_SIZE - 1U] = R3TP_END_SEQ_HIGH_BYTE;
+	if (EWcuRet_Ok == status) {
 
-	/* Calculate the CRC */
-	uint16_t calculatedCrc = WcuGetR3tpCrc(buffer, R3TP_VER0_FRAME_SIZE);
+		uint8_t buffer[R3TP_VER0_FRAME_SIZE];
 
-	/* Set the CHECKSUM field - note that the CRC is transmitted as little endian */
-	buffer[2] = _getbyte(calculatedCrc, 0);
-	buffer[3] = _getbyte(calculatedCrc, 1);
+		/* Clear the buffer */
+		memset(buffer, 0, sizeof(buffer));
 
-	/* Transmit the frame */
-	WcuXbeeSendData(buffer, R3TP_VER0_FRAME_SIZE);
+		buffer[0] = R3TP_VER0_VER_BYTE;
+		/* Set the SEQ NUM field */
+		buffer[1] = g_SeqNum;
+		/* Increment the sequence number */
+		g_SeqNum = (g_SeqNum < 255U) ? g_SeqNum + 1U : 0;
+
+		/* Set CAN ID field - note that the CAN ID is transmitted as little endian */
+		buffer[4] = _getbyte(canMessage->RxHeader.StdId, 0);
+		buffer[5] = _getbyte(canMessage->RxHeader.StdId, 1);
+		buffer[6] = _getbyte(canMessage->RxHeader.StdId, 2);
+		buffer[7] = _getbyte(canMessage->RxHeader.StdId, 3);
+
+		/* Set the DLC field */
+		buffer[8] = (uint8_t) canMessage->RxHeader.DLC;
+
+		/* Set the DATA field */
+		for (uint8_t i = 0; i < canMessage->RxHeader.DLC; i += 1U) {
+
+			buffer[9U + i] = canMessage->PayloadTbl[i];
+		}
+
+		/* Set the END SEQ field */
+		buffer[R3TP_VER0_FRAME_SIZE - 2U] = R3TP_END_SEQ_LOW_BYTE;
+		buffer[R3TP_VER0_FRAME_SIZE - 1U] = R3TP_END_SEQ_HIGH_BYTE;
+
+		/* Calculate the CRC */
+		uint16_t calculatedCrc = WcuGetR3tpCrc(buffer, R3TP_VER0_FRAME_SIZE);
+
+		/* Set the CHECKSUM field - note that the CRC is transmitted as little endian */
+		buffer[2] = _getbyte(calculatedCrc, 0);
+		buffer[3] = _getbyte(calculatedCrc, 1);
+
+		/* Transmit the frame */
+		status = WcuXbeeSendData(buffer, R3TP_VER0_FRAME_SIZE);
+	}
 
 	return status;
 }
@@ -156,15 +180,15 @@ EWcuRet WcuXbeeSendTelemetryData(SCanMessage *canMessage) {
  * @brief Initialize the XBEE TX ring buffer
  * @retval EWcuRet Status
  */
-static inline EWcuRet WcuXbeeTxRingBufferInit(void) {
+static inline EWcuRet WcuXbeeTxRingbufferInit(void) {
 
 	EWcuRet status = EWcuRet_Ok;
 
 	static uint8_t ringbuffer[WCU_XBEE_TX_RING_BUFFER_SIZE];
 
 	/* Configure the ring buffer structure */
-	TxRbInit(&g_WcuXbeeTxRingBuffer, ringbuffer, sizeof(ringbuffer),
-			WcuXbeeTxRingBufferRouter, WcuXbeeTxRingBufferCallback);
+	TxRbInit(&g_WcuXbeeTxRingbuffer, ringbuffer, sizeof(ringbuffer),
+			WcuXbeeTxRingbufferRouter, WcuXbeeTxRingbufferCallback);
 
 	return status;
 }
@@ -173,18 +197,18 @@ static inline EWcuRet WcuXbeeTxRingBufferInit(void) {
  * @brief Initialize the XBEE RX ring buffer
  * @retval EWcuRet Status
  */
-static inline EWcuRet WcuXbeeRxRingBufferInit(void) {
+static inline EWcuRet WcuXbeeRxRingbufferInit(void) {
 
 	EWcuRet status = EWcuRet_Ok;
 
 	static uint8_t ringbuffer[WCU_XBEE_RX_RING_BUFFER_SIZE];
 
 	/* Configure the ring buffer structure */
-	(void) UartRxRbInit(&g_WcuXbeeRxRingBuffer, &huart4, ringbuffer,
+	(void) UartRxRbInit(&g_WcuXbeeRxRingbuffer, &huart4, ringbuffer,
 			sizeof(ringbuffer), &WcuXbeeRxCallback);
 
 	/* Start listening */
-	if (EUartRxRbRet_Ok != UartRxRbRecv(&g_WcuXbeeRxRingBuffer)) {
+	if (EUartRxRbRet_Ok != UartRxRbRecv(&g_WcuXbeeRxRingbuffer)) {
 
 		status = EWcuRet_Error;
 	}
@@ -299,7 +323,7 @@ static inline EWcuRet WcuXbeeHandleR3tpMessage(void) {
 	size_t bytesRead = 0;
 	/* Read the message from the buffer */
 	if (EUartRxRbRet_Ok
-			!= UartRxRbRead(&g_WcuXbeeRxRingBuffer, buffer, sizeof(buffer),
+			!= UartRxRbRead(&g_WcuXbeeRxRingbuffer, buffer, sizeof(buffer),
 					&bytesRead)) {
 
 		WcuLogError("WcuXbeeHandleR3tpMessage: Ring buffer read failed");
@@ -331,7 +355,8 @@ static inline EWcuRet WcuXbeeHandleR3tpMessage(void) {
 
 		default:
 
-			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(XbeeInvalidMessagesReceived);
+			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(
+					XbeeInvalidMessagesReceived);
 			WcuLogError("WcuXbeeHandleR3tpMessage: Unknown protocol version");
 			status = EWcuRet_Error;
 			break;
@@ -351,37 +376,52 @@ static EWcuRet WcuXbeeSendAcknowledge(uint8_t msgId, uint8_t seqNum) {
 
 	EWcuRet status = EWcuRet_Ok;
 
-	uint8_t buffer[R3TP_VER3_FRAME_SIZE];
+	/* If not enough free space in the buffer, return as quickly as possible */
+	if (WcuXbeeGetRingbufferFreeSpace() < R3TP_VER3_FRAME_SIZE) {
 
-	/* Clear the buffer */
-	memset(buffer, 0, sizeof(buffer));
+		/* Increment the starvation counter */
+		WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(
+				XbeeTransmitRingbufferStarvations);
+		/* Enqueue the event to try sending the acknowledge message again later */
+		WcuEventSend(EWcuEventType_XbeeAcknowledgePending, NULL,
+				_reinterpret32bitsle(msgId, seqNum, 0x00, 0x00));
+		status = EWcuRet_Error;
+	}
 
-	/* Set the VER field */
-	buffer[0] = R3TP_VER3_VER_BYTE;
+	if (EWcuRet_Ok == status) {
 
-	/* Set the SEQ NUM field */
-	buffer[1] = g_SeqNum;
-	/* Increment the sequence number */
-	g_SeqNum = (g_SeqNum < 255U) ? g_SeqNum + 1U : 0;
+		uint8_t buffer[R3TP_VER3_FRAME_SIZE];
 
-	/* Set the MSG ID field */
-	buffer[4] = msgId;
-	/* Set the SEQ NUM of the message being acknowledged field */
-	buffer[5] = seqNum;
+		/* Clear the buffer */
+		memset(buffer, 0, sizeof(buffer));
 
-	/* Set the END SEQ field */
-	buffer[R3TP_VER3_FRAME_SIZE - 2U] = R3TP_END_SEQ_LOW_BYTE;
-	buffer[R3TP_VER3_FRAME_SIZE - 1U] = R3TP_END_SEQ_HIGH_BYTE;
+		/* Set the VER field */
+		buffer[0] = R3TP_VER3_VER_BYTE;
 
-	/* Calculate the CRC */
-	uint16_t calculatedCrc = WcuGetR3tpCrc(buffer, R3TP_VER3_FRAME_SIZE);
+		/* Set the SEQ NUM field */
+		buffer[1] = g_SeqNum;
+		/* Increment the sequence number */
+		g_SeqNum = (g_SeqNum < 255U) ? g_SeqNum + 1U : 0;
 
-	/* Set the CHECKSUM field - note that the CRC is transmitted as little endian */
-	buffer[2] = _getbyte(calculatedCrc, 0);
-	buffer[3] = _getbyte(calculatedCrc, 1);
+		/* Set the MSG ID field */
+		buffer[4] = msgId;
+		/* Set the SEQ NUM of the message being acknowledged field */
+		buffer[5] = seqNum;
 
-	/* Transmit the frame */
-	WcuXbeeSendData(buffer, R3TP_VER3_FRAME_SIZE);
+		/* Set the END SEQ field */
+		buffer[R3TP_VER3_FRAME_SIZE - 2U] = R3TP_END_SEQ_LOW_BYTE;
+		buffer[R3TP_VER3_FRAME_SIZE - 1U] = R3TP_END_SEQ_HIGH_BYTE;
+
+		/* Calculate the CRC */
+		uint16_t calculatedCrc = WcuGetR3tpCrc(buffer, R3TP_VER3_FRAME_SIZE);
+
+		/* Set the CHECKSUM field - note that the CRC is transmitted as little endian */
+		buffer[2] = _getbyte(calculatedCrc, 0);
+		buffer[3] = _getbyte(calculatedCrc, 1);
+
+		/* Transmit the frame */
+		status = WcuXbeeSendData(buffer, R3TP_VER3_FRAME_SIZE);
+	}
 
 	return status;
 }
@@ -396,8 +436,8 @@ static inline EWcuRet WcuXbeeHandleNewSubscription(uint8_t *r3tpMessage) {
 	EWcuRet status = EWcuRet_Ok;
 
 	/* Read the number of frames in the payload */
-	uint32_t numOfFrames = _reinterpret32bits(r3tpMessage[7], r3tpMessage[6],
-			r3tpMessage[5], r3tpMessage[4]);
+	uint32_t numOfFrames = _reinterpret32bitsle(r3tpMessage[4], r3tpMessage[5],
+			r3tpMessage[6], r3tpMessage[7]);
 
 	/* Assert the payload won't overflow the buffer */
 	if (numOfFrames > R3TP_VER1_MAX_FRAME_NUM) {
@@ -413,7 +453,8 @@ static inline EWcuRet WcuXbeeHandleNewSubscription(uint8_t *r3tpMessage) {
 		if (!R3TP_VALID_END_SEQ(r3tpMessage,
 				R3TP_VER1_MESSAGE_LENGTH(numOfFrames))) {
 
-			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(XbeeInvalidMessagesReceived);
+			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(
+					XbeeInvalidMessagesReceived);
 			WcuLogError("WcuXbeeHandleNewSubscription: Invalid end sequence");
 			status = EWcuRet_Error;
 		}
@@ -436,7 +477,8 @@ static inline EWcuRet WcuXbeeHandleNewSubscription(uint8_t *r3tpMessage) {
 		if (readCrc != calculatedCrc) {
 
 			/* Log the error */
-			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(XbeeInvalidMessagesReceived);
+			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(
+					XbeeInvalidMessagesReceived);
 			WcuLogError("WcuXbeeHandleNewSubscription: Invalid CRC");
 			status = EWcuRet_Error;
 		}
@@ -450,9 +492,9 @@ static inline EWcuRet WcuXbeeHandleNewSubscription(uint8_t *r3tpMessage) {
 		uint8_t *payload = R3TP_VER1_PAYLOAD(r3tpMessage);
 		for (uint32_t i = 0; i < numOfFrames; i += 1UL) {
 
-			subscription[i] = _reinterpret32bits(payload[3UL + 4UL * i],
-					payload[2UL + 4UL * i], payload[1UL + 4UL * i],
-					payload[4UL * i]);
+			subscription[i] = _reinterpret32bitsle(payload[4UL * i],
+					payload[1UL + 4UL * i], payload[2UL + 4UL * i],
+					payload[3UL + 4UL * i]);
 		}
 
 		/* Set the new subscription */
@@ -465,7 +507,8 @@ static inline EWcuRet WcuXbeeHandleNewSubscription(uint8_t *r3tpMessage) {
 		}
 
 		/* Send the acknowledge message */
-		(void) WcuXbeeSendAcknowledge(R3TP_VER1_VER_BYTE, R3TP_SEQ_NUM(r3tpMessage));
+		(void) WcuXbeeSendAcknowledge(R3TP_VER1_VER_BYTE,
+				R3TP_SEQ_NUM(r3tpMessage));
 	}
 
 	return status;
@@ -504,7 +547,8 @@ static inline EWcuRet WcuXbeeHandleDriverWarning(uint8_t *r3tpMessage) {
 		/* Validate the CRC */
 		if (readCrc != calculatedCrc) {
 
-			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(XbeeInvalidMessagesReceived);
+			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(
+					XbeeInvalidMessagesReceived);
 			WcuLogError("WcuXbeeHandleDriverWarning: Invalid CRC");
 			status = EWcuRet_Error;
 		}
@@ -541,7 +585,8 @@ static inline EWcuRet WcuXbeeHandleDriverWarning(uint8_t *r3tpMessage) {
 	if (EWcuRet_Ok == status) {
 
 		/* Send the acknowledge message */
-		status = WcuXbeeSendAcknowledge(R3TP_VER2_VER_BYTE, R3TP_SEQ_NUM(r3tpMessage));
+		status = WcuXbeeSendAcknowledge(R3TP_VER2_VER_BYTE,
+				R3TP_SEQ_NUM(r3tpMessage));
 	}
 
 	return status;
@@ -551,7 +596,8 @@ static inline EWcuRet WcuXbeeHandleDriverWarning(uint8_t *r3tpMessage) {
  * @brief Commit the new telemetry subscription to the SD card
  * @retval EWcuRet Status
  */
-static inline EWcuRet WcuXbeeStoreNewSubscription(uint32_t *ids, uint32_t numOfFrames) {
+static inline EWcuRet WcuXbeeStoreNewSubscription(uint32_t *ids,
+		uint32_t numOfFrames) {
 
 	EWcuRet status = EWcuRet_Ok;
 
@@ -592,7 +638,8 @@ static inline EWcuRet WcuXbeeStoreNewSubscription(uint32_t *ids, uint32_t numOfF
 
 	if (EWcuRet_Ok == status) {
 
-		WcuLogInfo("WcuXbeeStoreNewSubscription: New subscription stored on disk");
+		WcuLogInfo(
+				"WcuXbeeStoreNewSubscription: New subscription stored on disk");
 	}
 
 	/* Cleanup */
@@ -605,22 +652,39 @@ static inline EWcuRet WcuXbeeStoreNewSubscription(uint32_t *ids, uint32_t numOfF
  * @brief Send the data via UART
  * @param data Data buffer
  * @param len Length of the data buffer
- * @retval None
+ * @retval EWcuRet Status
  */
-static void WcuXbeeSendData(uint8_t *data, uint32_t len) {
+static inline EWcuRet WcuXbeeSendData(uint8_t *data, uint32_t len) {
+
+	EWcuRet status = EWcuRet_Ok;
 
 	/* Write the data into the ring buffer */
-	if (ETxRbRet_Ok == TxRbWrite(&g_WcuXbeeTxRingBuffer, data, len)) {
+	if (ETxRbRet_Ok == TxRbWrite(&g_WcuXbeeTxRingbuffer, data, len)) {
 
 		/* Tell the dispatcher to initiate transmission */
 		(void) WcuEventSend(EWcuEventType_UartTxMessagePending,
-				&g_WcuXbeeTxRingBuffer);
+				&g_WcuXbeeTxRingbuffer, 0);
 
 	} else {
 
-		/* Increment the starvation counter */
-		WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(XbeeTransmitRingbufferStarvations);
+		status = EWcuRet_Error;
 	}
+
+	return status;
+}
+
+/**
+ * @brief Get number of free bytes in the XBEE ringbuffer
+ * @retval size_t Number of free bytes in the ringbuffer
+ */
+static inline size_t WcuXbeeGetRingbufferFreeSpace(void) {
+
+	size_t ret = 0;
+
+	/* With valid parameters this call cannot fail */
+	(void) TxRbGetFreeSpace(&g_WcuXbeeTxRingbuffer, &ret);
+
+	return ret;
 }
 
 /**
@@ -629,7 +693,7 @@ static void WcuXbeeSendData(uint8_t *data, uint32_t len) {
  */
 static void WcuXbeeRxCallback(void) {
 
-	(void) WcuEventSend(EWcuEventType_XbeeRxMessagePending, NULL);
+	(void) WcuEventSend(EWcuEventType_XbeeRxMessagePending, NULL, 0);
 }
 
 /**
@@ -638,7 +702,7 @@ static void WcuXbeeRxCallback(void) {
  * @param len Length of the data
  * @retval ETxRbRet Status
  */
-static ETxRbRet WcuXbeeTxRingBufferRouter(uint8_t *data, size_t len) {
+static ETxRbRet WcuXbeeTxRingbufferRouter(uint8_t *data, size_t len) {
 
 	ETxRbRet status = ETxRbRet_Ok;
 
@@ -654,7 +718,7 @@ static ETxRbRet WcuXbeeTxRingBufferRouter(uint8_t *data, size_t len) {
  * @brief TX ring buffer callback
  * @retval None
  */
-static void WcuXbeeTxRingBufferCallback(void) {
+static void WcuXbeeTxRingbufferCallback(void) {
 
 	/* Increment the statistics counter */
 	WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(XbeeMessagesSent);

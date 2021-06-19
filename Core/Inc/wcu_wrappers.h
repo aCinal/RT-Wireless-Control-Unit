@@ -8,20 +8,6 @@
 #define __WCU_WRAPPERS_H_
 
 #include "wcu_defs.h"
-#include <stdint.h>
-
-/**
- * @brief Reload the IWDG counter
- * @retval None
- */
-void WcuReloadWatchdogCounter(void);
-
-/**
- * @brief Put the current thread to sleep
- * @param millisec Sleep time in milliseconds
- * @retval None
- */
-void WcuSleep(uint32_t millisec);
 
 /**
  * @brief Allocate memory on the heap
@@ -50,6 +36,5 @@ uint32_t WcuGetUptimeInMs(void);
  * @retval uint16_t The calculated CRC
  */
 uint16_t WcuGetR3tpCrc(uint8_t *buffer, uint32_t len);
-
 
 #endif /* __WCU_WRAPPERS_H_ */

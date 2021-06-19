@@ -18,6 +18,7 @@
 #include "wcu_timers.h"
 #include "cmsis_os.h"
 #include "rt12e_libs_tx_ringbuffer.h"
+#include "rt12e_libs_generic.h"
 
 extern QueueHandle_t wcuEventQueueHandle;
 
@@ -52,17 +53,19 @@ void WcuEventDispatcherEntryPoint(void const *argument) {
 /**
  * @brief Create and send event
  * @param signal Event type
- * @param param Pointer to event parameters
+ * @param paramPtr Pointer parameter
+ * @param paramUint Integer parameter
  * @retval EWcuRet Status
  */
-EWcuRet WcuEventSend(EWcuEventType signal, void *param) {
+EWcuRet WcuEventSend(EWcuEventType signal, void *paramPtr, uint32_t paramUint) {
 
 	EWcuRet status = EWcuRet_Ok;
 
 	/* Create the event */
 	SWcuEvent event;
 	event.signal = signal;
-	event.param = param;
+	event.paramPtr = paramPtr;
+	event.paramUint = paramUint;
 
 	/* Push the event to the event queue */
 	if (xPortIsInsideInterrupt()) {
@@ -152,7 +155,7 @@ static inline void WcuEventDispatch(const SWcuEvent *event) {
 
 	case EWcuEventType_LogEntriesPending:
 
-		WcuLoggerFlushRingBuffer();
+		WcuLoggerFlushRingbuffer();
 		break;
 
 	case EWcuEventType_TimerExpired:
@@ -163,13 +166,20 @@ static inline void WcuEventDispatch(const SWcuEvent *event) {
 	case EWcuEventType_UartTxMessagePending:
 
 	{
-		STxRb *rb = (STxRb*) event->param;
+		STxRb *rb = (STxRb*) event->paramPtr;
 		if (ETxRbRet_Busy == TxRbFlush(rb)) {
 
 			/* If the UART is busy, enqueue the event again */
-			WcuEventSend(event->signal, event->param);
+			WcuEventSend(event->signal, event->paramPtr, 0);
 		}
 	}
+		break;
+
+	case EWcuEventType_XbeeAcknowledgePending:
+
+		/* Retrieve the R3TP message ID and sequence number from the event parameter */
+		WcuXbeeHandlePendingAcknowledge(_getbyte(event->paramUint, 0),
+				_getbyte(event->paramUint, 1));
 		break;
 
 	case EWcuEventType_XbeeRxMessagePending:
@@ -191,22 +201,22 @@ static inline void WcuEventDispatch(const SWcuEvent *event) {
  */
 static inline void WcuEventDispatchTimerEvent(const SWcuEvent *event) {
 
-	if (WCU_XBEE_STATUS_TIMER == WCU_EVENT_TIMER_INSTANCE(event->param)) {
+	if (WCU_XBEE_STATUS_TIMER == WCU_EVENT_TIMER_INSTANCE(event->paramPtr)) {
 
 		WcuXbeeHandleTimerExpired();
 
 	} else if (WCU_WATCHDOG_RELOAD_TIMER
-			== WCU_EVENT_TIMER_INSTANCE(event->param)) {
+			== WCU_EVENT_TIMER_INSTANCE(event->paramPtr)) {
 
 		WcuWatchdogReload();
 
 	} else if (WCU_DIAGNOSTICS_SELFCHECK_TIMER
-			== WCU_EVENT_TIMER_INSTANCE(event->param)) {
+			== WCU_EVENT_TIMER_INSTANCE(event->paramPtr)) {
 
 		WcuDiagnosticsStartSelfCheck();
 
 	} else if (WCU_DIAGNOSTICS_SNAPSHOT_TIMER
-			== WCU_EVENT_TIMER_INSTANCE(event->param)) {
+			== WCU_EVENT_TIMER_INSTANCE(event->paramPtr)) {
 
 		WcuDiagnosticsLogDatabaseSnapshot();
 	}

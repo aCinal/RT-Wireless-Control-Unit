@@ -84,12 +84,12 @@ extern TIM_HandleTypeDef htim6;
 
 /* USER CODE BEGIN EV */
 
-extern SUartRxRb g_WcuGnssRxRingBuffer;
-extern SUartRxRb g_WcuBtRxRingBuffer;
-extern SUartRxRb g_WcuXbeeRxRingBuffer;
-extern STxRb g_WcuXbeeTxRingBuffer;
+extern SUartRxRb g_WcuGnssRxRingbuffer;
+extern SUartRxRb g_WcuBtRxRingbuffer;
+extern SUartRxRb g_WcuXbeeRxRingbuffer;
+extern STxRb g_WcuXbeeTxRingbuffer;
 #if WCU_REDIRECT_LOGS_TO_SERIAL_PORT
-extern STxRb g_WcuLoggerTxRingBuffer;
+extern STxRb g_WcuLoggerTxRingbuffer;
 #endif /* WCU_REDIRECT_LOGS_TO_SERIAL_PORT */
 
 /* USER CODE END EV */
@@ -317,7 +317,7 @@ void USART1_IRQHandler(void) {
 	/* USER CODE BEGIN USART1_IRQn 0 */
 
 	/* Call the ring buffer handler */
-	(void) UartRxRbIsr(&g_WcuBtRxRingBuffer);
+	(void) UartRxRbIsr(&g_WcuBtRxRingbuffer);
 
 	/* USER CODE END USART1_IRQn 0 */
 	HAL_UART_IRQHandler(&huart1);
@@ -337,7 +337,7 @@ void USART2_IRQHandler(void) {
 	if (__HAL_UART_GET_IT_SOURCE(&huart2,
 			UART_IT_TC) && __HAL_UART_GET_FLAG(&huart2, UART_FLAG_TC)) {
 
-		(void) TxRbCallback(&g_WcuLoggerTxRingBuffer);
+		(void) TxRbCallback(&g_WcuLoggerTxRingbuffer);
 	}
 #endif /* WCU_REDIRECT_LOGS_TO_SERIAL_PORT */
 
@@ -355,7 +355,7 @@ void USART3_IRQHandler(void) {
 	/* USER CODE BEGIN USART3_IRQn 0 */
 
 	/* Call the ring buffer handler */
-	(void) UartRxRbIsr(&g_WcuGnssRxRingBuffer);
+	(void) UartRxRbIsr(&g_WcuGnssRxRingbuffer);
 
 	/* USER CODE END USART3_IRQn 0 */
 	HAL_UART_IRQHandler(&huart3);
@@ -410,12 +410,12 @@ void UART4_IRQHandler(void) {
 	/* USER CODE BEGIN UART4_IRQn 0 */
 
 	/* Call the ring buffer handler */
-	(void) UartRxRbIsr(&g_WcuXbeeRxRingBuffer);
+	(void) UartRxRbIsr(&g_WcuXbeeRxRingbuffer);
 
 	if (__HAL_UART_GET_IT_SOURCE(&huart4,
 			UART_IT_TC) && __HAL_UART_GET_FLAG(&huart4, UART_FLAG_TC)) {
 
-		(void) TxRbCallback(&g_WcuXbeeTxRingBuffer);
+		(void) TxRbCallback(&g_WcuXbeeTxRingbuffer);
 	}
 
 	/* USER CODE END UART4_IRQn 0 */

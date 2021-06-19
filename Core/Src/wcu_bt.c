@@ -20,9 +20,9 @@
 #define WCU_BT_RING_BUFFER_SIZE    ( (uint32_t) 256 )  /* UART ring buffer size */
 
 extern UART_HandleTypeDef huart1;
-SUartRxRb g_WcuBtRxRingBuffer;
+SUartRxRb g_WcuBtRxRingbuffer;
 
-static inline EWcuRet WcuBtRingBufferInit(void);
+static inline EWcuRet WcuBtRingbufferInit(void);
 static inline EWcuRet WcuBtForwardWdtsMessageToCan(void);
 static void WcuBtRxCallback(void);
 
@@ -33,7 +33,7 @@ static void WcuBtRxCallback(void);
 void WcuBtStartup(void) {
 
 	/* Initialize the ring buffer */
-	if (EWcuRet_Ok == WcuBtRingBufferInit()) {
+	if (EWcuRet_Ok == WcuBtRingbufferInit()) {
 
 		WcuLogInfo("WcuBtStartup: BT ring buffer initialized");
 
@@ -56,17 +56,18 @@ void WcuBtHandlePendingMessage(void) {
  * @brief Initialize the BT ring buffer
  * @retval EWcuRet Status
  */
-static inline EWcuRet WcuBtRingBufferInit(void) {
+static inline EWcuRet WcuBtRingbufferInit(void) {
 
 	EWcuRet status = EWcuRet_Ok;
 
 	static uint8_t ringbuffer[WCU_BT_RING_BUFFER_SIZE];
 
 	/* Configure the ring buffer structure */
-	(void) UartRxRbInit(&g_WcuBtRxRingBuffer, &huart1, ringbuffer, sizeof(ringbuffer), &WcuBtRxCallback);
+	(void) UartRxRbInit(&g_WcuBtRxRingbuffer, &huart1, ringbuffer,
+			sizeof(ringbuffer), &WcuBtRxCallback);
 
 	/* Start listening */
-	if (EUartRxRbRet_Ok != UartRxRbRecv(&g_WcuBtRxRingBuffer)) {
+	if (EUartRxRbRet_Ok != UartRxRbRecv(&g_WcuBtRxRingbuffer)) {
 
 		status = EWcuRet_Error;
 	}
@@ -86,7 +87,9 @@ static inline EWcuRet WcuBtForwardWdtsMessageToCan(void) {
 	uint8_t buffer[R3TP_VER0_FRAME_SIZE];
 	size_t bytesRead = 0;
 	/* Read the message from the ring buffer */
-	if (EUartRxRbRet_Ok != UartRxRbRead(&g_WcuBtRxRingBuffer, buffer, sizeof(buffer), &bytesRead)) {
+	if (EUartRxRbRet_Ok
+			!= UartRxRbRead(&g_WcuBtRxRingbuffer, buffer, sizeof(buffer),
+					&bytesRead)) {
 
 		WcuLogError("WcuBtForwardWdtsMessageToCan: Ring buffer read failed");
 		status = EWcuRet_Error;
@@ -97,7 +100,8 @@ static inline EWcuRet WcuBtForwardWdtsMessageToCan(void) {
 		/* Assert valid number of bytes received */
 		if (R3TP_VER0_FRAME_SIZE != bytesRead) {
 
-			WcuLogError("WcuBtForwardWdtsMessageToCan: Invalid number of bytes received");
+			WcuLogError(
+					"WcuBtForwardWdtsMessageToCan: Invalid number of bytes received");
 			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(BtInvalidMessagesReceived);
 			status = EWcuRet_Error;
 		}
@@ -108,7 +112,8 @@ static inline EWcuRet WcuBtForwardWdtsMessageToCan(void) {
 		/* Assert valid protocol version used */
 		if (R3TP_VER0_VER_BYTE != R3TP_PROTOCOL_VERSION(buffer)) {
 
-			WcuLogError("WcuBtForwardWdtsMessageToCan: Unknown protocol version");
+			WcuLogError(
+					"WcuBtForwardWdtsMessageToCan: Unknown protocol version");
 			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(BtInvalidMessagesReceived);
 			status = EWcuRet_Error;
 		}
@@ -149,8 +154,8 @@ static inline EWcuRet WcuBtForwardWdtsMessageToCan(void) {
 	if (EWcuRet_Ok == status) {
 
 		/* Read the CAN ID - note that the CAN ID is transmitted as little endian */
-		canMessage.TxHeader.StdId = _reinterpret32bits(buffer[7],
-				buffer[6], buffer[5], buffer[4]);
+		canMessage.TxHeader.StdId = _reinterpret32bitsle(buffer[4], buffer[5],
+				buffer[6], buffer[7]);
 		/* Read the DLC */
 		canMessage.TxHeader.DLC = (uint32_t) buffer[8];
 		/* Assert valid DLC */
@@ -189,5 +194,5 @@ static inline EWcuRet WcuBtForwardWdtsMessageToCan(void) {
  */
 static void WcuBtRxCallback(void) {
 
-	(void) WcuEventSend(EWcuEventType_BtRxMessagePending, NULL);
+	(void) WcuEventSend(EWcuEventType_BtRxMessagePending, NULL, 0);
 }

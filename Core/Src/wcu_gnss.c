@@ -27,11 +27,11 @@
 
 extern UART_HandleTypeDef huart3;
 
-SUartRxRb g_WcuGnssRxRingBuffer;
+SUartRxRb g_WcuGnssRxRingbuffer;
 
-static EWcuRet WcuGnssRxRingBufferInit(void);
+static EWcuRet WcuGnssRxRingbufferInit(void);
 static inline EWcuRet WcuGnssDeviceConfig(void);
-static EWcuRet WcuGnssSendCommand(char* command);
+static EWcuRet WcuGnssSendCommand(char *command);
 static inline EWcuRet WcuGnssHandleNmeaMessage(void);
 static inline void WcuGnssSendDataToCan(SL26GnssData *data);
 static inline EWcuRet WcuGnssSendGpsPos(SL26GnssData *data);
@@ -51,7 +51,7 @@ static inline uint32_t WcuGnssNormalizeTime(float64_t time);
 void WcuGnssStartup(void) {
 
 	/* Initialize the ring buffer */
-	if (EWcuRet_Ok == WcuGnssRxRingBufferInit()) {
+	if (EWcuRet_Ok == WcuGnssRxRingbufferInit()) {
 
 		WcuLogInfo("WcuGnssStartup: GNSS ring buffer initialized");
 
@@ -77,17 +77,18 @@ void WcuGnssHandlePendingMessage(void) {
  * @brief Initialize the GNSS ring buffer
  * @retval EWcuRet Status
  */
-static EWcuRet WcuGnssRxRingBufferInit(void) {
+static EWcuRet WcuGnssRxRingbufferInit(void) {
 
 	EWcuRet status = EWcuRet_Ok;
 
 	static uint8_t ringbuffer[WCU_GNSS_RING_BUFFER_SIZE];
 
 	/* Configure the ring buffer structure */
-	(void) UartRxRbInit(&g_WcuGnssRxRingBuffer, &huart3, ringbuffer, sizeof(ringbuffer), &WcuGnssRxCallback);
+	(void) UartRxRbInit(&g_WcuGnssRxRingbuffer, &huart3, ringbuffer,
+			sizeof(ringbuffer), &WcuGnssRxCallback);
 
 	/* Start listening */
-	if (EUartRxRbRet_Ok != UartRxRbRecv(&g_WcuGnssRxRingBuffer)) {
+	if (EUartRxRbRet_Ok != UartRxRbRecv(&g_WcuGnssRxRingbuffer)) {
 
 		status = EWcuRet_Error;
 	}
@@ -121,7 +122,8 @@ static inline EWcuRet WcuGnssDeviceConfig(void) {
 		status = EWcuRet_Error;
 	}
 
-	char PMTK_API_SET_NMEA_OUTPUT[] = "$PMTK314,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0*00\r\n";
+	char PMTK_API_SET_NMEA_OUTPUT[] =
+			"$PMTK314,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0*00\r\n";
 	/* Send packet 314 PMTK_API_SET_NMEA_OUTPUT - set NMEA sentence output frequencies:
 	 * 0 GLL - disable,
 	 * 1 RMC - update once every one position fix,
@@ -143,7 +145,7 @@ static inline EWcuRet WcuGnssDeviceConfig(void) {
  * @param command Command string
  * @retval EWcuRet Status
  */
-static EWcuRet WcuGnssSendCommand(char* command) {
+static EWcuRet WcuGnssSendCommand(char *command) {
 
 	EWcuRet status = EWcuRet_Ok;
 
@@ -152,8 +154,8 @@ static EWcuRet WcuGnssSendCommand(char* command) {
 
 	/* Only allow blocking (polling) call during startup */
 	if (HAL_OK
-			!= HAL_UART_Transmit(&huart3, (uint8_t*) command,
-					strlen(command), 50)) {
+			!= HAL_UART_Transmit(&huart3, (uint8_t*) command, strlen(command),
+					50)) {
 
 		status = EWcuRet_Ok;
 	}
@@ -172,7 +174,9 @@ static inline EWcuRet WcuGnssHandleNmeaMessage(void) {
 	uint8_t buffer[WCU_GNSS_PARSE_BUFFER_SIZE];
 	size_t bytesRead = 0;
 	/* Read the message from the buffer */
-	if (EUartRxRbRet_Ok != UartRxRbRead(&g_WcuGnssRxRingBuffer, buffer, sizeof(buffer), &bytesRead)) {
+	if (EUartRxRbRet_Ok
+			!= UartRxRbRead(&g_WcuGnssRxRingbuffer, buffer, sizeof(buffer),
+					&bytesRead)) {
 
 		WcuLogError("WcuGnssHandleNmeaMessage: Ring buffer read failed");
 		status = EWcuRet_Error;
@@ -183,8 +187,7 @@ static inline EWcuRet WcuGnssHandleNmeaMessage(void) {
 		static SL26GnssData parsedData;
 
 		/* Try parsing the message */
-		switch (L26ParseBufferedMessages(&parsedData, (char*) buffer,
-				bytesRead)) {
+		switch (L26ParseBufferedMessages(&parsedData, (char*) buffer, bytesRead)) {
 
 		case EL26DataStatus_Ready:
 
@@ -346,9 +349,8 @@ static inline EWcuRet WcuGnssSendGpsStatus(SL26GnssData *data) {
  */
 static void WcuGnssRxCallback(void) {
 
-	(void) WcuEventSend(EWcuEventType_GnssRxMessagePending, NULL);
+	(void) WcuEventSend(EWcuEventType_GnssRxMessagePending, NULL, 0);
 }
-
 
 /**
  * @brief Normalize the coordinate (longitude/latitude) as degrees multiplied by 1,000,000

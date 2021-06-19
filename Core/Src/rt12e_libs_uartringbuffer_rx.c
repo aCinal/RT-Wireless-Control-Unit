@@ -282,6 +282,5 @@ EUartRxRbRet UartRxRbRead(SUartRxRb *rb, uint8_t *buffer, size_t bufferSize,
 	}
 
 	return status;
-
 }
 

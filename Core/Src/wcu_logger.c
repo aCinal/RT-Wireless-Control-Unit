@@ -29,10 +29,10 @@
 extern UART_HandleTypeDef huart2;
 #endif /* WCU_REDIRECT_LOGS_TO_SERIAL_PORT */
 
-STxRb g_WcuLoggerTxRingBuffer;
+STxRb g_WcuLoggerTxRingbuffer;
 
-static EWcuRet WcuLoggerTxRingBufferInit(void);
-static ETxRbRet WcuLoggerTxRingBufferRouter(uint8_t *data, size_t len);
+static inline EWcuRet WcuLoggerTxRingbufferInit(void);
+static ETxRbRet WcuLoggerTxRingbufferRouter(uint8_t *data, size_t len);
 
 /**
  * @brief Logger service startup
@@ -41,7 +41,7 @@ static ETxRbRet WcuLoggerTxRingBufferRouter(uint8_t *data, size_t len);
 void WcuLoggerStartup(void) {
 
 	/* Initialize the ring buffer */
-	(void) WcuLoggerTxRingBufferInit();
+	(void) WcuLoggerTxRingbufferInit();
 }
 
 /**
@@ -102,12 +102,12 @@ void WcuLoggerPrint(EWcuLogSeverityLevel severityLevel,
 
 			/* Write the error message to the ring buffer */
 			if (ETxRbRet_Ok
-					== TxRbWrite(&g_WcuLoggerTxRingBuffer,
+					== TxRbWrite(&g_WcuLoggerTxRingbuffer,
 							(uint8_t*) logEntryPtr, strlen(logEntryPtr))) {
 
 				/* If write was successful, send the event to the dispatcher to flush the ring buffer */
 				(void) WcuEventSend(EWcuEventType_LogEntriesPending,
-						&g_WcuLoggerTxRingBuffer);
+						&g_WcuLoggerTxRingbuffer, 0);
 				WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(LoggerEntriesQueued);
 
 			} else {
@@ -127,18 +127,18 @@ void WcuLoggerPrint(EWcuLogSeverityLevel severityLevel,
  * @brief Flush the ringbuffer, thereby committing log entries to the SD card or to the serial port
  * @retval None
  */
-void WcuLoggerFlushRingBuffer(void) {
+void WcuLoggerFlushRingbuffer(void) {
 
 	ETxRbRet status = ETxRbRet_Ok;
 
 	/* Flush the ring buffer */
-	status = TxRbFlush(&g_WcuLoggerTxRingBuffer);
+	status = TxRbFlush(&g_WcuLoggerTxRingbuffer);
 
 	if (ETxRbRet_Busy == status) {
 
 		/* If the router is busy, enqueue the event again */
 		(void) WcuEventSend(EWcuEventType_LogEntriesPending,
-				&g_WcuLoggerTxRingBuffer);
+				&g_WcuLoggerTxRingbuffer, 0);
 	}
 
 #if !WCU_REDIRECT_LOGS_TO_SERIAL_PORT
@@ -146,7 +146,7 @@ void WcuLoggerFlushRingBuffer(void) {
 	if (ETxRbRet_Ok == status) {
 
 		/* When committing logs to an SD card, the transfer is blocking so call the callback directly here instead of in IRQ */
-		(void) TxRbCallback(&g_WcuLoggerTxRingBuffer);
+		(void) TxRbCallback(&g_WcuLoggerTxRingbuffer);
 	}
 
 #endif /* !WCU_REDIRECT_LOGS_TO_SERIAL_PORT */
@@ -156,7 +156,7 @@ void WcuLoggerFlushRingBuffer(void) {
  * @brief Initialize the logger ring buffer
  * @retval EWcuRet Status
  */
-static EWcuRet WcuLoggerTxRingBufferInit(void) {
+static inline EWcuRet WcuLoggerTxRingbufferInit(void) {
 
 	EWcuRet status = EWcuRet_Ok;
 
@@ -164,8 +164,8 @@ static EWcuRet WcuLoggerTxRingBufferInit(void) {
 
 	/* Initialize the ring buffer */
 	if (ETxRbRet_Ok
-			!= TxRbInit(&g_WcuLoggerTxRingBuffer, ringbuffer,
-					sizeof(ringbuffer), WcuLoggerTxRingBufferRouter, NULL)) {
+			!= TxRbInit(&g_WcuLoggerTxRingbuffer, ringbuffer,
+					sizeof(ringbuffer), WcuLoggerTxRingbufferRouter, NULL)) {
 
 		status = EWcuRet_Error;
 	}
@@ -179,7 +179,7 @@ static EWcuRet WcuLoggerTxRingBufferInit(void) {
  * @param len Length of the data
  * @retval ETxRbRet Status
  */
-static ETxRbRet WcuLoggerTxRingBufferRouter(uint8_t *data, size_t len) {
+static ETxRbRet WcuLoggerTxRingbufferRouter(uint8_t *data, size_t len) {
 
 	ETxRbRet status = ETxRbRet_Ok;
 
@@ -221,7 +221,7 @@ static ETxRbRet WcuLoggerTxRingBufferRouter(uint8_t *data, size_t len) {
  * @brief TX ring buffer callback
  * @retval None
  */
-void WcuLoggerTxRingBufferCallback(void) {
+void WcuLoggerTxRingbufferCallback(void) {
 
 	/* Increment statistics counter */
 	WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(LoggerCommits);
