@@ -61,7 +61,7 @@ void WcuLoggerPrint(EWcuLogSeverityLevel severityLevel,
 		size_t payloadLength = strlen(messagePayloadTbl);
 		size_t messageSize = LOG_HEADER_LENGTH + payloadLength
 				+ LOG_TRAILER_LENGTH;
-		/* Allocate the memory for the error message */
+		/* Allocate memory for the error message */
 		char *logEntryPtr = WcuMemAlloc(messageSize * sizeof(char));
 
 		/* Assert successful memory allocation */
@@ -71,32 +71,36 @@ void WcuLoggerPrint(EWcuLogSeverityLevel severityLevel,
 			(void) sprintf(LOG_TIMESTAMP(logEntryPtr), "<%010lu>",
 					WcuGetUptimeInMs());
 
-			/* Write the severity tag to the memory block */
+			const char * tag = NULL;
+			/* Determine the severity tag */
 			switch (severityLevel) {
 
 			case EWcuLogSeverityLevel_Info:
 
-				(void) sprintf(LOG_SEVERITY_TAG(logEntryPtr), "INF ");
+				tag = "INF ";
 				break;
 
 			case EWcuLogSeverityLevel_Error:
 
-				(void) sprintf(LOG_SEVERITY_TAG(logEntryPtr), "ERR ");
+				tag = "ERR ";
 				break;
 
 			case EWcuLogSeverityLevel_Debug:
 
-				(void) sprintf(LOG_SEVERITY_TAG(logEntryPtr), "DBG ");
+				tag = "DBG ";
 				break;
 
 			default:
 
-				(void) sprintf(LOG_SEVERITY_TAG(logEntryPtr), "??? ");
+				tag = "??? ";
 				break;
 			}
+			/* Write the severity tag to the memory block */
+			(void) sprintf(LOG_SEVERITY_TAG(logEntryPtr), tag);
 
 			/* Write the message payload to the memory block */
-			(void) sprintf(LOG_PAYLOAD(logEntryPtr), (messagePayloadTbl));
+			(void) sprintf(LOG_PAYLOAD(logEntryPtr), messagePayloadTbl);
+
 			/* Write the message trailer to the memory block */
 			(void) sprintf(LOG_TRAILER(logEntryPtr, payloadLength), "\r\n");
 
@@ -112,7 +116,7 @@ void WcuLoggerPrint(EWcuLogSeverityLevel severityLevel,
 
 			} else {
 
-				/* Increment ringbuffer starvation counter */
+				/* Increment ring buffer starvation counter */
 				WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(
 						LoggerRingbufferStarvations);
 			}

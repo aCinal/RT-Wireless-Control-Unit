@@ -29,7 +29,7 @@ typedef enum EWcuEventType {
  * @brief Event structure
  */
 typedef struct SWcuEvent {
-	EWcuEventType signal;
+	EWcuEventType type;
 	void *paramPtr;
 	uint32_t paramUint;
 } SWcuEvent;
@@ -43,11 +43,11 @@ void WcuEventDispatcherEntryPoint(void const *argument);
 
 /**
  * @brief Create and send event
- * @param signal Event type
+ * @param type Event type
  * @param paramPtr Pointer parameter
  * @param paramUint Integer parameter
  * @retval EWcuRet Status
  */
-EWcuRet WcuEventSend(EWcuEventType signal, void *paramPtr, uint32_t paramUint);
+EWcuRet WcuEventSend(EWcuEventType type, void *paramPtr, uint32_t paramUint);
 
 #endif /* __WCU_EVENTS_H_ */

@@ -50,6 +50,9 @@ static inline uint32_t WcuGnssNormalizeTime(float64_t time);
  */
 void WcuGnssStartup(void) {
 
+	/* Device config */
+	(void) WcuGnssDeviceConfig();
+
 	/* Initialize the ring buffer */
 	if (EWcuRet_Ok == WcuGnssRxRingbufferInit()) {
 
@@ -59,9 +62,6 @@ void WcuGnssStartup(void) {
 
 		WcuLogError("WcuGnssStartup: GNSS ring buffer initialization failed");
 	}
-
-	/* Device config */
-	(void) WcuGnssDeviceConfig();
 }
 
 /**
@@ -142,14 +142,14 @@ static inline EWcuRet WcuGnssDeviceConfig(void) {
 
 /**
  * @brief Send a command to the Quectel L26 device
- * @param command Command string
+ * @param command Stack/heap-allocated (modifiable) command string
  * @retval EWcuRet Status
  */
 static EWcuRet WcuGnssSendCommand(char *command) {
 
 	EWcuRet status = EWcuRet_Ok;
 
-	/* Print the checksum to the command string */
+	/* Print the checksum to the command string (if the string is in ROM this will produce undefined behaviour) */
 	L26AddNmeaChecksum(command);
 
 	/* Only allow blocking (polling) call during startup */

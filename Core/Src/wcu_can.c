@@ -45,6 +45,7 @@ void WcuCanStartup(void) {
 
 	} else {
 
+		WcuLogInfo("WcuCanStartup: SDIO not ready. Setting default filter config...");
 		WcuCanSetDefaultSubscription();
 	}
 

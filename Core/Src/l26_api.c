@@ -80,7 +80,7 @@ static float64_t dddmm_mmmm_to_degrees(float64_t dddmm_mmmm);
 
 /**
  * @brief Add an NMEA checksum to the sentence string
- * @param message Message string
+ * @param message Stack/heap-allocated (modifiable) message string
  * @retval None
  */
 void L26AddNmeaChecksum(char* message) {

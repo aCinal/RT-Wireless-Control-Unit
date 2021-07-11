@@ -15,17 +15,16 @@
 #include <math.h>
 #include <stdio.h>
 
-#define CAN_ID_WCU_DIAG   ( (uint32_t) 0x733 )            /* CAN ID: _733_WCU_DIAG */
-#define CAN_DLC_WCU_DIAG  ( (uint32_t) 4 )
+#define WCU_CAN_ID_WCU_DIAG   ( (uint32_t) 0x733 )        /* CAN ID: _733_WCU_DIAG */
+#define WCU_CAN_DLC_WCU_DIAG  ( (uint32_t) 4 )
 
-#define DATABASE_SNAPSHOT_LOG  ("EVD=%lu,ENS=%lu,CRX=%lu,CSV=%lu,CTX=%lu,CER=%lu,BOK=%lu,BNK=%lu,GRD=%lu,GER=%lu," \
+#define WCU_DATABASE_SNAPSHOT_LOG  ("EVD=%lu,ENS=%lu,CRX=%lu,CSV=%lu,CTX=%lu,CER=%lu,BOK=%lu,BNK=%lu,GRD=%lu,GER=%lu," \
                                 "XTX=%lu,XSV=%lu,XWA=%lu,XSU=%lu,XNK=%lu,LEQ=%lu,LSV=%lu,LCM=%lu,WRC=%lu")
-#define DATABASE_SNAPSHOT_SW_PRESCALER  ( (uint32_t) 3 )
+#define WCU_DATABASE_SNAPSHOT_SW_PRESCALER  ( (uint32_t) 3 )
 
 #define VDD               ( (float32_t) 3.3 )             /* Supply voltage */
 #define V25               ( (float32_t) 0.76 )            /* Temperature sensor's voltage at 25 degrees Celsius */
 #define AVG_SLOPE         ( (float32_t) (2.5 / 1000.0) )  /* Average slope: 2.5 mV/degreeC */
-
 /* Convert 12-bit ADC value to floating-point input voltage */
 #define Adc12BitToVoltage(val)  ( (float32_t) (VDD * ( (float32_t)(val) / (float32_t) 0x0FFFU ) ) )
 /* Convert sensed voltage to temperature in degrees Celsius */
@@ -35,7 +34,7 @@ extern ADC_HandleTypeDef hadc1;
 extern TIM_HandleTypeDef htim13;
 extern TIM_HandleTypeDef htim14;
 
-static uint16_t g_AdcBuffer;
+static uint16_t s_AdcBuffer;
 
 SWcuDiagnosticsDatabase g_WcuDiagnosticsDatabase;
 
@@ -57,8 +56,8 @@ void WcuDiagnosticsStartup(void) {
 void WcuDiagnosticsStartSelfCheck(void) {
 
 	/* Start the ADC conversion and return */
-	(void) HAL_ADC_Start_DMA(&hadc1, (uint32_t*) &g_AdcBuffer,
-			sizeof(g_AdcBuffer));
+	(void) HAL_ADC_Start_DMA(&hadc1, (uint32_t*) &s_AdcBuffer,
+			sizeof(s_AdcBuffer));
 }
 
 /**
@@ -69,14 +68,14 @@ void WcuDiagnosticsHandleAdcConversionComplete(void) {
 
 	SCanMessage canMessage;
 	/* Configure the CAN Tx header */
-	canMessage.TxHeader.DLC = CAN_DLC_WCU_DIAG;
+	canMessage.TxHeader.DLC = WCU_CAN_DLC_WCU_DIAG;
 	canMessage.TxHeader.IDE = CAN_ID_STD;
 	canMessage.TxHeader.RTR = CAN_RTR_DATA;
-	canMessage.TxHeader.StdId = CAN_ID_WCU_DIAG;
+	canMessage.TxHeader.StdId = WCU_CAN_ID_WCU_DIAG;
 	canMessage.TxHeader.TransmitGlobalTime = DISABLE;
 
 	/* Calculate the sensed voltage */
-	float32_t Vsense = Adc12BitToVoltage(g_AdcBuffer);
+	float32_t Vsense = Adc12BitToVoltage(s_AdcBuffer);
 
 	/* Calculate the MCU temperature based on the sensed voltage */
 	float32_t floatTemperature = SensedVoltageToDegreesCelsius(Vsense);
@@ -110,14 +109,14 @@ void WcuDiagnosticsLogDatabaseSnapshot(void) {
 	static uint32_t counter = 0;
 
 	counter += 1U;
-	if (counter == DATABASE_SNAPSHOT_SW_PRESCALER) {
+	if (counter == WCU_DATABASE_SNAPSHOT_SW_PRESCALER) {
 
 		/* Statically allocate buffer for the snapshot string */
-		char snapshot[sizeof(DATABASE_SNAPSHOT_LOG)
+		char snapshot[sizeof(WCU_DATABASE_SNAPSHOT_LOG)
 				+ (10U - 2U) * sizeof(SWcuDiagnosticsDatabase) / sizeof(uint32_t)];
 
 		/* Print database fields to the snapshot string */
-		sprintf(snapshot, DATABASE_SNAPSHOT_LOG,
+		sprintf(snapshot, WCU_DATABASE_SNAPSHOT_LOG,
 				g_WcuDiagnosticsDatabase.EventsDispatched,
 				g_WcuDiagnosticsDatabase.EventQueueStarvations,
 				g_WcuDiagnosticsDatabase.CanMessagesReceived,

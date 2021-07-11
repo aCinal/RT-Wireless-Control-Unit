@@ -585,7 +585,7 @@ static inline EWcuRet WcuXbeeHandleDriverWarning(uint8_t *r3tpMessage) {
 	if (EWcuRet_Ok == status) {
 
 		/* Send the acknowledge message */
-		status = WcuXbeeSendAcknowledge(R3TP_VER2_VER_BYTE,
+		(void) WcuXbeeSendAcknowledge(R3TP_VER2_VER_BYTE,
 				R3TP_SEQ_NUM(r3tpMessage));
 	}
 

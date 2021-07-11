@@ -22,7 +22,7 @@
 
 extern QueueHandle_t wcuEventQueueHandle;
 
-static inline void WcuRunDispatcher(void);
+static inline void WcuRunDispatcher(void) __attribute__((noreturn));
 static inline SWcuEvent WcuEventReceive(void);
 static inline void WcuEventDispatch(const SWcuEvent *event);
 static inline void WcuEventDispatchTimerEvent(const SWcuEvent *event);
@@ -52,18 +52,18 @@ void WcuEventDispatcherEntryPoint(void const *argument) {
 
 /**
  * @brief Create and send event
- * @param signal Event type
+ * @param type Event type
  * @param paramPtr Pointer parameter
  * @param paramUint Integer parameter
  * @retval EWcuRet Status
  */
-EWcuRet WcuEventSend(EWcuEventType signal, void *paramPtr, uint32_t paramUint) {
+EWcuRet WcuEventSend(EWcuEventType type, void *paramPtr, uint32_t paramUint) {
 
 	EWcuRet status = EWcuRet_Ok;
 
 	/* Create the event */
 	SWcuEvent event;
-	event.signal = signal;
+	event.type = type;
 	event.paramPtr = paramPtr;
 	event.paramUint = paramUint;
 
@@ -126,7 +126,7 @@ static inline SWcuEvent WcuEventReceive(void) {
  */
 static inline void WcuEventDispatch(const SWcuEvent *event) {
 
-	switch (event->signal) {
+	switch (event->type) {
 
 	case EWcuEventType_AdcConversionComplete:
 
@@ -170,7 +170,7 @@ static inline void WcuEventDispatch(const SWcuEvent *event) {
 		if (ETxRbRet_Busy == TxRbFlush(rb)) {
 
 			/* If the UART is busy, enqueue the event again */
-			WcuEventSend(event->signal, event->paramPtr, 0);
+			WcuEventSend(event->type, event->paramPtr, 0);
 		}
 	}
 		break;
