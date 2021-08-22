@@ -31,6 +31,16 @@ typedef ETxRbRet (*TTxRbRouter)(uint8_t*, size_t);
 typedef void (*TTxRbUserCallback)(void);
 
 /**
+ * @brief User-defined memory allocator
+ */
+typedef void* (*TTxRbMemoryAllocator)(size_t);
+
+/**
+ * @brief User-defined memory deallocator
+ */
+typedef void (*TTxRbMemoryDeallocator)(void*);
+
+/**
  * @brief Ring buffer control block
  * @note Members of this structure must not be modified directly, a dedicated API should be used instead
  */
@@ -39,6 +49,8 @@ typedef struct STxRb {
 	size_t Length; /* Buffer size in bytes */
 	TTxRbRouter Router; /* Data router */
 	TTxRbUserCallback UserCallback; /* User-defined callback */
+	TTxRbMemoryAllocator MemAlloc; /* Memory allocator */
+	TTxRbMemoryDeallocator MemUnref; /* Memory deallocator */
 	volatile size_t Head; /* Position of the head */
 	volatile size_t Tail; /* Position of the tail */
 	volatile bool Dirty; /* Buffer dirty flag */
@@ -54,9 +66,14 @@ typedef struct STxRb {
  * @param len Size of the buffer
  * @param router Router function used for committing/sending the data
  * @param callback User-defined callback on transfer completion
+ * @param memalloc User-provided memory allocator
+ * @param memunref User-provided memory deallocator
+ * @note The memory deallocator callback will be called from TxRbCallback, i.e. likely from an ISR context
  * @retval ETxRbRet Status
  */
-ETxRbRet TxRbInit(STxRb *rb, uint8_t *buffer, size_t len, TTxRbRouter router, TTxRbUserCallback callback);
+ETxRbRet TxRbInit(STxRb *rb, uint8_t *buffer, size_t len, TTxRbRouter router,
+		TTxRbUserCallback callback, TTxRbMemoryAllocator memalloc,
+		TTxRbMemoryDeallocator memunref);
 
 /**
  * @brief Write data to the ring buffer

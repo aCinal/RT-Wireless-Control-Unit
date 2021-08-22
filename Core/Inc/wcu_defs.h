@@ -23,4 +23,7 @@ typedef enum EWcuRet {
     EWcuRet_Error
 } EWcuRet;
 
+#define unlikely(x)  __builtin_expect(!!(x), 0)
+#define likely(x)    __builtin_expect(!!(x), 1)
+
 #endif /* __WCU_DEFS_H_ */

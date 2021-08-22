@@ -5,25 +5,28 @@
  */
 
 #include "wcu_logger.h"
-#include "wcu_wrappers.h"
 #include "wcu_events.h"
 #include "wcu_sdio.h"
 #include "wcu_diagnostics.h"
+#include "wcu_mem.h"
+#include "wcu_utils.h"
 #include "rt12e_libs_tx_ringbuffer.h"
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdarg.h>
 #include "stm32f4xx_hal.h"
 
-#define LOG_TIMESTAMP_LENGTH         ( (uint32_t) 12 )                                   /* Length of the timestamp in decimal */
-#define LOG_SEVERITY_TAG_LENGTH      ( (uint32_t) 4 )                                    /* Length of the severity level tag */
-#define LOG_HEADER_LENGTH            ( LOG_TIMESTAMP_LENGTH + LOG_SEVERITY_TAG_LENGTH )  /* Total length of the log entry header */
-#define LOG_TRAILER_LENGTH           ( (uint32_t) 3 )                                    /* <CR><LF><NUL> sequence length */
-#define LOG_TIMESTAMP(log)           (log)                                               /* Get pointer to the log entry timestamp */
-#define LOG_SEVERITY_TAG(log)        ( &( (log)[LOG_TIMESTAMP_LENGTH] ) )                /* Get pointer to the log entry severity tag */
-#define LOG_PAYLOAD(log)             ( &( (log)[LOG_HEADER_LENGTH] ) )                   /* Get pointer to the log entry payload */
-#define LOG_TRAILER(log, payLen)     ( &( (log)[LOG_HEADER_LENGTH + (payLen)] ) )        /* Get pointer to the log entry trailer */
-#define WCU_LOGGER_RING_BUFFER_SIZE  (512)                                               /* Logger ring buffer size */
+#define LOG_TIMESTAMP_LENGTH           ( (uint32_t) 12 )                                   /* Length of the timestamp in decimal */
+#define LOG_SEVERITY_TAG_LENGTH        ( (uint32_t) 4 )                                    /* Length of the severity level tag */
+#define LOG_HEADER_LENGTH              ( LOG_TIMESTAMP_LENGTH + LOG_SEVERITY_TAG_LENGTH )  /* Total length of the log entry header */
+#define LOG_TRAILER_LENGTH             ( (uint32_t) 3 )                                    /* <CR><LF><NUL> sequence length */
+#define LOG_TIMESTAMP(log)             (log)                                               /* Get pointer to the log entry timestamp */
+#define LOG_SEVERITY_TAG(log)          ( &( (log)[LOG_TIMESTAMP_LENGTH] ) )                /* Get pointer to the log entry severity tag */
+#define LOG_PAYLOAD(log)               ( &( (log)[LOG_HEADER_LENGTH] ) )                   /* Get pointer to the log entry payload */
+#define LOG_TRAILER(log, payLen)       ( &( (log)[LOG_HEADER_LENGTH + (payLen)] ) )        /* Get pointer to the log entry trailer */
+#define WCU_LOGGER_RING_BUFFER_SIZE    (512)                                               /* Logger ring buffer size */
+#define WCU_LOGGER_MAX_PAYLOAD_SIZE    (256)                                               /* Maximum size of user data in a single log entry */
 
 #if WCU_REDIRECT_LOGS_TO_SERIAL_PORT
 extern UART_HandleTypeDef huart2;
@@ -51,14 +54,25 @@ void WcuLoggerStartup(void) {
  * @retval None
  */
 void WcuLoggerPrint(EWcuLogSeverityLevel severityLevel,
-		const char *messagePayloadTbl) {
+		const char *messagePayloadTbl, ...) {
 
 #if !WCU_REDIRECT_LOGS_TO_SERIAL_PORT
 	/* If the SDIO service is not up, return as quickly as possible */
 	if (g_WcuSdioReady)
 #endif /* !WCU_REDIRECT_LOGS_TO_SERIAL_PORT */
 	{
-		size_t payloadLength = strlen(messagePayloadTbl);
+		/* Stack-allocated buffer for sprintf use */
+		char fmtbuf[WCU_LOGGER_MAX_PAYLOAD_SIZE];
+
+		/* Prepare the log entry payload */
+		va_list args;
+		va_start(args, messagePayloadTbl);
+		size_t payloadLength = snprintf(fmtbuf, WCU_LOGGER_MAX_PAYLOAD_SIZE, messagePayloadTbl, args);
+		va_end(args);
+
+		/* Assert null-terminated payload string */
+		fmtbuf[WCU_LOGGER_MAX_PAYLOAD_SIZE - 1] = '\0';
+
 		size_t messageSize = LOG_HEADER_LENGTH + payloadLength
 				+ LOG_TRAILER_LENGTH;
 		/* Allocate memory for the error message */
@@ -99,7 +113,7 @@ void WcuLoggerPrint(EWcuLogSeverityLevel severityLevel,
 			(void) sprintf(LOG_SEVERITY_TAG(logEntryPtr), tag);
 
 			/* Write the message payload to the memory block */
-			(void) sprintf(LOG_PAYLOAD(logEntryPtr), messagePayloadTbl);
+			(void) sprintf(LOG_PAYLOAD(logEntryPtr), fmtbuf);
 
 			/* Write the message trailer to the memory block */
 			(void) sprintf(LOG_TRAILER(logEntryPtr, payloadLength), "\r\n");
@@ -169,7 +183,7 @@ static inline EWcuRet WcuLoggerTxRingbufferInit(void) {
 	/* Initialize the ring buffer */
 	if (ETxRbRet_Ok
 			!= TxRbInit(&g_WcuLoggerTxRingbuffer, ringbuffer,
-					sizeof(ringbuffer), WcuLoggerTxRingbufferRouter, NULL)) {
+					sizeof(ringbuffer), WcuLoggerTxRingbufferRouter, NULL, WcuMemAlloc, WcuMemFree)) {
 
 		status = EWcuRet_Error;
 	}

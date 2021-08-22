@@ -1,6 +1,6 @@
 #MicroXplorer Configuration settings - do not modify
 Dma.ADC1.4.FIFOMode=DMA_FIFOMODE_DISABLE
-FREERTOS.Queues01=wcuEventQueue,128,SWcuEvent,0,Dynamic,NULL,NULL;garbageQueue,16,void*,0,Dynamic,NULL,NULL;canMessagesQueue,64,SCanMessage,0,Dynamic,NULL,NULL
+FREERTOS.Queues01=wcuEventQueue,128,SWcuEvent,0,Dynamic,NULL,NULL;canMessagesQueue,64,SCanMessage,0,Dynamic,NULL,NULL
 NVIC.CAN1_RX1_IRQn=true\:5\:0\:false\:false\:true\:true\:true\:true
 PB13.GPIOParameters=GPIO_Label
 CAN1.NART=DISABLE
@@ -108,7 +108,7 @@ Dma.USART2_TX.6.MemInc=DMA_MINC_ENABLE
 Dma.SDIO_TX.2.MemInc=DMA_MINC_ENABLE
 NVIC.EXTI4_IRQn=true\:5\:0\:true\:false\:true\:true\:true\:true
 ProjectManager.ProjectFileName=RT12e-WCU.ioc
-FREERTOS.Tasks01=EventDispatcher,0,8192,WcuEventDispatcherEntryPoint,As weak,NULL,Dynamic,NULL,NULL;GarbageMan,2,128,GarbageManEntryPoint,Default,NULL,Dynamic,NULL,NULL
+FREERTOS.Tasks01=EventDispatcher,0,8192,WcuEventDispatcherEntryPoint,As weak,NULL,Dynamic,NULL,NULL
 ADC1.Rank-0\#ChannelRegularConversion=1
 PA15.GPIOParameters=GPIO_Label
 Mcu.PinsNb=46
@@ -159,7 +159,7 @@ Mcu.Pin42=VP_TIM7_VS_ClockSourceINT
 Dma.SDIO_RX.1.MemBurst=DMA_MBURST_INC4
 Mcu.Pin43=VP_TIM11_VS_ClockSourceINT
 TIM13.Period=39999
-ProjectManager.LastFirmware=true
+ProjectManager.LastFirmware=false
 VP_TIM13_VS_ClockSourceINT.Mode=Enable_Timer
 VP_SYS_VS_tim6.Signal=SYS_VS_tim6
 PA1.Mode=Asynchronous

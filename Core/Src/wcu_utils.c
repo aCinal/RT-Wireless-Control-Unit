@@ -1,35 +1,14 @@
 /**
  * @author Adrian Cinal
- * @file wcu_wrappers.c
- * @brief Source file implementing wrappers for the WCU application
+ * @file wcu_utils.c
+ * @brief Source file implementing common utilities for the WCU application
  */
 
-#include "wcu_wrappers.h"
+#include "wcu_utils.h"
 #include "stm32f4xx_hal.h"
-#include "cmsis_os.h"
 #include <stdint.h>
 
 extern CRC_HandleTypeDef hcrc;
-
-/**
- * @brief Allocate memory on the heap
- * @param size Memory block size
- * @retval void* Pointer to the allocated block size or NULL on failure
- */
-void* WcuMemAlloc(size_t size) {
-
-	return pvPortMalloc(size);
-}
-
-/**
- * @brief Return the allocated memory to the heap
- * @param memoryBlock Pointer to the previously allocated memory block
- * @retval None
- */
-void WcuMemFree(void *memoryBlock) {
-
-	vPortFree(memoryBlock);
-}
 
 /**
  * @brief Return the MCU uptime in milliseconds

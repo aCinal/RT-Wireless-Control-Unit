@@ -50,9 +50,6 @@ static inline uint32_t WcuGnssNormalizeTime(float64_t time);
  */
 void WcuGnssStartup(void) {
 
-	/* Device config */
-	(void) WcuGnssDeviceConfig();
-
 	/* Initialize the ring buffer */
 	if (EWcuRet_Ok == WcuGnssRxRingbufferInit()) {
 
@@ -62,6 +59,9 @@ void WcuGnssStartup(void) {
 
 		WcuLogError("WcuGnssStartup: GNSS ring buffer initialization failed");
 	}
+
+	/* Device config */
+	(void) WcuGnssDeviceConfig();
 }
 
 /**

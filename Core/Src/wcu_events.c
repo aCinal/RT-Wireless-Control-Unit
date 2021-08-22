@@ -4,9 +4,9 @@
  * @brief Source file implementing the event dispatcher functions
  */
 
+#include "wcu_utils.h"
+#include "wcu_mem.h"
 #include "wcu_events.h"
-#include "wcu_wrappers.h"
-
 #include "wcu_sdio.h"
 #include "wcu_logger.h"
 #include "wcu_xbee.h"
@@ -35,6 +35,9 @@ static inline void WcuEventDispatchTimerEvent(const SWcuEvent *event);
 void WcuEventDispatcherEntryPoint(void const *argument) {
 
 	(void) argument;
+
+	/* Disable context switches */
+	vTaskSuspendAll();
 
 	/* Run startups */
 	WcuWatchdogStartup();
@@ -113,8 +116,11 @@ static inline void WcuRunDispatcher(void) {
 static inline SWcuEvent WcuEventReceive(void) {
 
 	SWcuEvent event;
-	/* Block on the event queue indefinitely */
-	(void) xQueueReceive(wcuEventQueueHandle, &event, portMAX_DELAY);
+
+	/* Spin on the event queue */
+	while (pdPASS != xQueueReceive(wcuEventQueueHandle, &event, 0)) {
+		;
+	}
 
 	return event;
 }
@@ -146,6 +152,12 @@ static inline void WcuEventDispatch(const SWcuEvent *event) {
 	case EWcuEventType_CanRxMessagePending:
 
 		WcuCanHandlePendingMessage();
+		break;
+
+	case EWcuEventType_DeferredMemoryUnref:
+
+		WcuMemHandleDeferredUnref(event->paramPtr);
+		WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(DeferredUnrefCount);
 		break;
 
 	case EWcuEventType_GnssRxMessagePending:

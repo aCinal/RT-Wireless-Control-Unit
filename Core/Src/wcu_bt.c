@@ -4,9 +4,9 @@
  * @brief Source file implementing the BT service
  */
 
+#include <wcu_utils.h>
 #include "wcu_bt.h"
 #include "wcu_defs.h"
-#include "wcu_wrappers.h"
 #include "wcu_events.h"
 #include "wcu_logger.h"
 #include "wcu_can.h"

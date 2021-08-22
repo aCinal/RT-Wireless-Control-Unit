@@ -4,29 +4,19 @@
  * @brief Source file implementing the generic ring buffer utilities
  */
 
-#include "rt12e_libs_tx_ringbuffer.h"
-
 #include <stddef.h>
 #include <string.h>
-#include <cmsis_gcc.h>
+#include <stdint.h>
+#include "rt12e_libs_tx_ringbuffer.h"
 
-#define TX_RB_VALID(RB)       ( (NULL != (RB)) && (NULL != (RB)->Buffer) && (0 != (RB)->Length) && (NULL != (RB)->Router) )
+#define likely(x)    __builtin_expect(!!(x), 1)
+#define unlikely(x)  __builtin_expect(!!(x), 0)
+
+#define TX_RB_VALID(RB)       ( (NULL != (RB)) && (NULL != (RB)->Buffer) && (0 != (RB)->Length) && (NULL != (RB)->Router) && (NULL != (RB)->MemAlloc) && (NULL != (RB)->MemUnref) )
 #define TX_RB_OVERFLOWED(RB)  ( (RB)->Dirty && ( (RB)->Head <= (RB)->LockedTail ) )
-#define _assert(x)            if (!(x)) { __disable_irq(); for (;;); }
-
-#define TX_RB_FREERTOS_IN_USE 1
-
-#if TX_RB_FREERTOS_IN_USE
-#include <cmsis_os.h>
-extern QueueHandle_t garbageQueueHandle;
-#else /* !TX_RB_FREERTOS_IN_USE */
-#include <stdlib.h>
-#endif /* !TX_RB_FREERTOS_IN_USE */
 
 static ETxRbRet TxRbCommitDirectlyFromRingbuffer(STxRb *rb);
 static ETxRbRet TxRbCommitFromLinearBuffer(STxRb *rb);
-static void* TxRbAllocateBuffer(size_t bufferSize);
-static void TxRbFreeBuffer(void *buffer);
 
 /**
  * @brief Initialize the ring buffer control block
@@ -35,26 +25,33 @@ static void TxRbFreeBuffer(void *buffer);
  * @param len Size of the buffer
  * @param router Router function used for committing/sending the data
  * @param callback User-defined callback on transfer completion
+ * @param memalloc User-provided memory allocator
+ * @param memunref User-provided memory deallocator
+ * @note The memory deallocator callback will be called from TxRbCallback, i.e. likely from an ISR context
  * @retval ETxRbRet Status
  */
 ETxRbRet TxRbInit(STxRb *rb, uint8_t *buffer, size_t len, TTxRbRouter router,
-		TTxRbUserCallback callback) {
+		TTxRbUserCallback callback, TTxRbMemoryAllocator memalloc,
+		TTxRbMemoryDeallocator memunref) {
 
 	/* Assert valid parameters */
 	ETxRbRet status = ETxRbRet_Ok;
 
-	if ((NULL == rb) || (NULL == buffer) || (0 == len) || (NULL == router)) {
+	if (unlikely((NULL == rb) || (NULL == buffer) || (0 == len) || (NULL == router)
+			|| (NULL == memalloc) || (NULL == memunref))) {
 
 		status = ETxRbRet_InvalidParams;
 	}
 
-	if (ETxRbRet_Ok == status) {
+	if (likely(ETxRbRet_Ok == status)) {
 
 		/* Save the buffer address and relevant callbacks */
 		rb->Buffer = buffer;
 		rb->Length = len;
 		rb->Router = router;
 		rb->UserCallback = callback;
+		rb->MemAlloc = memalloc;
+		rb->MemUnref = memunref;
 
 		/* Set initial internal state */
 		rb->Head = 0;
@@ -81,13 +78,13 @@ ETxRbRet TxRbWrite(STxRb *rb, uint8_t *data, size_t len) {
 	ETxRbRet status = ETxRbRet_Ok;
 
 	/* Assert valid parameters */
-	if (!TX_RB_VALID(rb) || (NULL == data) || (0 == len)
-			|| (len > rb->Length)) {
+	if (unlikely(!TX_RB_VALID(rb) || (NULL == data) || (0 == len)
+			|| (len > rb->Length))) {
 
 		status = ETxRbRet_InvalidParams;
 	}
 
-	if (ETxRbRet_Ok == status) {
+	if (likely(ETxRbRet_Ok == status)) {
 
 		size_t freeSpace = 0;
 		(void) TxRbGetFreeSpace(rb, &freeSpace);
@@ -98,23 +95,23 @@ ETxRbRet TxRbWrite(STxRb *rb, uint8_t *data, size_t len) {
 		}
 	}
 
-	if (ETxRbRet_Ok == status) {
+	if (likely(ETxRbRet_Ok == status)) {
 
 		/* Test for overflow */
 		if (rb->Head + len > rb->Length) {
 
 			/* Fill the upper part of the ring buffer */
 			size_t lenUpper = rb->Length - rb->Head;
-			memcpy(&rb->Buffer[rb->Head], data, lenUpper);
+			(void) memcpy(&rb->Buffer[rb->Head], data, lenUpper);
 
 			/* Fill the lower part of the ring buffer */
 			size_t lenLower = len - lenUpper;
-			memcpy(rb->Buffer, &(data[lenUpper]), lenLower);
+			(void) memcpy(rb->Buffer, &(data[lenUpper]), lenLower);
 
 		} else {
 
 			/* Copy the data into the buffer */
-			memcpy(&rb->Buffer[rb->Head], data, len);
+			(void) memcpy(&rb->Buffer[rb->Head], data, len);
 		}
 
 		/* Update the head */
@@ -137,12 +134,12 @@ ETxRbRet TxRbFlush(STxRb *rb) {
 	ETxRbRet status = ETxRbRet_Ok;
 
 	/* Assert valid parameters */
-	if (!TX_RB_VALID(rb)) {
+	if (unlikely(!TX_RB_VALID(rb))) {
 
 		status = ETxRbRet_InvalidParams;
 	}
 
-	if (ETxRbRet_Ok == status) {
+	if (likely(ETxRbRet_Ok == status)) {
 
 		if (!rb->Dirty) {
 
@@ -150,7 +147,7 @@ ETxRbRet TxRbFlush(STxRb *rb) {
 		}
 	}
 
-	if (ETxRbRet_Ok == status) {
+	if (likely(ETxRbRet_Ok == status)) {
 
 		if (rb->TransferInProgress) {
 
@@ -158,7 +155,7 @@ ETxRbRet TxRbFlush(STxRb *rb) {
 		}
 	}
 
-	if (ETxRbRet_Ok == status) {
+	if (likely(ETxRbRet_Ok == status)) {
 
 		/* Test if the ring buffer has overflowed */
 		if (!TX_RB_OVERFLOWED(rb)) {
@@ -186,17 +183,17 @@ ETxRbRet TxRbCallback(STxRb *rb) {
 	ETxRbRet status = ETxRbRet_Ok;
 
 	/* Assert valid parameters */
-	if (!TX_RB_VALID(rb)) {
+	if (unlikely(!TX_RB_VALID(rb))) {
 
 		status = ETxRbRet_InvalidParams;
 	}
 
-	if (ETxRbRet_Ok == status) {
+	if (likely(ETxRbRet_Ok == status)) {
 
 		/* Free the linear buffer if allocated */
 		if (NULL != rb->LinearBuffer) {
 
-			TxRbFreeBuffer(rb->LinearBuffer);
+			rb->MemUnref(rb->LinearBuffer);
 			rb->LinearBuffer = NULL;
 		}
 
@@ -227,12 +224,12 @@ ETxRbRet TxRbGetFreeSpace(STxRb *rb, size_t *space) {
 	ETxRbRet status = ETxRbRet_Ok;
 
 	/* Assert valid parameters */
-	if (!TX_RB_VALID(rb) || NULL == space) {
+	if (unlikely(!TX_RB_VALID(rb) || NULL == space)) {
 
 		status = ETxRbRet_InvalidParams;
 	}
 
-	if (ETxRbRet_Ok == status) {
+	if (likely(ETxRbRet_Ok == status)) {
 
 		/* Test if the ring buffer has overflowed */
 		if (TX_RB_OVERFLOWED(rb)) {
@@ -268,9 +265,10 @@ static ETxRbRet TxRbCommitDirectlyFromRingbuffer(STxRb *rb) {
 	rb->TransferInProgress = true;
 
 	/* Route the data */
-	status = rb->Router(&(rb->Buffer[rb->LockedTail]), rb->Head - rb->LockedTail);
+	status = rb->Router(&(rb->Buffer[rb->LockedTail]),
+			rb->Head - rb->LockedTail);
 
-	if (ETxRbRet_Ok != status) {
+	if (unlikely(ETxRbRet_Ok != status)) {
 
 		/* Restore previous state on routing failure */
 		rb->Tail = rb->LockedTail;
@@ -292,14 +290,14 @@ static ETxRbRet TxRbCommitFromLinearBuffer(STxRb *rb) {
 
 	/* Allocate a linear buffer */
 	size_t len = rb->Length - rb->Tail + rb->Head;
-	rb->LinearBuffer = TxRbAllocateBuffer(len);
+	rb->LinearBuffer = rb->MemAlloc(len);
 
-	if (NULL == rb->LinearBuffer) {
+	if (unlikely(NULL == rb->LinearBuffer)) {
 
 		status = ETxRbRet_Error;
 	}
 
-	if (ETxRbRet_Ok == status) {
+	if (likely(ETxRbRet_Ok == status)) {
 
 		/* Save old tail to restore it on routing failure */
 		size_t oldTail = rb->Tail;
@@ -310,11 +308,10 @@ static ETxRbRet TxRbCommitFromLinearBuffer(STxRb *rb) {
 		rb->TransferInProgress = true;
 
 		/* Copy the upper part of the ring buffer into the linear buffer */
-		memcpy(rb->LinearBuffer, &rb->Buffer[oldTail], rb->Length - oldTail);
+		(void) memcpy(rb->LinearBuffer, &rb->Buffer[oldTail], rb->Length - oldTail);
 
 		/* Copy the lower part of the ring buffer into the linear buffer */
-		memcpy(&(rb->LinearBuffer[rb->Length - oldTail]), rb->Buffer,
-				rb->Head);
+		(void) memcpy(&(rb->LinearBuffer[rb->Length - oldTail]), rb->Buffer, rb->Head);
 
 		/* Commit the data from the allocated buffer */
 		status = rb->Router(rb->LinearBuffer, len);
@@ -327,7 +324,7 @@ static ETxRbRet TxRbCommitFromLinearBuffer(STxRb *rb) {
 			rb->Dirty = true;
 			rb->TransferInProgress = false;
 			/* Cleanup */
-			TxRbFreeBuffer(rb->LinearBuffer);
+			rb->MemUnref(rb->LinearBuffer);
 			rb->LinearBuffer = NULL;
 		}
 
@@ -335,44 +332,4 @@ static ETxRbRet TxRbCommitFromLinearBuffer(STxRb *rb) {
 	}
 
 	return status;
-}
-
-/**
- * @brief Memory allocator wrapper
- * @note When using FreeRTOS, it is better to call pvPortMalloc() from here instead of malloc()
- * @param bufferSize Size of the memory block to be allocated
- * @retval Pointer to the allocated block on success or NULL on failure
- */
-static void* TxRbAllocateBuffer(size_t bufferSize) {
-
-#if TX_RB_FREERTOS_IN_USE
-	return pvPortMalloc(bufferSize);
-#else /* !TX_RB_FREERTOS_IN_USE */
-	return malloc(bufferSize);
-#endif /* !TX_RB_FREERTOS_IN_USE */
-}
-
-/**
- * @brief Memory allocator wrapper
- * @note When using FreeRTOS, a dedicated high-priority garbage-collector task must be created to defer freeing the block to it
- * @param buffer Pointer to the previously allocated memory block
- * @retval None
- */
-static void TxRbFreeBuffer(void *buffer) {
-
-#if TX_RB_FREERTOS_IN_USE
-
-	if (xPortIsInsideInterrupt()) {
-
-		/* If in IRQ, defer handling of the freeing to the garbage-collector task and assert no memory leak */
-		_assert(pdPASS == xQueueSendFromISR(garbageQueueHandle, &buffer, NULL));
-
-	} else {
-
-		vPortFree(buffer);
-	}
-#else /* !TX_RB_FREERTOS_IN_USE */
-	free(buffer);
-#endif /* !TX_RB_FREERTOS_IN_USE */
-
 }

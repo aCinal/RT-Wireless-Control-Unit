@@ -25,21 +25,21 @@ typedef enum EWcuLogSeverityLevel {
 	EWcuLogSeverityLevel_Debug
 } EWcuLogSeverityLevel;
 
-/* Exported macros -------------------------------------------------------------------------- */
+/* Exported macros an definitions -------------------------------------------------------------------------- */
 #if (WCU_ENABLE_INFO_PRINTS)
-#define WcuLogInfo(msg)      ( WcuLoggerPrint(EWcuLogSeverityLevel_Info, (msg) ) )
+#define WcuLogInfo(msg, ...)     ( WcuLoggerPrint(EWcuLogSeverityLevel_Info, (msg), ##__VA_ARGS__) )
 #else /* #if !(WCU_ENABLE_INFO_PRINTS) */
-#define WcuLogInfo(msg)     ( (void)(msg) )
+#define WcuLogInfo(msg, ...)
 #endif /* !(WCU_ENABLE_INFO_PRINTS) */
 #if (WCU_ENABLE_ERROR_PRINTS)
-#define WcuLogError(msg)     ( WcuLoggerPrint(EWcuLogSeverityLevel_Error, (msg) ) )
+#define WcuLogError(msg, ...)     ( WcuLoggerPrint(EWcuLogSeverityLevel_Error, (msg), ##__VA_ARGS__) )
 #else /* #if !(WCU_ENABLE_ERROR_PRINTS) */
-#define WcuLogError(msg)     ( (void)(msg) )
+#define WcuLogError(msg, ...)
 #endif /* !(WCU_ENABLE_ERROR_PRINTS) */
 #if (WCU_ENABLE_DEBUG_PRINTS)
-#define WcuLogDebug(msg)     ( WcuLoggerPrint(EWcuLogSeverityLevel_Debug, (msg) ) )
+#define WcuLogDebug(msg, ...)     ( WcuLoggerPrint(EWcuLogSeverityLevel_Debug, (msg), ##__VA_ARGS__) )
 #else /* #if !(WCU_ENABLE_DEBUG_PRINTS) */
-#define WcuLogDebug(msg)     ( (void)(msg) )
+#define WcuLogDebug(msg, ...)
 #endif /* !(WCU_ENABLE_DEBUG_PRINTS) */
 
 /* Public functions prototypes -------------------------------------------------------------------------- */
@@ -54,9 +54,10 @@ void WcuLoggerStartup(void);
  * @brief Log an error message
  * @param severityLevel Severity level
  * @param messagePayloadTbl Error message
+ * @param ... (optional parameters) Format specifiers
  * @retval None
  */
-void WcuLoggerPrint(EWcuLogSeverityLevel severityLevel, const char *messagePayloadTbl);
+void WcuLoggerPrint(EWcuLogSeverityLevel severityLevel, const char *messagePayloadTbl, ...);
 
 /**
  * @brief Flush the ringbuffer, thereby committing log entries to the SD card or to the serial port

@@ -94,9 +94,7 @@ void WcuCanHandleBusError(void) {
 	uint32_t errflags = HAL_CAN_GetError(&hcan1);
 
 	/* Log the error */
-	char log[128];
-	sprintf(log, "WcuCanHandleBusError: error code 0x%lX", errflags);
-	WcuLogError(log);
+	WcuLogError("WcuCanHandleBusError: error code 0x%lX", errflags);
 
 	/* Increment the statistics counter */
 	WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(CanErrors);

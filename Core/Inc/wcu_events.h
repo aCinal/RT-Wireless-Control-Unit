@@ -17,6 +17,7 @@ typedef enum EWcuEventType {
 	EWcuEventType_BtRxMessagePending,
 	EWcuEventType_CanError,
 	EWcuEventType_CanRxMessagePending,
+	EWcuEventType_DeferredMemoryUnref,
 	EWcuEventType_GnssRxMessagePending,
 	EWcuEventType_LogEntriesPending,
 	EWcuEventType_TimerExpired,

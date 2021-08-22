@@ -39,6 +39,7 @@ typedef struct SWcuDiagnosticsDatabase {
 	uint32_t LoggerCommits;
 
 	uint32_t WatchdogRefreshCount;
+	uint32_t DeferredUnrefCount;
 
 } SWcuDiagnosticsDatabase;
 

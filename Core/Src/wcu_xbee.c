@@ -9,10 +9,11 @@
 #include "wcu_defs.h"
 #include "wcu_logger.h"
 #include "wcu_events.h"
-#include "wcu_wrappers.h"
 #include "wcu_can.h"
 #include "wcu_sdio.h"
 #include "wcu_diagnostics.h"
+#include "wcu_mem.h"
+#include "wcu_utils.h"
 #include "rt12e_libs_can.h"
 #include "rt12e_libs_r3tp.h"
 #include "rt12e_libs_generic.h"
@@ -188,7 +189,7 @@ static inline EWcuRet WcuXbeeTxRingbufferInit(void) {
 
 	/* Configure the ring buffer structure */
 	TxRbInit(&g_WcuXbeeTxRingbuffer, ringbuffer, sizeof(ringbuffer),
-			WcuXbeeTxRingbufferRouter, WcuXbeeTxRingbufferCallback);
+			WcuXbeeTxRingbufferRouter, WcuXbeeTxRingbufferCallback, WcuMemAlloc, WcuMemFree);
 
 	return status;
 }

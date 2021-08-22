@@ -5,7 +5,6 @@
  */
 
 #include "wcu_diagnostics.h"
-#include "wcu_wrappers.h"
 #include "wcu_defs.h"
 #include "wcu_can.h"
 #include "wcu_logger.h"
@@ -14,12 +13,13 @@
 #include "stm32f4xx_hal.h"
 #include <math.h>
 #include <stdio.h>
+#include <wcu_utils.h>
 
 #define WCU_CAN_ID_WCU_DIAG   ( (uint32_t) 0x733 )        /* CAN ID: _733_WCU_DIAG */
 #define WCU_CAN_DLC_WCU_DIAG  ( (uint32_t) 4 )
 
 #define WCU_DATABASE_SNAPSHOT_LOG  ("EVD=%lu,ENS=%lu,CRX=%lu,CSV=%lu,CTX=%lu,CER=%lu,BOK=%lu,BNK=%lu,GRD=%lu,GER=%lu," \
-                                "XTX=%lu,XSV=%lu,XWA=%lu,XSU=%lu,XNK=%lu,LEQ=%lu,LSV=%lu,LCM=%lu,WRC=%lu")
+                                    "XTX=%lu,XSV=%lu,XWA=%lu,XSU=%lu,XNK=%lu,LEQ=%lu,LSV=%lu,LCM=%lu,WRC=%lu")
 #define WCU_DATABASE_SNAPSHOT_SW_PRESCALER  ( (uint32_t) 3 )
 
 #define VDD               ( (float32_t) 3.3 )             /* Supply voltage */
