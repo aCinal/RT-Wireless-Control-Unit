@@ -51,13 +51,9 @@ static inline uint32_t WcuGnssNormalizeTime(float64_t time);
 void WcuGnssStartup(void) {
 
 	/* Initialize the ring buffer */
-	if (EWcuRet_Ok == WcuGnssRxRingbufferInit()) {
+	if (EWcuRet_Ok != WcuGnssRxRingbufferInit()) {
 
-		WcuLogInfo("WcuGnssStartup: GNSS ring buffer initialized");
-
-	} else {
-
-		WcuLogError("WcuGnssStartup: GNSS ring buffer initialization failed");
+		WcuLogError("%s(): GNSS ring buffer initialization failed", __FUNCTION__);
 	}
 
 	/* Device config */
@@ -178,7 +174,7 @@ static inline EWcuRet WcuGnssHandleNmeaMessage(void) {
 			!= UartRxRbRead(&g_WcuGnssRxRingbuffer, buffer, sizeof(buffer),
 					&bytesRead)) {
 
-		WcuLogError("WcuGnssHandleNmeaMessage: Ring buffer read failed");
+		WcuLogError("%s(): Ring buffer read failed", __FUNCTION__);
 		status = EWcuRet_Error;
 	}
 
@@ -209,7 +205,7 @@ static inline EWcuRet WcuGnssHandleNmeaMessage(void) {
 
 			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(GnssParserErrors);
 
-			WcuLogError("WcuGnssHandleNmeaMessage: Parser failed");
+			WcuLogError("%s(): Parser failed", __FUNCTION__);
 			status = EWcuRet_Error;
 			break;
 

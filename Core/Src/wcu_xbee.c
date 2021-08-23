@@ -66,14 +66,14 @@ void WcuXbeeStartup(void) {
 	/* Initialize the ring buffers */
 	if (EWcuRet_Ok != WcuXbeeTxRingbufferInit()) {
 
-		WcuLogError(
-				"WcuXbeeStartup: XBEE TX ring buffer initialization failed");
+		WcuLogError("%s(): XBEE TX ring buffer initialization failed",
+				__FUNCTION__);
 	}
 
 	if (EWcuRet_Ok != WcuXbeeRxRingbufferInit()) {
 
-		WcuLogError(
-				"WcuXbeeStartup: XBEE RX ring buffer initialization failed");
+		WcuLogError("%s(): XBEE RX ring buffer initialization failed",
+				__FUNCTION__);
 	}
 
 	/* Start the timer */
@@ -189,7 +189,8 @@ static inline EWcuRet WcuXbeeTxRingbufferInit(void) {
 
 	/* Configure the ring buffer structure */
 	TxRbInit(&g_WcuXbeeTxRingbuffer, ringbuffer, sizeof(ringbuffer),
-			WcuXbeeTxRingbufferRouter, WcuXbeeTxRingbufferCallback, WcuMemAlloc, WcuMemFree);
+			WcuXbeeTxRingbufferRouter, WcuXbeeTxRingbufferCallback, WcuMemAlloc,
+			WcuMemFree);
 
 	return status;
 }
@@ -299,7 +300,7 @@ static inline void WcuXbeeWarningsTick(void) {
 
 		if (0U == g_GreenWarningDuration) {
 
-			WcuLogInfo("WcuXbeeWarningsTick: Green warning expired");
+			WcuLogInfo("%s(): Green warning expired", __FUNCTION__);
 		}
 	}
 
@@ -311,7 +312,7 @@ static inline void WcuXbeeWarningsTick(void) {
 
 		if (0U == g_RedWarningDuration) {
 
-			WcuLogInfo("WcuXbeeWarningsTick: Red warning expired");
+			WcuLogInfo("%s(): Red warning expired", __FUNCTION__);
 		}
 	}
 }
@@ -327,7 +328,7 @@ static inline EWcuRet WcuXbeeHandleR3tpMessage(void) {
 			!= UartRxRbRead(&g_WcuXbeeRxRingbuffer, buffer, sizeof(buffer),
 					&bytesRead)) {
 
-		WcuLogError("WcuXbeeHandleR3tpMessage: Ring buffer read failed");
+		WcuLogError("%s(): Ring buffer read failed", __FUNCTION__);
 		status = EWcuRet_Error;
 	}
 
@@ -358,7 +359,7 @@ static inline EWcuRet WcuXbeeHandleR3tpMessage(void) {
 
 			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(
 					XbeeInvalidMessagesReceived);
-			WcuLogError("WcuXbeeHandleR3tpMessage: Unknown protocol version");
+			WcuLogError("%s(): Unknown protocol version", __FUNCTION__);
 			status = EWcuRet_Error;
 			break;
 		}
@@ -444,7 +445,8 @@ static inline EWcuRet WcuXbeeHandleNewSubscription(uint8_t *r3tpMessage) {
 	if (numOfFrames > R3TP_VER1_MAX_FRAME_NUM) {
 
 		WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(XbeeInvalidMessagesReceived);
-		WcuLogError("WcuXbeeHandleNewSubscription: Invalid frame number");
+		WcuLogError("%s(): Invalid frame number: %d", __FUNCTION__,
+				numOfFrames);
 		status = EWcuRet_Error;
 	}
 
@@ -456,7 +458,7 @@ static inline EWcuRet WcuXbeeHandleNewSubscription(uint8_t *r3tpMessage) {
 
 			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(
 					XbeeInvalidMessagesReceived);
-			WcuLogError("WcuXbeeHandleNewSubscription: Invalid end sequence");
+			WcuLogError("%s(): Invalid end sequence", __FUNCTION__);
 			status = EWcuRet_Error;
 		}
 	}
@@ -480,7 +482,8 @@ static inline EWcuRet WcuXbeeHandleNewSubscription(uint8_t *r3tpMessage) {
 			/* Log the error */
 			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(
 					XbeeInvalidMessagesReceived);
-			WcuLogError("WcuXbeeHandleNewSubscription: Invalid CRC");
+			WcuLogError("%s(): Invalid CRC (read: 0x%04X, calculated: 0x%04X)",
+					__FUNCTION__, readCrc, calculatedCrc);
 			status = EWcuRet_Error;
 		}
 
@@ -528,7 +531,7 @@ static inline EWcuRet WcuXbeeHandleDriverWarning(uint8_t *r3tpMessage) {
 	if (!R3TP_VALID_END_SEQ(r3tpMessage, R3TP_VER2_FRAME_SIZE)) {
 
 		WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(XbeeInvalidMessagesReceived);
-		WcuLogError("WcuXbeeHandleDriverWarning: Invalid end sequence");
+		WcuLogError("%s(): Invalid end sequence", __FUNCTION__);
 		status = EWcuRet_Error;
 	}
 
@@ -550,7 +553,8 @@ static inline EWcuRet WcuXbeeHandleDriverWarning(uint8_t *r3tpMessage) {
 
 			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(
 					XbeeInvalidMessagesReceived);
-			WcuLogError("WcuXbeeHandleDriverWarning: Invalid CRC");
+			WcuLogError("%s(): Invalid CRC (read: 0x%04X, calculated: 0x%04X)",
+					__FUNCTION__, readCrc, calculatedCrc);
 			status = EWcuRet_Error;
 		}
 	}
@@ -564,20 +568,22 @@ static inline EWcuRet WcuXbeeHandleDriverWarning(uint8_t *r3tpMessage) {
 
 			/* Set the green warning duration */
 			g_GreenWarningDuration = r3tpMessage[5];
-			WcuLogInfo("WcuXbeeHandleDriverWarning: Green warning set");
+			WcuLogInfo("%s(): Green warning set for %d seconds", __FUNCTION__,
+					g_GreenWarningDuration);
 			break;
 
 		case R3TP_RED_WARNING_BYTE:
 
 			/* Set the red warning duration */
 			g_RedWarningDuration = r3tpMessage[5];
-			WcuLogInfo("WcuXbeeHandleDriverWarning: Red warning set");
+			WcuLogInfo("%s(): Red warning set for %d seconds", __FUNCTION__,
+					g_RedWarningDuration);
 			break;
 
 		default:
 
-			WcuLogError(
-					"WcuXbeeHandleDriverWarning: Unrecognized warning byte");
+			WcuLogError("%s(): Unexpected warning byte: 0x%02X", __FUNCTION__,
+					r3tpMessage[4]);
 			status = EWcuRet_Error;
 			break;
 		}
@@ -609,7 +615,7 @@ static inline EWcuRet WcuXbeeStoreNewSubscription(uint32_t *ids,
 			!= WcuSdioFileOpen(&subscriptionFd, WCU_TELEMETRY_SUBSCRIPTION_PATH,
 			FA_WRITE | FA_CREATE_ALWAYS)) {
 
-		WcuLogError("WcuXbeeStoreNewSubscription: Open failed");
+		WcuLogError("%s(): Open failed", __FUNCTION__);
 		status = EWcuRet_Error;
 	}
 
@@ -620,7 +626,7 @@ static inline EWcuRet WcuXbeeStoreNewSubscription(uint32_t *ids,
 				!= WcuSdioFileWrite(&subscriptionFd, (uint8_t*) numOfFrames,
 						sizeof(numOfFrames))) {
 
-			WcuLogError("WcuXbeeStoreNewSubscription: Write failed");
+			WcuLogError("%s(): Failed to write the number of frames", __FUNCTION__);
 			status = EWcuRet_Error;
 		}
 	}
@@ -632,15 +638,14 @@ static inline EWcuRet WcuXbeeStoreNewSubscription(uint32_t *ids,
 				!= WcuSdioFileWrite(&subscriptionFd, (uint8_t*) ids,
 						numOfFrames * sizeof(uint32_t))) {
 
-			WcuLogError("WcuXbeeStoreNewSubscription: Write failed");
+			WcuLogError("%s(): Failed to write the payload", __FUNCTION__);
 			status = EWcuRet_Error;
 		}
 	}
 
 	if (EWcuRet_Ok == status) {
 
-		WcuLogInfo(
-				"WcuXbeeStoreNewSubscription: New subscription stored on disk");
+		WcuLogInfo("%s(): New subscription stored on disk", __FUNCTION__);
 	}
 
 	/* Cleanup */

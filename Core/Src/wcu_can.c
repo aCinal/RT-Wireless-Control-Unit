@@ -39,13 +39,13 @@ void WcuCanStartup(void) {
 		if (EWcuRet_Ok != WcuCanLoadSubscription()) {
 
 			WcuLogError(
-					"WcuCanStartup: Failed to load telemetry subscription. Setting default filter config...");
+					"%s(): Failed to load telemetry subscription. Setting default filter config...", __FUNCTION__);
 			WcuCanSetDefaultSubscription();
 		}
 
 	} else {
 
-		WcuLogInfo("WcuCanStartup: SDIO not ready. Setting default filter config...");
+		WcuLogInfo("%s(): SDIO not ready. Setting default filter config...", __FUNCTION__);
 		WcuCanSetDefaultSubscription();
 	}
 
@@ -94,7 +94,7 @@ void WcuCanHandleBusError(void) {
 	uint32_t errflags = HAL_CAN_GetError(&hcan1);
 
 	/* Log the error */
-	WcuLogError("WcuCanHandleBusError: error code 0x%lX", errflags);
+	WcuLogError("%s(): error code 0x%08X", __FUNCTION__, errflags);
 
 	/* Increment the statistics counter */
 	WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(CanErrors);
@@ -141,7 +141,7 @@ EWcuRet WcuCanMessageSend(SCanMessage *message) {
 
 	} else {
 
-		WcuLogError("WcuCanMessageSend: Send failed");
+		WcuLogError("%s(): Send failed", __FUNCTION__);
 		status = EWcuRet_Error;
 	}
 
@@ -176,7 +176,7 @@ static EWcuRet WcuCanLoadSubscription(void) {
 			!= WcuSdioFileOpen(&subscriptionFd, WCU_TELEMETRY_SUBSCRIPTION_PATH,
 			FA_READ | FA_OPEN_EXISTING)) {
 
-		WcuLogError("WcuCanLoadSubscription: Open failed");
+		WcuLogError("%s(): Open failed", __FUNCTION__);
 		status = EWcuRet_Error;
 	}
 
@@ -187,7 +187,7 @@ static EWcuRet WcuCanLoadSubscription(void) {
 				!= WcuSdioFileRead(&subscriptionFd, (uint8_t*) &numOfFrames,
 						sizeof(numOfFrames))) {
 
-			WcuLogError("WcuCanLoadSubscription: Read failed");
+			WcuLogError("%s(): Read failed", __FUNCTION__);
 			status = EWcuRet_Error;
 		}
 	}
@@ -197,7 +197,7 @@ static EWcuRet WcuCanLoadSubscription(void) {
 		/* Assert valid number of frames */
 		if (numOfFrames > R3TP_VER1_MAX_FRAME_NUM) {
 
-			WcuLogError("WcuCanLoadSubscription: Invalid frame number");
+			WcuLogError("%s(): Invalid frame number", __FUNCTION__);
 			status = EWcuRet_Error;
 		}
 	}
@@ -209,7 +209,7 @@ static EWcuRet WcuCanLoadSubscription(void) {
 				!= WcuSdioFileRead(&subscriptionFd, (uint8_t*) subscription,
 						numOfFrames * sizeof(uint32_t))) {
 
-			WcuLogError("WcuCanLoadSubscription: Read failed");
+			WcuLogError("%s(): Read failed", __FUNCTION__);
 			status = EWcuRet_Error;
 		}
 	}

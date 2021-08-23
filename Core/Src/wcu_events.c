@@ -97,7 +97,7 @@ EWcuRet WcuEventSend(EWcuEventType type, void *paramPtr, uint32_t paramUint) {
  */
 static inline void WcuRunDispatcher(void) {
 
-	WcuLogInfo("Entering the event loop...");
+	WcuLogInfo("%s(): Entering the event loop...", __FUNCTION__);
 
 	for (;;) {
 
@@ -201,7 +201,7 @@ static inline void WcuEventDispatch(const SWcuEvent *event) {
 
 	default:
 
-		WcuLogError("WcuEventDispatch: Unknown event received");
+		WcuLogError("%s(): Received event of unsupported type: %d", __FUNCTION__, event->type);
 		break;
 	}
 }

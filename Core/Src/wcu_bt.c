@@ -35,11 +35,11 @@ void WcuBtStartup(void) {
 	/* Initialize the ring buffer */
 	if (EWcuRet_Ok == WcuBtRingbufferInit()) {
 
-		WcuLogInfo("WcuBtStartup: BT ring buffer initialized");
+		WcuLogInfo("%s(): BT ring buffer initialized", __FUNCTION__);
 
 	} else {
 
-		WcuLogError("WcuBtStartup: BT ring buffer initialization failed");
+		WcuLogError("%s(): BT ring buffer initialization failed", __FUNCTION__);
 	}
 }
 
@@ -91,7 +91,7 @@ static inline EWcuRet WcuBtForwardWdtsMessageToCan(void) {
 			!= UartRxRbRead(&g_WcuBtRxRingbuffer, buffer, sizeof(buffer),
 					&bytesRead)) {
 
-		WcuLogError("WcuBtForwardWdtsMessageToCan: Ring buffer read failed");
+		WcuLogError("%s(): Ring buffer read failed", __FUNCTION__);
 		status = EWcuRet_Error;
 	}
 
@@ -101,7 +101,8 @@ static inline EWcuRet WcuBtForwardWdtsMessageToCan(void) {
 		if (R3TP_VER0_FRAME_SIZE != bytesRead) {
 
 			WcuLogError(
-					"WcuBtForwardWdtsMessageToCan: Invalid number of bytes received");
+					"%s(): Invalid number of bytes received: %d (expected: %d)",
+					__FUNCTION__, bytesRead, R3TP_VER0_FRAME_SIZE);
 			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(BtInvalidMessagesReceived);
 			status = EWcuRet_Error;
 		}
@@ -112,8 +113,8 @@ static inline EWcuRet WcuBtForwardWdtsMessageToCan(void) {
 		/* Assert valid protocol version used */
 		if (R3TP_VER0_VER_BYTE != R3TP_PROTOCOL_VERSION(buffer)) {
 
-			WcuLogError(
-					"WcuBtForwardWdtsMessageToCan: Unknown protocol version");
+			WcuLogError("%s(): Unknown protocol version: 0x%02X", __FUNCTION__,
+					R3TP_PROTOCOL_VERSION(buffer));
 			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(BtInvalidMessagesReceived);
 			status = EWcuRet_Error;
 		}
@@ -124,7 +125,7 @@ static inline EWcuRet WcuBtForwardWdtsMessageToCan(void) {
 		/* Validate end sequence */
 		if (!R3TP_VALID_END_SEQ(buffer, R3TP_VER0_FRAME_SIZE)) {
 
-			WcuLogError("WcuBtForwardWdtsMessageToCan: Invalid end sequence");
+			WcuLogError("%s(): Invalid end sequence", __FUNCTION__);
 			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(BtInvalidMessagesReceived);
 			status = EWcuRet_Error;
 		}
@@ -145,7 +146,8 @@ static inline EWcuRet WcuBtForwardWdtsMessageToCan(void) {
 		/* Validate the CRC */
 		if (readCrc != calculatedCrc) {
 
-			WcuLogError("WcuBtForwardWdtsMessageToCan: Invalid CRC");
+			WcuLogError("%s(): Invalid CRC (read: 0x%04X, calculated: 0x%04X)",
+					__FUNCTION__, readCrc, calculatedCrc);
 			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(BtInvalidMessagesReceived);
 			status = EWcuRet_Error;
 		}
@@ -161,7 +163,7 @@ static inline EWcuRet WcuBtForwardWdtsMessageToCan(void) {
 		/* Assert valid DLC */
 		if (CAN_MAX_PAYLOAD_SIZE < canMessage.TxHeader.DLC) {
 
-			WcuLogError("WcuBtForwardWdtsMessageToCan: Invalid DLC");
+			WcuLogError("%s(): Invalid DLC: %d", __FUNCTION__, canMessage.TxHeader.DLC);
 			WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(BtInvalidMessagesReceived);
 			status = EWcuRet_Error;
 		}

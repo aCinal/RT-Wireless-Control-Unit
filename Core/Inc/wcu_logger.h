@@ -53,7 +53,7 @@ void WcuLoggerStartup(void);
 /**
  * @brief Log an error message
  * @param severityLevel Severity level
- * @param messagePayloadTbl Error message
+ * @param messagePayloadTbl User payload
  * @param ... (optional parameters) Format specifiers
  * @retval None
  */
