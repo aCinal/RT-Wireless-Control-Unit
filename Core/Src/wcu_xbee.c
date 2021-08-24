@@ -661,16 +661,16 @@ static inline EWcuRet WcuXbeeSendData(uint8_t *data, uint32_t len) {
 	EWcuRet status = EWcuRet_Ok;
 
 	/* Write the data into the ring buffer */
-	if (ETxRbRet_Ok == TxRbWrite(&g_WcuXbeeTxRingbuffer, data, len)) {
-
-		/* Tell the dispatcher to initiate transmission */
-		(void) WcuEventSend(EWcuEventType_UartTxMessagePending,
-				&g_WcuXbeeTxRingbuffer, 0);
-
-	} else {
+	if (ETxRbRet_Ok != TxRbWrite(&g_WcuXbeeTxRingbuffer, data, len)) {
 
 		status = EWcuRet_Error;
 	}
+
+	/* Send the event to the dispatcher to flush the ring buffer even if the write failed
+	 * - this ensures the buffer gets flushed eventually even if the event queue was full
+	 * when the buffer was first filled */
+	(void) WcuEventSend(EWcuEventType_UartTxMessagePending,
+			&g_WcuXbeeTxRingbuffer, 0);
 
 	return status;
 }
