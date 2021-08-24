@@ -20,21 +20,22 @@ void* WcuMemAlloc(size_t size) {
 }
 
 /**
- * @brief Defer freeing memory to the event dispatcher
+ * @brief Return the allocated memory to the heap
  * @param memoryBlock Pointer to the previously allocated memory block
  * @retval None
  */
 void WcuMemFree(void *memoryBlock) {
 
-	WCU_ASSERT(EWcuRet_Ok == WcuEventSend(EWcuEventType_DeferredMemoryUnref, memoryBlock, 0));
+	vPortFree(memoryBlock);
 }
 
 /**
- * @brief Return the allocated memory to the heap
+ * @brief Defer freeing memory to the event dispatcher
  * @param memoryBlock Pointer to the previously allocated memory block
  * @retval None
  */
-void WcuMemHandleDeferredUnref(void *memoryBlock) {
+void WcuMemFreeDefer(void *memoryBlock) {
 
-	vPortFree(memoryBlock);
+	WCU_ASSERT(EWcuRet_Ok == WcuEventSend(EWcuEventType_DeferredMemoryUnref, memoryBlock, 0));
 }
+

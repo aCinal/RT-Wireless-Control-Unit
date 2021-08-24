@@ -36,7 +36,6 @@ extern TIM_HandleTypeDef htim7;
 
 static uint8_t g_GreenWarningDuration = 0;
 static uint8_t g_RedWarningDuration = 0;
-static uint8_t g_SeqNum = 0;
 STxRb g_WcuXbeeTxRingbuffer;
 SUartRxRb g_WcuXbeeRxRingbuffer;
 
@@ -53,6 +52,7 @@ static inline EWcuRet WcuXbeeStoreNewSubscription(uint32_t *ids,
 		uint32_t numOfFrames);
 static inline EWcuRet WcuXbeeSendData(uint8_t *data, uint32_t len);
 static inline size_t WcuXbeeGetRingbufferFreeSpace(void);
+static inline uint8_t WcuXbeeGetR3tpSeqNum(void);
 static void WcuXbeeRxCallback(void);
 static ETxRbRet WcuXbeeTxRingbufferRouter(uint8_t *data, size_t len);
 static void WcuXbeeTxRingbufferCallback(void);
@@ -136,13 +136,11 @@ EWcuRet WcuXbeeSendTelemetryData(SCanMessage *canMessage) {
 		uint8_t buffer[R3TP_VER0_FRAME_SIZE];
 
 		/* Clear the buffer */
-		memset(buffer, 0, sizeof(buffer));
+		(void) memset(buffer, 0, sizeof(buffer));
 
 		buffer[0] = R3TP_VER0_VER_BYTE;
 		/* Set the SEQ NUM field */
-		buffer[1] = g_SeqNum;
-		/* Increment the sequence number */
-		g_SeqNum = (g_SeqNum < 255U) ? g_SeqNum + 1U : 0;
+		buffer[1] = WcuXbeeGetR3tpSeqNum();
 
 		/* Set CAN ID field - note that the CAN ID is transmitted as little endian */
 		buffer[4] = _getbyte(canMessage->RxHeader.StdId, 0);
@@ -188,9 +186,9 @@ static inline EWcuRet WcuXbeeTxRingbufferInit(void) {
 	static uint8_t ringbuffer[WCU_XBEE_TX_RING_BUFFER_SIZE];
 
 	/* Configure the ring buffer structure */
-	TxRbInit(&g_WcuXbeeTxRingbuffer, ringbuffer, sizeof(ringbuffer),
+	(void) TxRbInit(&g_WcuXbeeTxRingbuffer, ringbuffer, sizeof(ringbuffer),
 			WcuXbeeTxRingbufferRouter, WcuXbeeTxRingbufferCallback, WcuMemAlloc,
-			WcuMemFree);
+			WcuMemFreeDefer);
 
 	return status;
 }
@@ -395,15 +393,13 @@ static EWcuRet WcuXbeeSendAcknowledge(uint8_t msgId, uint8_t seqNum) {
 		uint8_t buffer[R3TP_VER3_FRAME_SIZE];
 
 		/* Clear the buffer */
-		memset(buffer, 0, sizeof(buffer));
+		(void) memset(buffer, 0, sizeof(buffer));
 
 		/* Set the VER field */
 		buffer[0] = R3TP_VER3_VER_BYTE;
 
 		/* Set the SEQ NUM field */
-		buffer[1] = g_SeqNum;
-		/* Increment the sequence number */
-		g_SeqNum = (g_SeqNum < 255U) ? g_SeqNum + 1U : 0;
+		buffer[1] = WcuXbeeGetR3tpSeqNum();
 
 		/* Set the MSG ID field */
 		buffer[4] = msgId;
@@ -689,6 +685,21 @@ static inline size_t WcuXbeeGetRingbufferFreeSpace(void) {
 
 	/* With valid parameters this call cannot fail */
 	(void) TxRbGetFreeSpace(&g_WcuXbeeTxRingbuffer, &ret);
+
+	return ret;
+}
+
+/**
+ * @brief Get a unique R3TP message sequence number
+ * @retval uint8_t Sequence number
+ */
+static inline uint8_t WcuXbeeGetR3tpSeqNum(void) {
+
+	static uint8_t s_seqNum = 0;
+
+	uint8_t ret = s_seqNum;
+	/* Increment the sequence number */
+	s_seqNum = (s_seqNum < 255U) ? (s_seqNum + 1U) : 0;
 
 	return ret;
 }

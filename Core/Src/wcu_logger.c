@@ -21,10 +21,6 @@
 #define LOG_SEVERITY_TAG_LENGTH        ( (uint32_t) 4 )                                    /* Length of the severity level tag */
 #define LOG_HEADER_LENGTH              ( LOG_TIMESTAMP_LENGTH + LOG_SEVERITY_TAG_LENGTH )  /* Total length of the log entry header */
 #define LOG_TRAILER_LENGTH             ( (uint32_t) 3 )                                    /* <CR><LF><NUL> sequence length */
-#define LOG_TIMESTAMP(log)             (log)                                               /* Get pointer to the log entry timestamp */
-#define LOG_SEVERITY_TAG(log)          ( &( (log)[LOG_TIMESTAMP_LENGTH] ) )                /* Get pointer to the log entry severity tag */
-#define LOG_PAYLOAD(log)               ( &( (log)[LOG_HEADER_LENGTH] ) )                   /* Get pointer to the log entry payload */
-#define LOG_TRAILER(log, payLen)       ( &( (log)[LOG_HEADER_LENGTH + (payLen)] ) )        /* Get pointer to the log entry trailer */
 #define WCU_LOGGER_RING_BUFFER_SIZE    (512)                                               /* Logger ring buffer size */
 #define WCU_LOGGER_MAX_PAYLOAD_SIZE    (256)                                               /* Maximum size of user data in a single log entry */
 
@@ -68,7 +64,8 @@ void WcuLoggerPrint(EWcuLogSeverityLevel severityLevel,
 		/* Prepare the log entry payload */
 		va_list args;
 		va_start(args, messagePayloadTbl);
-		size_t payloadLength = snprintf(fmtbuf, WCU_LOGGER_MAX_PAYLOAD_SIZE, messagePayloadTbl, args);
+		size_t payloadLength = snprintf(fmtbuf, WCU_LOGGER_MAX_PAYLOAD_SIZE,
+				messagePayloadTbl, args);
 		va_end(args);
 
 		/* Assert null-terminated payload string */
@@ -82,11 +79,7 @@ void WcuLoggerPrint(EWcuLogSeverityLevel severityLevel,
 		/* Assert successful memory allocation */
 		if (logEntryPtr != NULL) {
 
-			/* Write the timestamp to the memory block */
-			(void) sprintf(LOG_TIMESTAMP(logEntryPtr), "<%010lu>",
-					WcuGetUptimeInMs());
-
-			const char * tag = NULL;
+			const char *tag = NULL;
 			/* Determine the severity tag */
 			switch (severityLevel) {
 
@@ -110,31 +103,35 @@ void WcuLoggerPrint(EWcuLogSeverityLevel severityLevel,
 				tag = "??? ";
 				break;
 			}
+
+			char *iter = logEntryPtr;
+			/* Write the timestamp to the memory block */
+			iter += sprintf(iter, "<%010lu>", WcuGetUptimeInMs());
 			/* Write the severity tag to the memory block */
-			(void) sprintf(LOG_SEVERITY_TAG(logEntryPtr), tag);
-
+			iter += sprintf(iter, tag);
 			/* Write the message payload to the memory block */
-			(void) sprintf(LOG_PAYLOAD(logEntryPtr), fmtbuf);
-
+			iter += sprintf(iter, fmtbuf);
 			/* Write the message trailer to the memory block */
-			(void) sprintf(LOG_TRAILER(logEntryPtr, payloadLength), "\r\n");
+			iter += sprintf(logEntryPtr, "\r\n");
 
 			/* Write the error message to the ring buffer */
 			if (ETxRbRet_Ok
 					== TxRbWrite(&g_WcuLoggerTxRingbuffer,
 							(uint8_t*) logEntryPtr, strlen(logEntryPtr))) {
 
-				/* If write was successful, send the event to the dispatcher to flush the ring buffer */
-				(void) WcuEventSend(EWcuEventType_LogEntriesPending,
-						&g_WcuLoggerTxRingbuffer, 0);
 				WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(LoggerEntriesQueued);
 
 			} else {
 
-				/* Increment ring buffer starvation counter */
 				WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(
 						LoggerRingbufferStarvations);
 			}
+
+			/* Send the event to the dispatcher to flush the ring buffer even if the write failed
+			 * - this ensures the buffer gets flushed eventually even if the event queue was full
+			 * when the buffer was first filled */
+			(void) WcuEventSend(EWcuEventType_LogEntriesPending,
+					&g_WcuLoggerTxRingbuffer, 0);
 
 			/* Free the memory */
 			WcuMemFree(logEntryPtr);
@@ -184,7 +181,8 @@ static inline EWcuRet WcuLoggerTxRingbufferInit(void) {
 	/* Initialize the ring buffer */
 	if (ETxRbRet_Ok
 			!= TxRbInit(&g_WcuLoggerTxRingbuffer, ringbuffer,
-					sizeof(ringbuffer), WcuLoggerTxRingbufferRouter, NULL, WcuMemAlloc, WcuMemFree)) {
+					sizeof(ringbuffer), WcuLoggerTxRingbufferRouter, NULL,
+					WcuMemAlloc, WcuMemFreeDefer)) {
 
 		status = EWcuRet_Error;
 	}

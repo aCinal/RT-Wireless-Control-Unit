@@ -18,8 +18,6 @@
 #define WCU_CAN_ID_WCU_DIAG   ( (uint32_t) 0x733 )        /* CAN ID: _733_WCU_DIAG */
 #define WCU_CAN_DLC_WCU_DIAG  ( (uint32_t) 4 )
 
-#define WCU_DATABASE_SNAPSHOT_LOG  ("EVD=%lu,ENS=%lu,CRX=%lu,CSV=%lu,CTX=%lu,CER=%lu,BOK=%lu,BNK=%lu,GRD=%lu,GER=%lu," \
-                                    "XTX=%lu,XSV=%lu,XWA=%lu,XSU=%lu,XNK=%lu,LEQ=%lu,LSV=%lu,LCM=%lu,WRC=%lu")
 #define WCU_DATABASE_SNAPSHOT_SW_PRESCALER  ( (uint32_t) 3 )
 
 #define VDD               ( (float32_t) 3.3 )             /* Supply voltage */
@@ -111,12 +109,9 @@ void WcuDiagnosticsLogDatabaseSnapshot(void) {
 	counter += 1U;
 	if (counter == WCU_DATABASE_SNAPSHOT_SW_PRESCALER) {
 
-		/* Statically allocate buffer for the snapshot string */
-		char snapshot[sizeof(WCU_DATABASE_SNAPSHOT_LOG)
-				+ (10U - 2U) * sizeof(SWcuDiagnosticsDatabase) / sizeof(uint32_t)];
-
-		/* Print database fields to the snapshot string */
-		sprintf(snapshot, WCU_DATABASE_SNAPSHOT_LOG,
+		/* Print the snapshot */
+		WcuLogDebug("EVD=%lu,ENS=%lu,CRX=%lu,CSV=%lu,CTX=%lu,CER=%lu,BOK=%lu,BNK=%lu,GRD=%lu,GER=%lu,"
+				"XTX=%lu,XSV=%lu,XWA=%lu,XSU=%lu,XNK=%lu,LEQ=%lu,LSV=%lu,LCM=%lu,WRC=%lu,DUC=%lu",
 				g_WcuDiagnosticsDatabase.EventsDispatched,
 				g_WcuDiagnosticsDatabase.EventQueueStarvations,
 				g_WcuDiagnosticsDatabase.CanMessagesReceived,
@@ -135,10 +130,8 @@ void WcuDiagnosticsLogDatabaseSnapshot(void) {
 				g_WcuDiagnosticsDatabase.LoggerEntriesQueued,
 				g_WcuDiagnosticsDatabase.LoggerRingbufferStarvations,
 				g_WcuDiagnosticsDatabase.LoggerCommits,
-				g_WcuDiagnosticsDatabase.WatchdogRefreshCount);
-
-		/* Print the snapshot */
-		WcuLogDebug(snapshot);
+				g_WcuDiagnosticsDatabase.WatchdogRefreshCount,
+				g_WcuDiagnosticsDatabase.DeferredUnrefCount);
 
 		/* Reset the frequency scaling counter */
 		counter = 0;

@@ -28,7 +28,7 @@ void WcuMemFree(void *memoryBlock);
  * @param memoryBlock Pointer to the previously allocated memory block
  * @retval None
  */
-void WcuMemHandleDeferredUnref(void *memoryBlock);
+void WcuMemFreeDefer(void *memoryBlock);
 
 #endif /* __WCU_MEM_H_ */
 

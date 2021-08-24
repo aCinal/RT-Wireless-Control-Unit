@@ -156,7 +156,7 @@ static inline void WcuEventDispatch(const SWcuEvent *event) {
 
 	case EWcuEventType_DeferredMemoryUnref:
 
-		WcuMemHandleDeferredUnref(event->paramPtr);
+		WcuMemFree(event->paramPtr);
 		WCU_DIAGNOSTICS_DATABASE_INCREMENT_STAT(DeferredUnrefCount);
 		break;
 
