@@ -188,7 +188,7 @@ static inline EWcuRet WcuXbeeTxRingbufferInit(void) {
 	/* Configure the ring buffer structure */
 	(void) TxRbInit(&g_WcuXbeeTxRingbuffer, ringbuffer, sizeof(ringbuffer),
 			WcuXbeeTxRingbufferRouter, WcuXbeeTxRingbufferCallback, WcuMemAlloc,
-			WcuMemFreeDefer);
+			WcuMemFree);
 
 	return status;
 }

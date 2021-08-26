@@ -26,16 +26,15 @@ void* WcuMemAlloc(size_t size) {
  */
 void WcuMemFree(void *memoryBlock) {
 
-	vPortFree(memoryBlock);
+	if (xPortIsInsideInterrupt()) {
+
+		/* If inside interrupt, defer the free to the event dispatcher as FreeRTOS does not allow
+		 * calls to vPortFree() in interrupt context
+		 */
+		WCU_ASSERT(EWcuRet_Ok == WcuEventSend(EWcuEventType_DeferredMemoryUnref, memoryBlock, 0));
+
+	} else {
+
+		vPortFree(memoryBlock);
+	}
 }
-
-/**
- * @brief Defer freeing memory to the event dispatcher
- * @param memoryBlock Pointer to the previously allocated memory block
- * @retval None
- */
-void WcuMemFreeDefer(void *memoryBlock) {
-
-	WCU_ASSERT(EWcuRet_Ok == WcuEventSend(EWcuEventType_DeferredMemoryUnref, memoryBlock, 0));
-}
-

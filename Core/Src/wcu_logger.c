@@ -182,7 +182,7 @@ static inline EWcuRet WcuLoggerTxRingbufferInit(void) {
 	if (ETxRbRet_Ok
 			!= TxRbInit(&g_WcuLoggerTxRingbuffer, ringbuffer,
 					sizeof(ringbuffer), WcuLoggerTxRingbufferRouter, NULL,
-					WcuMemAlloc, WcuMemFreeDefer)) {
+					WcuMemAlloc, WcuMemFree)) {
 
 		status = EWcuRet_Error;
 	}

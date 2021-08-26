@@ -23,12 +23,5 @@ void *WcuMemAlloc(size_t size);
  */
 void WcuMemFree(void *memoryBlock);
 
-/**
- * @brief Return the allocated memory to the heap
- * @param memoryBlock Pointer to the previously allocated memory block
- * @retval None
- */
-void WcuMemFreeDefer(void *memoryBlock);
-
 #endif /* __WCU_MEM_H_ */
 
